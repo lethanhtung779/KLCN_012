@@ -1,0 +1,36 @@
+# Visual Studio / .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+.vscode/
+
+# Build results
+[Bb]uild/
+[Ll]og/
+[Dd]ebug/
+[Rr]elease/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+*.nupkg.metadata
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+# Office / Word lock files
+~$*
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# User-specific files
+*.rsuser
+*.local
