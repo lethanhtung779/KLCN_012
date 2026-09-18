@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="QLThiTN.Core/QLThiTN.Core.csproj" />
+  <Project Path="QLThiTN.Web/QLThiTN.Web.csproj" />
+</Solution>

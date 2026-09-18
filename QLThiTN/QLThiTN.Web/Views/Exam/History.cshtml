@@ -1,0 +1,125 @@
+@model ExamHistoryViewModel
+@{
+    ViewData["Title"] = "Tra cứu kết quả";
+}
+
+<section class="py-5">
+    <div class="container">
+        <div class="d-flex flex-wrap align-items-end justify-content-between mb-4 gap-3">
+            <div>
+                <h1 class="section-title mb-2"><i class="bi bi-search me-2"></i>Tra cứu kết quả thi</h1>
+                <p class="section-subtitle mb-0">Xem lịch sử các kỳ thi đã tham gia, tra cứu điểm số và kết quả chi tiết từng bài thi</p>
+            </div>
+            @if (Model.Items.Any())
+            {
+                <div class="input-group" style="max-width: 320px;">
+                    <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                    <input type="text" id="searchHistory" class="form-control" placeholder="Tìm theo tên kỳ thi / môn học...">
+                </div>
+            }
+        </div>
+
+        @if (!Model.Items.Any())
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-clock-history" style="font-size: 4rem; color: #c3cbe0;"></i>
+                <h5 class="mt-3 fw-bold text-muted">Bạn chưa tham gia kỳ thi nào</h5>
+                <a asp-controller="Exam" asp-action="Schedule" class="btn btn-primary-custom mt-3"><i class="bi bi-calendar-event me-2"></i>Xem lịch thi</a>
+            </div>
+        }
+        else
+        {
+            <div class="card border-0 rounded-4 shadow-sm overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-exam mb-0 align-middle" id="resultTable">
+                        <thead>
+                            <tr>
+                                <th>Kỳ thi</th>
+                                <th>Loại kỳ thi</th>
+                                <th>Môn học</th>
+                                <th>Ngày thi</th>
+                                <th class="text-center">Điểm số</th>
+                                <th class="text-center">Xếp loại</th>
+                                <th class="text-end">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr data-search="@item.ExamTitle @item.SubjectName @item.ExamKindText">
+                                    <td>
+                                        <div class="fw-semibold">@item.ExamTitle</div>
+                                        <small class="text-muted">@item.Duration phút • @item.StatusText</small>
+                                    </td>
+                                    <td><span class="badge-status" style="background: rgba(124, 77, 255, .12); color: #5e2fd4;">@item.ExamKindText</span></td>
+                                    <td><span class="subject-badge">@item.SubjectName</span></td>
+                                    <td>@(item.EndTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
+                                    <td class="text-center">
+                                        @if (item.ScorePublished)
+                                        {
+                                            <span class="fw-bold" style="color: var(--accent2);">@item.Score.ToString("0.00")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge-status" style="background: rgba(255, 159, 67, .15); color: #b36200;">Chờ công bố</span>
+                                        }
+                                    </td>
+                                    <td class="text-center">
+                                        @if (item.ScorePublished)
+                                        {
+                                            if (item.Score >= 8)
+                                            {
+                                                <span class="badge-status" style="background: rgba(40, 167, 69, .15); color: #1e7e34;">Giỏi</span>
+                                            }
+                                            else if (item.Score >= 6.5m)
+                                            {
+                                                <span class="badge-status" style="background: rgba(1, 180, 255, .15); color: #0275a8;">Khá</span>
+                                            }
+                                            else if (item.Score >= 5)
+                                            {
+                                                <span class="badge-status" style="background: rgba(255, 159, 67, .15); color: #b36200;">Trung bình</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge-status" style="background: rgba(220, 53, 69, .15); color: #c82333;">Yếu</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted small">—</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (item.ScorePublished)
+                                        {
+                                            <a asp-controller="Exam" asp-action="Result" asp-route-id="@item.ExamId" class="btn btn-sm btn-outline-primary rounded-pill"><i class="bi bi-eye me-1"></i>Chi tiết</a>
+                                        }
+                                        else
+                                        {
+                                            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@item.ExamId" class="btn btn-sm btn-outline-secondary rounded-pill"><i class="bi bi-info-circle me-1"></i>Thông tin</a>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <p class="text-muted small mt-3"><i class="bi bi-info-circle me-1"></i>Điểm chỉ được hiển thị khi trung tâm công bố điểm sớm cho kỳ thi.</p>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        $(function () {
+            $('#searchHistory').on('keyup', function () {
+                var q = $(this).val().toLowerCase().trim();
+                $('#resultTable tbody tr').each(function () {
+                    var hay = $(this).attr('data-search') || '';
+                    $(this).toggle(hay.toLowerCase().indexOf(q) >= 0);
+                });
+            });
+        });
+    </script>
+}
