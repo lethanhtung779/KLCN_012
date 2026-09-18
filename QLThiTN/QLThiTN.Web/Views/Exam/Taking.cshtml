@@ -1,0 +1,171 @@
+@model TakingExamViewModel
+@{
+    ViewData["Title"] = "Làm bài thi: " + Model.ExamTitle;
+    Layout = "_Layout";
+    var totalQuestions = Model.Questions.Count;
+    var durationSeconds = Model.Duration * 60;
+}
+
+<!-- Exam header -->
+<header class="exam-header">
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3">
+                <a asp-controller="Exam" asp-action="Schedule" class="btn btn-sm btn-outline-light"><i class="bi bi-arrow-left"></i></a>
+                <div>
+                    <div class="fw-bold">@Model.ExamTitle</div>
+                    <small class="text-white-50"><i class="bi bi-list-ol me-1"></i>@totalQuestions câu hỏi</small>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <span class="exam-counter"><i class="bi bi-question-circle me-1"></i>@totalQuestions câu</span>
+                <span class="timer-box" id="timer"><i class="bi bi-alarm me-1"></i>--:--</span>
+            </div>
+        </div>
+    </div>
+</header>
+
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show m-4 mb-0">
+        <i class="bi bi-exclamation-triangle me-2"></i>@TempData["ErrorMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<section class="py-4">
+    <div class="container">
+        <form id="examForm" asp-controller="Exam" asp-action="Submit" method="post">
+            <input type="hidden" name="ExamId" value="@Model.ExamId" />
+            <div class="row g-4">
+                <!-- Questions -->
+                <div class="col-lg-8">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-pencil-square me-2"></i>Câu hỏi</h5>
+                        <span class="badge-status" style="background: rgba(1, 180, 255, .12); color: #0275a8;">Đã chọn: <span id="answeredCount">0</span>/@totalQuestions</span>
+                    </div>
+
+                    @for (int i = 0; i < Model.Questions.Count; i++)
+                    {
+                        var q = Model.Questions[i];
+                        <div class="card question-card mb-3" id="q-@q.Id">
+                            <div class="question-head">
+                                <span class="me-2" style="color: var(--accent);"><i class="bi bi-clipboard"></i></span>
+                                Câu hỏi @(i + 1)
+                            </div>
+                            <div class="card-body p-4">
+                                <p class="fw-medium mb-4">@q.Content</p>
+                                <div class="row g-3" data-question-id="@q.Id">
+                                    @foreach (var opt in q.Options)
+                                    {
+                                        <div class="col-md-6">
+                                            <label class="option-item w-100 mb-0" data-option-id="@opt.Id">
+                                                <input type="radio" class="d-none" name="Answers[@i].SelectedOptionId" value="@opt.Id" />
+                                                <span class="option-label">@opt.Label</span>
+                                                <span>@opt.Content</span>
+                                            </label>
+                                        </div>
+                                    }
+                                    <input type="hidden" name="Answers[@i].QuestionId" value="@q.Id" />
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="d-flex gap-3 mb-4">
+                        <button type="submit" class="btn btn-primary-custom btn-lg px-4" id="btnSubmit">
+                            <i class="bi bi-check2-circle me-2"></i>Nộp bài
+                        </button>
+                        <button type="button" class="btn btn-outline-danger btn-lg px-4" id="btnReset">
+                            <i class="bi bi-arrow-counterclockwise me-2"></i>Xóa tất cả
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Palette -->
+                <div class="col-lg-4">
+                    <div class="answer-palette p-4 sticky-top" style="top: 100px;">
+                        <h6 class="fw-bold mb-3"><i class="bi bi-grid-3x3 me-2"></i>Bảng điều hướng</h6>
+                        <div class="d-flex flex-wrap gap-2 mb-4">
+                            @for (int i = 0; i < totalQuestions; i++)
+                            {
+                                var q = Model.Questions[i];
+                                <a href="#q-@q.Id" class="num-btn" data-nav-target="@q.Id">@(i + 1)</a>
+                            }
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between small text-muted mb-1">
+                            <span><span class="num-btn answered d-inline-flex me-1" style="pointer-events: none;"></span> Đã trả lời</span>
+                            <span><span class="num-btn d-inline-flex me-1" style="pointer-events: none;"></span> Chưa trả lời</span>
+                        </div>
+                        <hr>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg w-100">
+                                <i class="bi bi-send me-2"></i>Nộp bài
+                            </button>
+                            <small class="text-muted text-center"><i class="bi bi-cloud-arrow-up me-1"></i>Tiến trình làm bài được tự động lưu liên tục</small>
+                            <small class="text-muted text-center"><i class="bi bi-alarm me-1"></i>Bài thi tự động nộp khi hết giờ</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        $(function () {
+            var durationSeconds = @durationSeconds;
+
+            // Khởi động đồng hồ đếm ngược
+            examTimer.start(durationSeconds);
+
+            // Xử lý chọn đáp án
+            $('.option-item').on('click', function () {
+                var $option = $(this);
+                var $group = $option.closest('[data-question-id]');
+                $group.find('.option-item').removeClass('selected');
+                $option.addClass('selected');
+                $option.find('input[type="radio"]').prop('checked', true);
+                updatePalette();
+            });
+
+            function updatePalette() {
+                var answered = 0;
+                $('[data-question-id]').each(function () {
+                    var $group = $(this);
+                    var qId = $group.attr('data-question-id');
+                    var $nav = $('.num-btn[data-nav-target="' + qId + '"]');
+                    if ($group.find('input[type="radio"]:checked').length > 0) {
+                        answered++;
+                        $nav.addClass('answered');
+                    } else {
+                        $nav.removeClass('answered');
+                    }
+                });
+                $('#answeredCount').text(answered);
+            }
+
+            // Xóa tất cả đáp án
+            $('#btnReset').on('click', function () {
+                if (confirm('Bạn có chắc chắn muốn xóa tất cả câu trả lời?')) {
+                    $('.option-item').removeClass('selected');
+                    $('input[type="radio"]').prop('checked', false);
+                    updatePalette();
+                }
+            });
+
+            // Xác nhận trước khi nộp bài
+            $('#examForm').on('submit', function (e) {
+                var answered = $('input[type="radio"]:checked').length;
+                var total = $('[data-question-id]').length;
+                var msg = answered === total
+                    ? 'Bạn đã trả lời tất cả ' + total + ' câu hỏi. Xác nhận nộp bài?'
+                    : 'Bạn chỉ mới trả lời ' + answered + '/' + total + ' câu. Vẫn nộp bài?';
+                if (!confirm(msg)) {
+                    e.preventDefault();
+                }
+            });
+        });
+    </script>
+}

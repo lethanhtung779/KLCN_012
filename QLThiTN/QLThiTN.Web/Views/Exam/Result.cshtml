@@ -1,0 +1,131 @@
+@model ExamResultViewModel
+@{
+    ViewData["Title"] = "Kết quả: " + Model.ExamTitle;
+    var percentage = Model.TotalQuestions > 0
+        ? (int)Math.Round((decimal)Model.CorrectAnswers / Model.TotalQuestions * 100)
+        : 0;
+}
+
+<!-- Result hero -->
+<section class="result-hero">
+    <div class="container text-center position-relative">
+        <div class="mb-3">
+            <span class="badge-gradient"><i class="bi bi-award me-1"></i>Kết quả bài thi</span>
+        </div>
+        <h2 class="fw-bold mb-3">@Model.ExamTitle</h2>
+
+        <div class="d-flex justify-content-center align-items-center flex-wrap gap-4 mt-4">
+            <div class="score-circle">
+                <span class="text-white-50 small">Điểm số</span>
+                <span class="score-val">@Model.Score.ToString("0.00")</span>
+                <span class="text-white-50 small">/ 10.00</span>
+            </div>
+            <div class="d-flex flex-column gap-3 align-items-start">
+                <span class="score-badge bg-success bg-opacity-25 text-white"><i class="bi bi-check-circle-fill me-2"></i>Trả lời đúng: @Model.CorrectAnswers câu</span>
+                <span class="score-badge bg-danger bg-opacity-25 text-white"><i class="bi bi-x-circle-fill me-2"></i>Trả lời sai: @Model.WrongAnswers câu</span>
+            </div>
+        </div>
+
+        <div class="row justify-content-center mt-4">
+            <div class="col-lg-6">
+                <div class="progress" style="height: 18px; border-radius: 30px; background: rgba(255,255,255,.15);">
+                    <div class="progress-bar" role="progressbar"
+                         style="width: @percentage%; background: var(--gradient); border-radius: 30px;"
+                         aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">@percentage%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Summary -->
+<section class="py-4">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="card stat-card text-center">
+                    <div class="card-body">
+                        <span class="stat-icon mb-2 mx-auto" style="background: var(--success);"><i class="bi bi-check2-circle"></i></span>
+                        <h3 class="mt-2">@Model.CorrectAnswers</h3>
+                        <div class="stat-label">Đúng</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card text-center">
+                    <div class="card-body">
+                        <span class="stat-icon mb-2 mx-auto" style="background: var(--danger);"><i class="bi bi-x-circle"></i></span>
+                        <h3 class="mt-2">@Model.WrongAnswers</h3>
+                        <div class="stat-label">Sai</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card text-center">
+                    <div class="card-body">
+                        <span class="stat-icon mb-2 mx-auto" style="background: var(--primary);"><i class="bi bi-hourglass-bottom"></i></span>
+                        <h3 class="mt-2">@Model.DurationUsed phút</h3>
+                        <div class="stat-label">Thời gian làm bài</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card text-center">
+                    <div class="card-body">
+                        <span class="stat-icon mb-2 mx-auto" style="background: var(--accent2);"><i class="bi bi-calendar-check"></i></span>
+                        <h3 class="mt-2">@Model.StartTime.ToString("dd/MM/yyyy")</h3>
+                        <div class="stat-label">Ngày thi</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Review answers -->
+<section class="py-4">
+    <div class="container">
+        <h5 class="fw-bold mb-4"><i class="bi bi-clipboard-check me-2"></i>Chi tiết bài làm</h5>
+
+        @foreach (var q in Model.QuestionResults)
+        {
+            <div class="card border-0 rounded-4 shadow-sm mb-3 @(q.IsCorrect ? "result-correct" : "result-wrong")">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-start gap-3 mb-3">
+                        <span class="badge-status @(q.IsCorrect ? "bg-success text-white" : "bg-danger text-white")">
+                            <i class="bi @(q.IsCorrect ? "bi-check-lg" : "bi-x-lg") me-1"></i>
+                            @(q.IsCorrect ? "Đúng" : "Sai")
+                        </span>
+                        <div class="fw-medium">Câu @(q.OrderIndex): @q.Content</div>
+                    </div>
+                    <div class="row g-3 ps-4">
+                        @foreach (var opt in q.Options)
+                        {
+                            var isCorrect = opt.IsCorrect;
+                            var isSelected = opt.IsSelected;
+                            string cls = "option-item";
+                            string icon = "";
+                            if (isCorrect) { cls += " border-success"; icon = "bi bi-check-circle-fill text-success ms-auto"; }
+                            else if (isSelected) { cls += " border-danger"; icon = "bi bi-x-circle-fill text-danger ms-auto"; }
+
+                            <div class="col-md-6">
+                                <div class="@cls mb-0" style="pointer-events: none; @(cls.Contains("border-success") || cls.Contains("border-danger") ? "" : "opacity: .8;")">
+                                    <span class="option-label">@opt.Label</span>
+                                    <span class="flex-grow-1">@opt.Content</span>
+                                    <i class="@icon"></i>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="text-center mt-4">
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a asp-controller="Exam" asp-action="Schedule" class="btn btn-primary-custom btn-lg"><i class="bi bi-calendar-event me-2"></i>Xem các kỳ thi khác</a>
+                <a asp-controller="Exam" asp-action="History" class="btn btn-outline-secondary btn-lg"><i class="bi bi-clock-history me-2"></i>Lịch sử thi</a>
+            </div>
+        </div>
+    </div>
+</section>

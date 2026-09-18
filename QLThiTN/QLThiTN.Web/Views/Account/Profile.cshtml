@@ -1,0 +1,57 @@
+@model ProfileViewModel
+@{
+    ViewData["Title"] = "Hồ sơ cá nhân";
+}
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 rounded-4 shadow-sm overflow-hidden mb-4">
+                    <div class="card-body p-0">
+                        <div class="p-4 text-white text-center" style="background: var(--gradient-dark);">
+                            <span class="user-avatar mb-2" style="width: 70px; height: 70px; font-size: 1.8rem; border-radius: 50%; background: var(--gradient);">@Model.FullName.Substring(0, 1)</span>
+                            <h4 class="fw-bold mb-1">@Model.FullName</h4>
+                            <p class="text-white-50 mb-0"><i class="bi bi-at me-1"></i>@Model.Username</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card border-0 rounded-4 shadow-sm">
+                    <div class="card-header bg-white py-3 fw-bold"><i class="bi bi-person-gear me-2"></i>Thông tin cá nhân</div>
+                    <div class="card-body p-4">
+                        <form asp-controller="Account" asp-action="Profile" method="post">
+                            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label asp-for="FullName" class="form-label fw-semibold">Họ và tên</label>
+                                    <input asp-for="FullName" class="form-control" />
+                                    <span asp-validation-for="FullName" class="text-danger small"></span>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label asp-for="Username" class="form-label fw-semibold">Tên đăng nhập</label>
+                                    <input asp-for="Username" class="form-control" disabled />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label asp-for="Email" class="form-label fw-semibold">Email</label>
+                                    <input asp-for="Email" class="form-control" placeholder="example@email.com" />
+                                    <span asp-validation-for="Email" class="text-danger small"></span>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label asp-for="Phone" class="form-label fw-semibold">Số điện thoại</label>
+                                    <input asp-for="Phone" class="form-control" placeholder="0xxxxxxxxx" />
+                                    <span asp-validation-for="Phone" class="text-danger small"></span>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary-custom mt-2"><i class="bi bi-check2-circle me-2"></i>Lưu thay đổi</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

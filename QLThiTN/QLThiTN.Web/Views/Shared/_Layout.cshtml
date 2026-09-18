@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Trung tâm luyện thi & thi trắc nghiệm trực tuyến</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://unpkg.com/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark main-nav shadow-sm sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" asp-controller="Home" asp-action="Index">
+                <span class="brand-icon"><i class="bi bi-mortarboard-fill"></i></span>
+                <span class="ms-2 fw-bold">Trung tâm luyện thi THPT</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Home" asp-action="Index"><i class="bi bi-house-door me-1"></i>Trang chủ</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Exam" asp-action="Schedule"><i class="bi bi-calendar-event me-1"></i>Lịch thi</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Exam" asp-action="History"><i class="bi bi-search me-1"></i>Tra cứu kết quả</a>
+                    </li>
+                    @if (Context.Session.GetString("UserFullName") != null)
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Exam" asp-action="LearningSchedule"><i class="bi bi-calendar2-week me-1"></i>Lịch trình học tập</a>
+                        </li>
+                    }
+                </ul>
+                <div class="d-flex align-items-center">
+                    @if (Context.Session.GetString("UserFullName") != null)
+                    {
+                        string? _fullName = Context.Session.GetString("UserFullName");
+                        <div class="dropdown">
+                            <button class="btn btn-user dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown">
+                                <span class="user-avatar me-2">@(_fullName!.Substring(0, 1))</span>
+                                <span>@_fullName</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile"><i class="bi bi-person me-2"></i>Hồ sơ cá nhân</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger" asp-controller="Account" asp-action="Logout"><i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</a></li>
+                            </ul>
+                        </div>
+                    }
+                    else
+                    {
+                        <a asp-controller="Account" asp-action="Login" class="btn btn-outline-light btn-sm me-2">Đăng nhập</a>
+                        <a asp-controller="Account" asp-action="Register" class="btn btn-primary btn-sm">Đăng ký</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main role="main">
+        @RenderBody()
+    </main>
+
+    <footer class="footer mt-auto py-4 text-light" style="background-color: #1b2a4e;">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <h5 class="fw-bold"><i class="bi bi-mortarboard-fill me-2"></i>Trung tâm luyện thi THPT</h5>
+                    <p class="text-white-50 mb-0">Hệ thống quản lý và thi trắc nghiệm trực tuyến — mô hình <b>Dạy Offline · Thi Online</b>, giúp kiểm tra – đánh giá chính xác cho mọi học viên.</p>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="fw-bold text-uppercase mb-3">Liên kết nhanh</h6>
+                    <ul class="list-unstyled small mb-0">
+                        <li class="mb-2"><a asp-controller="Home" asp-action="Index" class="footer-link">Trang chủ</a></li>
+                        <li class="mb-2"><a asp-controller="Exam" asp-action="Schedule" class="footer-link">Lịch thi</a></li>
+                        <li class="mb-2"><a asp-controller="Exam" asp-action="History" class="footer-link">Tra cứu kết quả</a></li>
+                        <li class="mb-2"><a asp-controller="Exam" asp-action="LearningSchedule" class="footer-link">Lịch trình học tập</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="fw-bold text-uppercase mb-3">Liên hệ</h6>
+                    <ul class="list-unstyled small text-white-50 mb-0">
+                        <li class="mb-2"><i class="bi bi-envelope me-2"></i>support@onthithpt.vn</li>
+                        <li class="mb-2"><i class="bi bi-telephone me-2"></i>1900 1234</li>
+                        <li class="mb-2"><i class="bi bi-geo-alt me-2"></i>Hà Nội, Việt Nam</li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="border-secondary mt-4">
+            <div class="text-center small text-white-50">
+                &copy; @DateTime.Now.Year - Hệ thống quản lý và thi trắc nghiệm trực tuyến
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

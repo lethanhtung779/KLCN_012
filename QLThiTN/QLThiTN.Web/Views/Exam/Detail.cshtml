@@ -1,0 +1,63 @@
+@model ExamDetailViewModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+
+<section class="hero py-4">
+    <div class="container position-relative">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <span class="badge-gradient mb-2"><i class="bi bi-book me-1"></i>@Model.SubjectName</span>
+                <h1 class="fw-bold mb-3">@Model.Title</h1>
+                <p class="text-white-50 fs-5 mb-2">@Model.Description</p>
+                <span class="badge-status" style="background: rgba(255, 255, 255, .15); color: #fff;">@Model.StatusText</span>
+            </div>
+            <div class="col-lg-4">
+                <div class="card border-0 rounded-4 shadow">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <span class="text-muted small"><i class="bi bi-clock me-2"></i>Thời gian làm bài</span>
+                            <span class="fw-bold">@Model.Duration phút</span>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <span class="text-muted small"><i class="bi bi-list-ol me-2"></i>Số câu hỏi</span>
+                            <span class="fw-bold">@Model.QuestionCount câu</span>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <span class="text-muted small"><i class="bi bi-calendar-check me-2"></i>Bắt đầu</span>
+                            <span class="fw-bold">@(Model.StartTime?.ToString("dd/MM/yyyy HH:mm") ?? "Sớm")</span>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                            <span class="text-muted small"><i class="bi bi-calendar-x me-2"></i>Kết thúc</span>
+                            <span class="fw-bold">@(Model.EndTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</span>
+                        </div>
+                        <div class="d-flex align-items-center justify-content-between py-2">
+                            <span class="text-muted small"><i class="bi bi-people me-2"></i>Giới hạn thí sinh</span>
+                            <span class="fw-bold">@(Model.MaxStudents.HasValue ? Model.MaxStudents + " người" : "Không giới hạn")</span>
+                        </div>
+                        <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 btn-lg mt-3">
+                            @(Model.HasRegistered ? "<i class=\"bi bi-pencil-square me-2\"></i>Làm bài ngay" : "<i class=\"bi bi-person-plus me-2\"></i>Đăng ký thi")
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-4">
+    <div class="container">
+        <div class="card border-0 rounded-4 shadow-sm">
+            <div class="card-body p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Quy chế thi</h5>
+                <ul class="mb-0 text-muted">
+                    <li class="mb-2">Bài thi gồm @Model.QuestionCount câu hỏi trắc nghiệm, thời gian làm bài @Model.Duration phút.</li>
+                    <li class="mb-2">Bạn chỉ được phép vào thi trong khoảng thời gian từ <b>@(Model.StartTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</b> đến <b>@(Model.EndTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</b>.</li>
+                    <li class="mb-2">Đồng hồ đếm ngược sẽ được hiển thị trong suốt quá trình làm bài; hệ thống tự động nộp bài khi hết giờ.</li>
+                    <li class="mb-2">Mỗi câu hỏi chỉ được chọn một đáp án. Có thể thay đổi đáp án trước khi nộp bài.</li>
+                    <li class="mb-2">Kết quả điểm sẽ được thông báo ngay sau khi nộp bài.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
