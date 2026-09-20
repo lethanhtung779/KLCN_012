@@ -1,57 +1,57 @@
 {
   "Version": 1,
-  "WorkspaceRootPath": "D:\\QLThiTN.WinForm\\WinFormsApp1\\",
+  "WorkspaceRootPath": "D:\\KLCN_012\\WinFormsApp1\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\qlthitn.winform\\winformsapp1\\winformsapp1\\frmmain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\klcn_012\\winformsapp1\\winformsapp1\\frmmain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmmain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\QLThiTN.WinForm\\WinFormsApp1\\winformsapp1\\frmquestions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\KLCN_012\\WinFormsApp1\\winformsapp1\\frmquestions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmquestions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\qlthitn.winform\\winformsapp1\\winformsapp1\\frmquestions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\klcn_012\\winformsapp1\\winformsapp1\\frmquestions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmquestions.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\QLThiTN.WinForm\\WinFormsApp1\\winformsapp1\\frmmain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\KLCN_012\\WinFormsApp1\\winformsapp1\\frmmain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmmain.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\QLThiTN.WinForm\\WinFormsApp1\\winformsapp1\\frmstatistics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\KLCN_012\\WinFormsApp1\\winformsapp1\\frmstatistics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmstatistics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\qlthitn.winform\\winformsapp1\\winformsapp1\\frmstatistics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\klcn_012\\winformsapp1\\winformsapp1\\frmstatistics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmstatistics.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\qlthitn.winform\\winformsapp1\\winformsapp1\\frmexams.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\klcn_012\\winformsapp1\\winformsapp1\\frmexams.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmexams.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\QLThiTN.WinForm\\WinFormsApp1\\winformsapp1\\frmexams.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\KLCN_012\\WinFormsApp1\\winformsapp1\\frmexams.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmexams.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\qlthitn.winform\\winformsapp1\\winformsapp1\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\klcn_012\\winformsapp1\\winformsapp1\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\QLThiTN.WinForm\\WinFormsApp1\\winformsapp1\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\KLCN_012\\WinFormsApp1\\winformsapp1\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\qlthitn.winform\\winformsapp1\\winformsapp1\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\klcn_012\\winformsapp1\\winformsapp1\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\qlthitn.winform\\winformsapp1\\winformsapp1\\frmaccounts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|d:\\klcn_012\\winformsapp1\\winformsapp1\\frmaccounts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmaccounts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\QLThiTN.WinForm\\WinFormsApp1\\winformsapp1\\frmaccounts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|D:\\KLCN_012\\WinFormsApp1\\winformsapp1\\frmaccounts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{BC150CE2-BC7F-BB20-899B-A29BED553BB8}|WinFormsApp1\\WinFormsApp1.csproj|solutionrelative:winformsapp1\\frmaccounts.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     }
   ],
@@ -84,10 +84,10 @@
               "$type": "Document",
               "DocumentIndex": 1,
               "Title": "frmQuestions.cs [Design]",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmQuestions.cs",
               "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs [Design]",
-              "RelativeToolTip": "WinFormsApp1\\frmQuestions.cs [Design]",
+              "RelativeToolTip": "..\\..\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-09-18T11:28:11.977Z"
             },
@@ -95,9 +95,9 @@
               "$type": "Document",
               "DocumentIndex": 2,
               "Title": "frmQuestions.cs",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmQuestions.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmQuestions.cs",
               "RelativeToolTip": "WinFormsApp1\\frmQuestions.cs",
               "ViewState": "AgIAAD8AAAAAAAAAAAAYwEwAAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
@@ -107,9 +107,9 @@
               "$type": "Document",
               "DocumentIndex": 3,
               "Title": "frmMain.cs [Design]",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmMain.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmMain.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmMain.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmMain.cs [Design]",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmMain.cs [Design]",
               "RelativeToolTip": "WinFormsApp1\\frmMain.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-09-18T11:26:42.713Z",
@@ -119,10 +119,10 @@
               "$type": "Document",
               "DocumentIndex": 4,
               "Title": "frmStatistics.cs [Design]",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmStatistics.cs",
               "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs [Design]",
-              "RelativeToolTip": "WinFormsApp1\\frmStatistics.cs [Design]",
+              "RelativeToolTip": "..\\..\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-09-18T11:29:55.861Z"
             },
@@ -130,9 +130,9 @@
               "$type": "Document",
               "DocumentIndex": 0,
               "Title": "frmMain.cs",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmMain.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmMain.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmMain.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmMain.cs",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmMain.cs",
               "RelativeToolTip": "WinFormsApp1\\frmMain.cs",
               "ViewState": "AgIAAGAAAAAAAAAAAAAAwHYAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
@@ -143,9 +143,9 @@
               "$type": "Document",
               "DocumentIndex": 5,
               "Title": "frmStatistics.cs",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmStatistics.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmStatistics.cs",
               "RelativeToolTip": "WinFormsApp1\\frmStatistics.cs",
               "ViewState": "AgIAAFAAAAAAAAAAAAAYwF8AAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
@@ -155,9 +155,9 @@
               "$type": "Document",
               "DocumentIndex": 6,
               "Title": "frmExams.cs",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmExams.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmExams.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmExams.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmExams.cs",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmExams.cs",
               "RelativeToolTip": "WinFormsApp1\\frmExams.cs",
               "ViewState": "AgIAAG4AAAAAAAAAAAAiwHMAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
@@ -168,10 +168,10 @@
               "$type": "Document",
               "DocumentIndex": 7,
               "Title": "frmExams.cs [Design]",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmExams.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmExams.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmExams.cs",
               "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmExams.cs [Design]",
-              "RelativeToolTip": "WinFormsApp1\\frmExams.cs [Design]",
+              "RelativeToolTip": "..\\..\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmExams.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-09-18T11:28:54.657Z"
             },
@@ -179,9 +179,9 @@
               "$type": "Document",
               "DocumentIndex": 8,
               "Title": "Form1.cs",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\Form1.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\Form1.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\Form1.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\Form1.cs",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\Form1.cs",
               "RelativeToolTip": "WinFormsApp1\\Form1.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
@@ -192,10 +192,10 @@
               "$type": "Document",
               "DocumentIndex": 9,
               "Title": "Form1.cs [Design]",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\Form1.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\Form1.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\Form1.cs",
               "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\Form1.cs [Design]",
-              "RelativeToolTip": "WinFormsApp1\\Form1.cs [Design]",
+              "RelativeToolTip": "..\\..\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\Form1.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-09-18T11:11:09.383Z"
             },
@@ -203,9 +203,9 @@
               "$type": "Document",
               "DocumentIndex": 10,
               "Title": "Program.cs",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\Program.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\Program.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\Program.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\Program.cs",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\Program.cs",
               "RelativeToolTip": "WinFormsApp1\\Program.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAApAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
@@ -215,9 +215,9 @@
               "$type": "Document",
               "DocumentIndex": 11,
               "Title": "frmAccounts.cs",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmAccounts.cs",
-              "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs",
+              "ToolTip": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs",
               "RelativeToolTip": "WinFormsApp1\\frmAccounts.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAE0AAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
@@ -228,10 +228,10 @@
               "$type": "Document",
               "DocumentIndex": 12,
               "Title": "frmAccounts.cs [Design]",
-              "DocumentMoniker": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs",
+              "DocumentMoniker": "D:\\KLCN_012\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs",
               "RelativeDocumentMoniker": "WinFormsApp1\\frmAccounts.cs",
               "ToolTip": "D:\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs [Design]",
-              "RelativeToolTip": "WinFormsApp1\\frmAccounts.cs [Design]",
+              "RelativeToolTip": "..\\..\\QLThiTN.WinForm\\WinFormsApp1\\WinFormsApp1\\frmAccounts.cs [Design]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-09-18T11:27:35.711Z"
             }
