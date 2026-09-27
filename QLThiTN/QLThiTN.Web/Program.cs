@@ -7,6 +7,12 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
 });
+builder.Services.AddHttpClient<QLThiTN.Web.Services.ApiClient>(client =>
+{
+    var baseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5080";
+    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using QLThiTN.Web.Services;
 using QLThiTN.Web.ViewModels;
 
 namespace QLThiTN.Web.Controllers;
@@ -7,6 +8,13 @@ public class AccountController : Controller
 {
     private const string SessionUser = "UserFullName";
     private const string SessionUsername = "Username";
+    private const string SessionUserId = "UserId";
+    private const string SessionUserRole = "UserRole";
+    private const string SessionEmail = "UserEmail";
+
+    private readonly ApiClient _api;
+
+    public AccountController(ApiClient api) => _api = api;
 
     [HttpGet]
     public IActionResult Login()
@@ -18,21 +26,24 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Login(LoginViewModel model)
+    public async Task<IActionResult> Login(LoginViewModel model)
     {
         if (!ModelState.IsValid)
             return View(model);
 
-        // TODO: Gọi API /api/auth/login để xác thực người dùng
-        if (model.Username.ToLower() == "student" && model.Password == "123456")
+        var user = await _api.LoginAsync(model.Username, model.Password);
+        if (user == null)
         {
-            HttpContext.Session.SetString(SessionUser, "Nguyễn Văn An");
-            HttpContext.Session.SetString(SessionUsername, model.Username);
-            return RedirectToAction("Index", "Home");
+            ModelState.AddModelError(string.Empty, "Tên đăng nhập hoặc mật khẩu không chính xác.");
+            return View(model);
         }
 
-        ModelState.AddModelError(string.Empty, "Tên đăng nhập hoặc mật khẩu không chính xác.");
-        return View(model);
+        HttpContext.Session.SetString(SessionUser, user.HoTen);
+        HttpContext.Session.SetString(SessionUsername, user.TenDangNhap);
+        HttpContext.Session.SetInt32(SessionUserId, user.TaiKhoanID);
+        HttpContext.Session.SetString(SessionUserRole, user.VaiTro);
+        HttpContext.Session.SetString(SessionEmail, user.Email);
+        return RedirectToAction("Index", "Home");
     }
 
     [HttpGet]
@@ -45,13 +56,27 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Register(RegisterViewModel model)
+    public async Task<IActionResult> Register(RegisterViewModel model)
     {
         if (!ModelState.IsValid)
             return View(model);
 
-        // TODO: Gọi API /api/users để tạo tài khoản
-        TempData["SuccessMessage"] = "Đăng ký tài khoản thành công! Vui lòng đăng nhập.";
+        var (success, message) = await _api.RegisterAsync(new ApiRegisterRequest
+        {
+            UserName = model.Username,
+            Email = model.Email,
+            FullName = model.FullName,
+            Password = model.Password,
+            VaiTro = "HocVien"
+        });
+
+        if (!success)
+        {
+            ModelState.AddModelError(string.Empty, message);
+            return View(model);
+        }
+
+        TempData["SuccessMessage"] = message;
         return RedirectToAction("Login");
     }
 
@@ -64,11 +89,10 @@ public class AccountController : Controller
 
         var model = new ProfileViewModel
         {
-            Id = 1,
+            Id = HttpContext.Session.GetInt32(SessionUserId) ?? 1,
             FullName = fullName,
             Username = HttpContext.Session.GetString(SessionUsername) ?? "student",
-            Email = "nguyenvanan@gmail.com",
-            Phone = "0987654321"
+            Email = HttpContext.Session.GetString(SessionEmail) ?? string.Empty
         };
         return View(model);
     }

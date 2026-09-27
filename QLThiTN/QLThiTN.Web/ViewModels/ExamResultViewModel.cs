@@ -19,6 +19,7 @@ public class QuestionResultViewModel
 {
     public int OrderIndex { get; set; }
     public string Content { get; set; } = string.Empty;
+    public List<ImageViewModel> Images { get; set; } = new();
     public List<OptionResultViewModel> Options { get; set; } = new();
     public int? SelectedOptionId { get; set; }
     public bool IsCorrect { get; set; }
@@ -31,4 +32,5 @@ public class OptionResultViewModel
     public string Label { get; set; } = string.Empty;
     public bool IsCorrect { get; set; }
     public bool IsSelected { get; set; }
+    public List<ImageViewModel> Images { get; set; } = new();
 }

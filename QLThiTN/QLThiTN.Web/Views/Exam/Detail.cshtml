@@ -36,7 +36,14 @@
                             <span class="fw-bold">@(Model.MaxStudents.HasValue ? Model.MaxStudents + " người" : "Không giới hạn")</span>
                         </div>
                         <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 btn-lg mt-3">
-                            @(Model.HasRegistered ? "<i class=\"bi bi-pencil-square me-2\"></i>Làm bài ngay" : "<i class=\"bi bi-person-plus me-2\"></i>Đăng ký thi")
+                            @if (Model.HasRegistered)
+                            {
+                                <text><i class="bi bi-pencil-square me-2"></i>Làm bài ngay</text>
+                            }
+                            else
+                            {
+                                <text><i class="bi bi-person-plus me-2"></i>Đăng ký thi</text>
+                            }
                         </a>
                     </div>
                 </div>

@@ -1,103 +1,135 @@
 using Microsoft.AspNetCore.Mvc;
+using QLThiTN.Web.Services;
 using QLThiTN.Web.ViewModels;
 
 namespace QLThiTN.Web.Controllers;
 
 public class ExamController : Controller
 {
-    [HttpGet]
-    public IActionResult Schedule()
-        => View(MockData.Exams);
+    private readonly ApiClient _api;
+
+    public ExamController(ApiClient api) => _api = api;
 
     [HttpGet]
-    public IActionResult Detail(int id)
+    public async Task<IActionResult> Schedule()
     {
-        var exam = MockData.Exams.FirstOrDefault(e => e.Id == id);
+        var exams = await _api.GetDeThisAsync();
+        return View(exams.Select(ExamMapping.ToSchedule).ToList());
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Detail(int id)
+    {
+        var exam = await _api.GetDeThiAsync(id);
         if (exam == null)
             return NotFound();
 
-        var statusText = exam.StartTime > DateTime.Now
+        var statusText = exam.ThoiGianMoCong > DateTime.Now
             ? "Sắp diễn ra"
-            : exam.EndTime < DateTime.Now
+            : exam.ThoiGianDongCong < DateTime.Now
                 ? "Đã kết thúc"
                 : "Đang mở — đăng ký ngay";
 
         var model = new ExamDetailViewModel
         {
-            Id = exam.Id,
-            Title = exam.Title,
-            Description = exam.Description,
-            Duration = exam.Duration,
-            StartTime = exam.StartTime,
-            EndTime = exam.EndTime,
-            MaxStudents = exam.MaxStudents,
-            SubjectName = exam.SubjectName,
-            QuestionCount = exam.QuestionCount,
-            HasRegistered = exam.HasRegistered,
-            CanStart = exam.StartTime <= DateTime.Now && exam.EndTime >= DateTime.Now,
+            Id = exam.DeThiID,
+            Title = exam.TenDe,
+            Description = string.IsNullOrWhiteSpace(exam.TenDotThi) ? exam.LoaiDeText : exam.TenDotThi,
+            Duration = exam.ThoiLuongLamBai ?? 45,
+            StartTime = exam.ThoiGianMoCong,
+            EndTime = exam.ThoiGianDongCong,
+            MaxStudents = null,
+            SubjectName = exam.TenMon,
+            QuestionCount = exam.SoLuongCauHoi,
+            HasRegistered = ExamMapping.ToExamKind(exam.LoaiDe) != ExamKind.PublicMock,
+            CanStart = exam.ThoiGianMoCong <= DateTime.Now && exam.ThoiGianDongCong >= DateTime.Now,
             StatusText = statusText
         };
         return View(model);
     }
 
     [HttpGet]
-    public IActionResult Taking(int id)
+    public async Task<IActionResult> Taking(int id)
     {
-        var exam = MockData.Exams.FirstOrDefault(e => e.Id == id);
+        var exam = await _api.GetDeThiAsync(id);
         if (exam == null)
             return NotFound();
 
+        var questions = await _api.GetCauHoiAsync(id);
         var model = new TakingExamViewModel
         {
-            ExamId = exam.Id,
-            ExamTitle = exam.Title,
-            Duration = exam.Duration,
+            ExamId = exam.DeThiID,
+            ExamTitle = exam.TenDe,
+            Duration = exam.ThoiLuongLamBai ?? 45,
             StartTime = DateTime.Now,
-            Questions = MockData.GetQuestionsForExam(exam.Id)
+            Questions = ExamMapping.ToQuestions(questions, _api.BaseUrl)
         };
         return View(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public IActionResult Submit(SubmitExamViewModel model)
+    public async Task<IActionResult> Submit(SubmitExamViewModel model)
     {
-        // TODO: Gọi API /api/results để chấm điểm và lưu kết quả
-        var questions = MockData.GetQuestionsForExam(model.ExamId);
-        var result = MockData.BuildResultFromQuestions(model.ExamId, questions);
-        return View("Result", result);
+        if (model.Answers == null || model.Answers.Count == 0)
+        {
+            TempData["ErrorMessage"] = "Bạn chưa trả lời câu hỏi nào.";
+            return RedirectToAction(nameof(Taking), new { id = model.ExamId });
+        }
+
+        var request = new ApiNopBaiRequest
+        {
+            DeThiID = model.ExamId,
+            Answers = (model.Answers ?? new List<AnswerViewModel>())
+                .Select(a => new ApiCauTraLoi
+                {
+                    CauHoiID = a.QuestionId,
+                    DapAnID = a.SelectedOptionId
+                }).ToList()
+        };
+
+        var result = await _api.NopBaiAsync(request);
+
+        var exam = await _api.GetDeThiAsync(model.ExamId);
+        var vm = ExamMapping.ToResult(
+            result,
+            exam?.TenDe ?? $"Kỳ thi #{model.ExamId}",
+            exam?.ThoiLuongLamBai ?? 45,
+            DateTime.Now,
+            _api.BaseUrl);
+
+        return View("Result", vm);
     }
 
     [HttpGet]
     public IActionResult Result(int id)
     {
-        var questions = MockData.GetQuestionsForExam(id);
-        var result = MockData.BuildResultFromQuestions(id, questions);
-        return View(result);
+        // TODO: Gọi API /api/results/{id} để tải chi tiết kết quả đã lưu
+        return RedirectToAction(nameof(History));
     }
 
     [HttpGet]
-    public IActionResult History()
+    public async Task<IActionResult> History()
     {
+        var exams = await _api.GetDeThisAsync();
         var model = new ExamHistoryViewModel
         {
-            Items = MockData.CompletedExams
-                .OrderByDescending(r => r.EndTime)
-                .Select(r =>
+            Items = exams
+                .Where(e => e.TrangThai == "DaDong")
+                .Select(e =>
                 {
-                    var exam = MockData.Exams.FirstOrDefault(e => e.Id == r.ExamId);
+                    var kind = ExamMapping.ToExamKind(e.LoaiDe);
                     return new ExamHistoryItemViewModel
                     {
-                        ExamId = r.ExamId,
-                        ExamTitle = r.ExamTitle,
-                        SubjectName = exam?.SubjectName ?? "—",
-                        ExamKindText = exam?.ExamKind.ToDisplayName() ?? "Kỳ thi",
-                        Score = r.Score,
-                        StartTime = r.StartTime,
-                        EndTime = r.EndTime,
-                        StatusText = "Hoàn thành",
-                        Duration = r.DurationUsed,
-                        ScorePublished = exam?.ScorePublished ?? true
+                        ExamId = e.DeThiID,
+                        ExamTitle = e.TenDe,
+                        SubjectName = e.TenMon,
+                        ExamKindText = kind.ToDisplayName(),
+                        Score = 0m,
+                        EndTime = e.ThoiGianDongCong,
+                        StatusText = "Đã kết thúc",
+                        Duration = e.ThoiLuongLamBai ?? 45,
+                        ScorePublished = false
                     };
                 }).ToList()
         };
@@ -105,15 +137,31 @@ public class ExamController : Controller
     }
 
     [HttpGet]
-    public IActionResult LearningSchedule()
+    public async Task<IActionResult> LearningSchedule()
     {
+        var exams = await _api.GetDeThisAsync();
         var model = new LearningScheduleViewModel
         {
-            Items = MockData.GetLearningSchedule()
+            Items = exams
+                .OrderBy(e => e.ThoiGianMoCong)
+                .Select((e, i) => new LearningItemViewModel
+                {
+                    Id = i + 1,
+                    Title = e.TenDe,
+                    SubjectName = e.TenMon,
+                    Type = ExamMapping.ToExamKind(e.LoaiDe).ToDisplayName(),
+                    Description = e.LoaiDeText,
+                    DueTime = e.ThoiGianDongCong,
+                    ExamId = e.DeThiID,
+                    IsDone = e.TrangThai == "DaDong",
+                    StatusText = e.TrangThai switch
+                    {
+                        "DangMo" => "Đang mở",
+                        "SapMo" => "Sắp đến hạn",
+                        _ => "Đã hoàn thành"
+                    }
+                }).ToList()
         };
         return View(model);
     }
-
-    private static string SubjectOf(int examId)
-        => MockData.Exams.FirstOrDefault(e => e.Id == examId)?.SubjectName ?? "—";
 }

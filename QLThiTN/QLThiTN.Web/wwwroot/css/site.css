@@ -515,3 +515,106 @@ main {
         display: none !important;
     }
 }
+
+/* Anh cua cau hoi / phuong an */
+.question-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.question-images:empty {
+    display: none;
+}
+
+.question-image {
+    margin: 0;
+    max-width: 100%;
+}
+
+.question-image img {
+    max-width: 100%;
+    max-height: 320px;
+    height: auto;
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    background: #fff;
+    padding: .25rem;
+}
+
+.question-image figcaption {
+    font-size: .78rem;
+    color: #6c757d;
+    margin-top: .35rem;
+}
+
+/* Anh nam trong phuong an: can chieu rong het option-item */
+.option-item .question-images {
+    flex-basis: 100%;
+    margin-bottom: 0;
+}
+
+.option-item .question-image img {
+    max-height: 200px;
+}
+
+/* Cong thuc LaTeX (KaTeX / MathJax) */
+.katex {
+    font-size: 1.05em;
+}
+
+.katex-display {
+    margin: .75rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Cong thuc inline khong duoc lam vo dong khi keu dai */
+.option-item .katex-display,
+p .katex-display {
+    text-align: left;
+}
+
+/* Loi render: giu nguyen chu lieu de doc vi du loi */
+.katex-error {
+    color: #c0392b !important;
+    background: #fdf2f0;
+    padding: 0 .2rem;
+    border-radius: 4px;
+}
+
+/* Anh nhung truc tiep trong noi dung cau hoi */
+p img,
+.option-item img {
+    max-width: 100%;
+    max-height: 320px;
+    height: auto;
+    vertical-align: middle;
+}
+
+/* Anh noi tuyến trong NoiDung cau hoi (the <img> do import_db.py sinh) */
+.question-card p img,
+.option-item img,
+.question-card span img {
+    max-width: 100%;
+    max-height: 340px;
+    height: auto;
+    vertical-align: middle;
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 4px;
+    padding: 2px;
+    margin: 4px 0;
+}
+
+/* MathJax fallback: can giong kich thuoc voi KaTeX de dong deu */
+mjx-container[jax="CHTML"] {
+    font-size: 105% !important;
+}
+
+mjx-container[jax="CHTML"][display="true"] {
+    margin: .75rem 0 !important;
+    overflow-x: auto;
+    overflow-y: hidden;
+}

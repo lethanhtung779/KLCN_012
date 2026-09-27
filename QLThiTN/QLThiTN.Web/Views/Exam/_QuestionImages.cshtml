@@ -1,0 +1,17 @@
+@model List<ImageViewModel>
+
+@if (Model is { Count: > 0 })
+{
+    <div class="question-images">
+        @foreach (var img in Model)
+        {
+            <figure class="question-image">
+                <img src="@img.Url" alt="@img.Caption" loading="lazy" />
+                @if (!string.IsNullOrWhiteSpace(img.Caption))
+                {
+                    <figcaption>@img.Caption</figcaption>
+                }
+            </figure>
+        }
+    </div>
+}

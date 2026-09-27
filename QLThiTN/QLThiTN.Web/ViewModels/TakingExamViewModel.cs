@@ -15,7 +15,14 @@ public class QuestionViewModel
     public int OrderIndex { get; set; }
     public string Content { get; set; } = string.Empty;
     public string TypeName { get; set; } = string.Empty;
+    public List<ImageViewModel> Images { get; set; } = new();
     public List<OptionViewModel> Options { get; set; } = new();
+}
+
+public class ImageViewModel
+{
+    public string Url { get; set; } = string.Empty;
+    public string Caption { get; set; } = string.Empty;
 }
 
 public class OptionViewModel
@@ -24,6 +31,7 @@ public class OptionViewModel
     public string Content { get; set; } = string.Empty;
     public string Label { get; set; } = string.Empty;
     public bool IsSelected { get; set; }
+    public List<ImageViewModel> Images { get; set; } = new();
 }
 
 public class SubmitExamViewModel

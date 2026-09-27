@@ -54,7 +54,8 @@
                                 Câu hỏi @(i + 1)
                             </div>
                             <div class="card-body p-4">
-                                <p class="fw-medium mb-4">@q.Content</p>
+                                <p class="fw-medium mb-4">@Html.Raw(q.Content)</p>
+                                <partial name="_QuestionImages" model="@q.Images" />
                                 <div class="row g-3" data-question-id="@q.Id">
                                     @foreach (var opt in q.Options)
                                     {
@@ -62,7 +63,8 @@
                                             <label class="option-item w-100 mb-0" data-option-id="@opt.Id">
                                                 <input type="radio" class="d-none" name="Answers[@i].SelectedOptionId" value="@opt.Id" />
                                                 <span class="option-label">@opt.Label</span>
-                                                <span>@opt.Content</span>
+                                                <span>@Html.Raw(opt.Content)</span>
+                                                <partial name="_QuestionImages" model="@opt.Images" />
                                             </label>
                                         </div>
                                     }

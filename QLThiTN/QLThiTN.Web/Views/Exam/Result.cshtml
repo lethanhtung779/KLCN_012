@@ -96,8 +96,9 @@
                             <i class="bi @(q.IsCorrect ? "bi-check-lg" : "bi-x-lg") me-1"></i>
                             @(q.IsCorrect ? "Đúng" : "Sai")
                         </span>
-                        <div class="fw-medium">Câu @(q.OrderIndex): @q.Content</div>
+                        <div class="fw-medium">Câu @(q.OrderIndex): @Html.Raw(q.Content)</div>
                     </div>
+                    <partial name="_QuestionImages" model="@q.Images" />
                     <div class="row g-3 ps-4">
                         @foreach (var opt in q.Options)
                         {
@@ -111,7 +112,8 @@
                             <div class="col-md-6">
                                 <div class="@cls mb-0" style="pointer-events: none; @(cls.Contains("border-success") || cls.Contains("border-danger") ? "" : "opacity: .8;")">
                                     <span class="option-label">@opt.Label</span>
-                                    <span class="flex-grow-1">@opt.Content</span>
+                                    <span class="flex-grow-1">@Html.Raw(opt.Content)</span>
+                                    <partial name="_QuestionImages" model="@opt.Images" />
                                     <i class="@icon"></i>
                                 </div>
                             </div>
