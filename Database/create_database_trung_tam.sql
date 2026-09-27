@@ -133,7 +133,7 @@ BEGIN
         TrangThai       NVARCHAR(20)  NOT NULL,
         NgayTao         DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
         GiaiThichDapAn  NVARCHAR(MAX) NULL,
-        CONSTRAINT CK_CauHoi_MucDoKho   CHECK (MucDoKho IN (N'NhanBiet', N'ThongHieu', N'VanDung', N'VanDungCao')),
+        CONSTRAINT CK_CauHoi_MucDoKho   CHECK (MucDoKho IN (N'ChuaXacDinh', N'NhanBiet', N'ThongHieu', N'VanDung', N'VanDungCao')),
         CONSTRAINT CK_CauHoi_TrangThai  CHECK (TrangThai IN (N'HoatDong', N'An')),
         CONSTRAINT CK_CauHoi_LoaiCauHoi CHECK (LoaiCauHoi IN (N'TracNghiem', N'DungSai', N'TraLoiNgan')),
         CONSTRAINT FK_CauHoi_ChuDe    FOREIGN KEY (ChuDeID)    REFERENCES ChuDe(ChuDeID),
