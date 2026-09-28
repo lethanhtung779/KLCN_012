@@ -145,7 +145,10 @@ public class DeThiController : ControllerBase
                         DapAnID = d.DapAnID,
                         ThuTu = d.ThuTu,
                         NoiDung = d.NoiDung,
-                        Label = LabelOf(d.ThuTu),
+                        // Cau Dung/Sai: y gan nhan a b c d (chu thuong), khac voi A B C D
+                        Label = q.CauHoi.LoaiCauHoi == "DungSai"
+                            ? ((char)('a' + d.ThuTu)).ToString()
+                            : LabelOf(d.ThuTu),
                         HinhAnh = ToHinhAnhDto(d.HinhAnhs)
                     }).ToList()
         }));
@@ -166,66 +169,131 @@ public class DeThiController : ControllerBase
 
         if (items.Count == 0) return NotFound();
 
-        var correctMap = (await _db.DapAns
-            .Where(d => d.LaDapAnDung)
-            .OrderBy(d => d.ThuTu)
-            .ToListAsync())
-            .GroupBy(d => d.CauHoiID)
-            .ToDictionary(g => g.Key, g => g.First());
-
         var answerMap = request.Answers.ToDictionary(a => a.CauHoiID);
 
         var results = new List<QuestionResultDto>();
+        decimal tongDiemDat = 0m, tongDiemToiDa = 0m;
         int correct = 0;
 
         foreach (var item in items)
         {
             var cau = item.CauHoi!;
             var answer = answerMap.GetValueOrDefault(cau.CauHoiID);
-            var correctDa = correctMap.GetValueOrDefault(cau.CauHoiID);
+            var diemToiDa = cau.Diem > 0 ? cau.Diem : DiemMacDinh(cau.LoaiCauHoi);
+            var diemDat = 0m;
             bool isCorrect;
 
             if (cau.LoaiCauHoi == "TraLoiNgan")
             {
-                isCorrect = correctDa != null
-                    && answer?.NoiDungTraLoi != null
-                    && answer.NoiDungTraLoi.Trim().Equals(correctDa.NoiDung.Trim(), StringComparison.OrdinalIgnoreCase);
-            }
-            else
-            {
-                isCorrect = answer?.DapAnID != null && answer.DapAnID == correctDa?.DapAnID;
-            }
+                var correctDa = cau.DapAns.FirstOrDefault(d => d.LaDapAnDung);
+                isCorrect = TraLoiNganDung(answer?.NoiDungTraLoi, correctDa?.NoiDung);
+                if (isCorrect) diemDat = diemToiDa;
 
-            if (isCorrect) correct++;
-
-            results.Add(new QuestionResultDto
+                results.Add(new QuestionResultDto
+                {
+                    OrderIndex = item.ThuTu,
+                    CauHoiID = cau.CauHoiID,
+                    NoiDung = cau.NoiDung,
+                    LoaiCauHoi = cau.LoaiCauHoi,
+                    IsCorrect = isCorrect,
+                    GiaiThich = cau.GiaiThichDapAn ?? string.Empty,
+                    HinhAnh = ToHinhAnhDto(cau.HinhAnhs),
+                    NoiDungTraLoi = answer?.NoiDungTraLoi,
+                    DapAnTraLoiNgan = correctDa?.NoiDung,
+                    DiemDat = diemDat,
+                    DiemToiDa = diemToiDa
+                });
+            }
+            else if (cau.LoaiCauHoi == "DungSai")
             {
-                OrderIndex = item.ThuTu,
-                CauHoiID = cau.CauHoiID,
-                NoiDung = cau.NoiDung,
-                LoaiCauHoi = cau.LoaiCauHoi,
-                IsCorrect = isCorrect,
-                SelectedDapAnID = answer?.DapAnID,
-                CorrectDapAnID = correctDa?.DapAnID,
-                GiaiThich = correctDa?.GiaiThich ?? cau.GiaiThichDapAn ?? string.Empty,
-                HinhAnh = ToHinhAnhDto(cau.HinhAnhs),
-                Options = cau.DapAns
-                    .OrderBy(d => d.ThuTu)
-                    .Select(d => new OptionResultApiDto
+                // Cham theo tung y a-d: 0.25 diem moi y (diemToiDa / so y).
+                var yRows = cau.DapAns.OrderBy(d => d.ThuTu).ToList();
+                var chonMap = (answer?.YChoices ?? new List<SubmitYChoiceDto>())
+                    .Where(y => y.DapAnID != 0)
+                    .GroupBy(y => y.DapAnID)
+                    .ToDictionary(g => g.Key, g => g.Last().LaDung);
+                var diemMoiY = yRows.Count > 0 ? diemToiDa / yRows.Count : 0m;
+                var yResults = new List<YResultDto>();
+                int soYDung = 0;
+
+                foreach (var y in yRows)
+                {
+                    var clientChon = chonMap.GetValueOrDefault(y.DapAnID);
+                    var yDung = clientChon.HasValue && clientChon.Value == y.LaDapAnDung;
+                    if (yDung) { soYDung++; diemDat += diemMoiY; }
+
+                    yResults.Add(new YResultDto
                     {
-                        DapAnID = d.DapAnID,
-                        ThuTu = d.ThuTu,
-                        NoiDung = d.NoiDung,
-                        Label = LabelOf(d.ThuTu),
-                        IsCorrect = d.LaDapAnDung,
-                        IsSelected = answer?.DapAnID == d.DapAnID,
-                        HinhAnh = ToHinhAnhDto(d.HinhAnhs)
-                    }).ToList()
-            });
+                        DapAnID = y.DapAnID,
+                        ThuTu = y.ThuTu,
+                        Label = ((char)('a' + y.ThuTu)).ToString(),
+                        NoiDung = y.NoiDung,
+                        DapAnDung = y.LaDapAnDung,
+                        ClientLaDung = clientChon,
+                        IsCorrect = yDung,
+                        HinhAnh = ToHinhAnhDto(y.HinhAnhs)
+                    });
+                }
+
+                isCorrect = yRows.Count > 0 && soYDung == yRows.Count;
+
+                results.Add(new QuestionResultDto
+                {
+                    OrderIndex = item.ThuTu,
+                    CauHoiID = cau.CauHoiID,
+                    NoiDung = cau.NoiDung,
+                    LoaiCauHoi = cau.LoaiCauHoi,
+                    IsCorrect = isCorrect,
+                    GiaiThich = cau.GiaiThichDapAn ?? string.Empty,
+                    HinhAnh = ToHinhAnhDto(cau.HinhAnhs),
+                    YResults = yResults,
+                    DiemDat = diemDat,
+                    DiemToiDa = diemToiDa
+                });
+            }
+            else // TracNghiem
+            {
+                var correctDa = cau.DapAns.FirstOrDefault(d => d.LaDapAnDung);
+                isCorrect = answer?.DapAnID != null && correctDa != null
+                    && answer.DapAnID == correctDa.DapAnID;
+                if (isCorrect) diemDat = diemToiDa;
+
+                results.Add(new QuestionResultDto
+                {
+                    OrderIndex = item.ThuTu,
+                    CauHoiID = cau.CauHoiID,
+                    NoiDung = cau.NoiDung,
+                    LoaiCauHoi = cau.LoaiCauHoi,
+                    IsCorrect = isCorrect,
+                    SelectedDapAnID = answer?.DapAnID,
+                    GiaiThich = correctDa?.GiaiThich ?? cau.GiaiThichDapAn ?? string.Empty,
+                    HinhAnh = ToHinhAnhDto(cau.HinhAnhs),
+                    DiemDat = diemDat,
+                    DiemToiDa = diemToiDa,
+                    Options = cau.DapAns
+                        .OrderBy(d => d.ThuTu)
+                        .Select(d => new OptionResultApiDto
+                        {
+                            DapAnID = d.DapAnID,
+                            ThuTu = d.ThuTu,
+                            NoiDung = d.NoiDung,
+                            Label = LabelOf(d.ThuTu),
+                            IsCorrect = d.LaDapAnDung,
+                            IsSelected = answer?.DapAnID == d.DapAnID,
+                            HinhAnh = ToHinhAnhDto(d.HinhAnhs)
+                        }).ToList()
+                });
+            }
+
+            tongDiemDat += diemDat;
+            tongDiemToiDa += diemToiDa;
+            if (isCorrect) correct++;
         }
 
         var total = results.Count;
-        var score = total > 0 ? Math.Round((decimal)correct / total * 10, 2) : 0m;
+        var score = tongDiemToiDa > 0
+            ? Math.Round(tongDiemDat / tongDiemToiDa * 10, 2, MidpointRounding.AwayFromZero)
+            : 0m;
 
         return Ok(new SubmitExamResultDto
         {
@@ -236,6 +304,33 @@ public class DeThiController : ControllerBase
             Wrong = total - correct,
             Results = results
         });
+    }
+
+    private static decimal DiemMacDinh(string loai) => loai switch
+    {
+        "DungSai" => 1.00m,
+        "TraLoiNgan" => 0.50m,
+        _ => 0.25m
+    };
+
+    /// <summary>So sanh tra loi ngan: dung ca chuoi (khong phan biet hoa/thuong)
+    /// va so (663 = 663,0 = 663.0).</summary>
+    private static bool TraLoiNganDung(string? client, string? correct)
+    {
+        if (string.IsNullOrWhiteSpace(client) || string.IsNullOrWhiteSpace(correct))
+            return false;
+        var c = client.Trim();
+        var k = correct.Trim();
+        if (string.Equals(c, k, StringComparison.OrdinalIgnoreCase)) return true;
+
+        if (decimal.TryParse(k.Replace(',', '.'),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var kd) &&
+            decimal.TryParse(c.Replace(',', '.'),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var cd))
+            return cd == kd;
+        return false;
     }
 
     private static List<HinhAnhDto> ToHinhAnhDto(IEnumerable<HinhAnh> list) =>

@@ -52,24 +52,71 @@
                             <div class="question-head">
                                 <span class="me-2" style="color: var(--accent);"><i class="bi bi-clipboard"></i></span>
                                 Câu hỏi @(i + 1)
+                                @if (q.Loai != "TracNghiem")
+                                {
+                                    <span class="badge bg-secondary bg-opacity-75 ms-2">@q.TypeName</span>
+                                }
                             </div>
                             <div class="card-body p-4">
                                 <p class="fw-medium mb-4">@Html.Raw(q.Content)</p>
                                 <partial name="_QuestionImages" model="@q.Images" />
-                                <div class="row g-3" data-question-id="@q.Id">
-                                    @foreach (var opt in q.Options)
-                                    {
-                                        <div class="col-md-6">
-                                            <label class="option-item w-100 mb-0" data-option-id="@opt.Id">
-                                                <input type="radio" class="d-none" name="Answers[@i].SelectedOptionId" value="@opt.Id" />
-                                                <span class="option-label">@opt.Label</span>
-                                                <span>@Html.Raw(opt.Content)</span>
-                                                <partial name="_QuestionImages" model="@opt.Images" />
-                                            </label>
-                                        </div>
-                                    }
-                                    <input type="hidden" name="Answers[@i].QuestionId" value="@q.Id" />
-                                </div>
+
+                                @if (q.Loai == "TraLoiNgan")
+                                {
+                                    <div data-question-id="@q.Id" data-question-type="TraLoiNgan">
+                                        <label class="form-label fw-medium">Đáp số:</label>
+                                        <input type="text" class="form-control tln-input" style="max-width: 320px;"
+                                               name="Answers[@i].NoiDungTraLoi" placeholder="Nhập đáp số..."
+                                               autocomplete="off" />
+                                        <input type="hidden" name="Answers[@i].QuestionId" value="@q.Id" />
+                                    </div>
+                                }
+                                else if (q.Loai == "DungSai")
+                                {
+                                    <div data-question-id="@q.Id" data-question-type="DungSai">
+                                        <div class="small text-muted mb-2">Chọn <b>Đúng</b> hoặc <b>Sai</b> cho từng ý:</div>
+                                        @for (int j = 0; j < q.Options.Count; j++)
+                                        {
+                                            var opt = q.Options[j];
+                                            <div class="d-flex align-items-start gap-3 py-2 border-bottom ds-y-row">
+                                                <div class="flex-grow-1">
+                                                    <span class="option-label">@opt.Label</span>
+                                                    <span>@Html.Raw(opt.Content)</span>
+                                                    <partial name="_QuestionImages" model="@opt.Images" />
+                                                </div>
+                                                <div class="d-flex gap-3 flex-shrink-0 pt-1">
+                                                    <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
+                                                        <input type="radio" name="Answers[@i].YChoices[@j].LaDung" value="true" />
+                                                        Đúng
+                                                    </label>
+                                                    <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
+                                                        <input type="radio" name="Answers[@i].YChoices[@j].LaDung" value="false" />
+                                                        Sai
+                                                    </label>
+                                                </div>
+                                                <input type="hidden" name="Answers[@i].YChoices[@j].DapAnID" value="@opt.Id" />
+                                            </div>
+                                        }
+                                        <input type="hidden" name="Answers[@i].QuestionId" value="@q.Id" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="row g-3" data-question-id="@q.Id" data-question-type="TracNghiem">
+                                        @foreach (var opt in q.Options)
+                                        {
+                                            <div class="col-md-6">
+                                                <label class="option-item w-100 mb-0" data-option-id="@opt.Id">
+                                                    <input type="radio" class="d-none" name="Answers[@i].SelectedOptionId" value="@opt.Id" />
+                                                    <span class="option-label">@opt.Label</span>
+                                                    <span>@Html.Raw(opt.Content)</span>
+                                                    <partial name="_QuestionImages" model="@opt.Images" />
+                                                </label>
+                                            </div>
+                                        }
+                                        <input type="hidden" name="Answers[@i].QuestionId" value="@q.Id" />
+                                    </div>
+                                }
                             </div>
                         </div>
                     }
@@ -122,7 +169,7 @@
             // Khởi động đồng hồ đếm ngược
             examTimer.start(durationSeconds);
 
-            // Xử lý chọn đáp án
+            // Xử lý chọn đáp án trắc nghiệm
             $('.option-item').on('click', function () {
                 var $option = $(this);
                 var $group = $option.closest('[data-question-id]');
@@ -132,20 +179,52 @@
                 updatePalette();
             });
 
-            function updatePalette() {
+            // Cau Dung/Sai: nhan Dung/Sai lam noi bat y dang chon
+            $('.ds-y-row input[type="radio"]').on('change', function () {
+                $(this).closest('.ds-y-row')
+                    .find('.btn-check-dung, .btn-check-sai')
+                    .removeClass('text-success text-danger fw-bold');
+                updatePalette();
+            });
+
+            // Cau tra loi ngan: tinh ngay khi go
+            $('.tln-input').on('input', updatePalette);
+
+            // Mot cau duoc tinh la DA TRA LOI khi:
+            //  - TracNghiem: da chon 1 phuong an
+            //  - DungSai: ca cac y a-d deu co lua chon Dung/Sai
+            //  - TraLoiNgan: o nhap khong rong
+            function daTraLoi($group) {
+                var loai = $group.attr('data-question-type');
+                if (loai === 'DungSai') {
+                    var rows = $group.find('.ds-y-row');
+                    if (rows.length === 0) return false;
+                    return rows.toArray().every(function (row) {
+                        return $(row).find('input[type="radio"]:checked').length > 0;
+                    });
+                }
+                if (loai === 'TraLoiNgan') {
+                    return $group.find('.tln-input').val().trim().length > 0;
+                }
+                return $group.find('input[type="radio"]:checked').length > 0;
+            }
+
+            function demDaTraLoi() {
                 var answered = 0;
+                $('[data-question-id]').each(function () {
+                    if (daTraLoi($(this))) answered++;
+                });
+                return answered;
+            }
+
+            function updatePalette() {
                 $('[data-question-id]').each(function () {
                     var $group = $(this);
                     var qId = $group.attr('data-question-id');
                     var $nav = $('.num-btn[data-nav-target="' + qId + '"]');
-                    if ($group.find('input[type="radio"]:checked').length > 0) {
-                        answered++;
-                        $nav.addClass('answered');
-                    } else {
-                        $nav.removeClass('answered');
-                    }
+                    $nav.toggleClass('answered', daTraLoi($group));
                 });
-                $('#answeredCount').text(answered);
+                $('#answeredCount').text(demDaTraLoi());
             }
 
             // Xóa tất cả đáp án
@@ -153,13 +232,14 @@
                 if (confirm('Bạn có chắc chắn muốn xóa tất cả câu trả lời?')) {
                     $('.option-item').removeClass('selected');
                     $('input[type="radio"]').prop('checked', false);
+                    $('.tln-input').val('');
                     updatePalette();
                 }
             });
 
             // Xác nhận trước khi nộp bài
             $('#examForm').on('submit', function (e) {
-                var answered = $('input[type="radio"]:checked').length;
+                var answered = demDaTraLoi();
                 var total = $('[data-question-id]').length;
                 var msg = answered === total
                     ? 'Bạn đã trả lời tất cả ' + total + ' câu hỏi. Xác nhận nộp bài?'

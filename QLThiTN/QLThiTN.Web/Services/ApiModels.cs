@@ -55,6 +55,15 @@ public class ApiCauTraLoi
 {
     public int CauHoiID { get; set; }
     public int? DapAnID { get; set; }
+    public string? NoiDungTraLoi { get; set; }
+    public List<ApiYChon> YChoices { get; set; } = new();
+}
+
+/// <summary>Chon Dung/Sai cua thi sinh cho mot y cua cau DungSai.</summary>
+public class ApiYChon
+{
+    public int DapAnID { get; set; }
+    public bool? LaDung { get; set; }
 }
 
 public class ApiKetQua
@@ -79,6 +88,23 @@ public class ApiKetQuaCau
     public string GiaiThich { get; set; } = string.Empty;
     public List<ApiHinhAnh> HinhAnh { get; set; } = new();
     public List<ApiKetQuaOption> Options { get; set; } = new();
+    public List<ApiKetQuaY> YResults { get; set; } = new();
+    public string? NoiDungTraLoi { get; set; }
+    public string? DapAnTraLoiNgan { get; set; }
+    public decimal DiemDat { get; set; }
+    public decimal DiemToiDa { get; set; }
+}
+
+public class ApiKetQuaY
+{
+    public int DapAnID { get; set; }
+    public int ThuTu { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string NoiDung { get; set; } = string.Empty;
+    public bool DapAnDung { get; set; }
+    public bool? ClientLaDung { get; set; }
+    public bool IsCorrect { get; set; }
+    public List<ApiHinhAnh> HinhAnh { get; set; } = new();
 }
 
 public class ApiKetQuaOption

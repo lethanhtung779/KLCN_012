@@ -84,7 +84,15 @@ public class ExamController : Controller
                 .Select(a => new ApiCauTraLoi
                 {
                     CauHoiID = a.QuestionId,
-                    DapAnID = a.SelectedOptionId
+                    DapAnID = a.SelectedOptionId,
+                    NoiDungTraLoi = a.NoiDungTraLoi,
+                    YChoices = (a.YChoices ?? new List<YChoiceViewModel>())
+                        .Where(y => y.DapAnID > 0)
+                        .Select(y => new ApiYChon
+                        {
+                            DapAnID = y.DapAnID,
+                            LaDung = y.LaDung
+                        }).ToList()
                 }).ToList()
         };
 

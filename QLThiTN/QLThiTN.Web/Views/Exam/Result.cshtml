@@ -89,36 +89,84 @@
 
         @foreach (var q in Model.QuestionResults)
         {
+            var coDiemRieng = q.DiemToiDa > 0;
             <div class="card border-0 rounded-4 shadow-sm mb-3 @(q.IsCorrect ? "result-correct" : "result-wrong")">
                 <div class="card-body p-4">
-                    <div class="d-flex align-items-start gap-3 mb-3">
+                    <div class="d-flex align-items-start gap-3 mb-3 flex-wrap">
                         <span class="badge-status @(q.IsCorrect ? "bg-success text-white" : "bg-danger text-white")">
                             <i class="bi @(q.IsCorrect ? "bi-check-lg" : "bi-x-lg") me-1"></i>
                             @(q.IsCorrect ? "Đúng" : "Sai")
                         </span>
+                        @if (coDiemRieng && !q.IsCorrect && q.DiemDat > 0)
+                        {
+                            <span class="badge-status bg-warning text-dark">@q.DiemDat.ToString("0.##")/@q.DiemToiDa.ToString("0.##") điểm</span>
+                        }
                         <div class="fw-medium">Câu @(q.OrderIndex): @Html.Raw(q.Content)</div>
                     </div>
                     <partial name="_QuestionImages" model="@q.Images" />
-                    <div class="row g-3 ps-4">
-                        @foreach (var opt in q.Options)
-                        {
-                            var isCorrect = opt.IsCorrect;
-                            var isSelected = opt.IsSelected;
-                            string cls = "option-item";
-                            string icon = "";
-                            if (isCorrect) { cls += " border-success"; icon = "bi bi-check-circle-fill text-success ms-auto"; }
-                            else if (isSelected) { cls += " border-danger"; icon = "bi bi-x-circle-fill text-danger ms-auto"; }
 
-                            <div class="col-md-6">
-                                <div class="@cls mb-0" style="pointer-events: none; @(cls.Contains("border-success") || cls.Contains("border-danger") ? "" : "opacity: .8;")">
-                                    <span class="option-label">@opt.Label</span>
-                                    <span class="flex-grow-1">@Html.Raw(opt.Content)</span>
-                                    <partial name="_QuestionImages" model="@opt.Images" />
-                                    <i class="@icon"></i>
-                                </div>
+                    @if (q.Loai == "DungSai" && q.YResults.Count > 0)
+                    {
+                        @foreach (var y in q.YResults)
+                        {
+                            <div class="d-flex align-items-start gap-2 py-2 border-bottom">
+                                <span class="option-label">@y.Label</span>
+                                <span class="flex-grow-1">@Html.Raw(y.Content)</span>
+                                <partial name="_QuestionImages" model="@y.Images" />
+                                <span class="text-nowrap">
+                                    @if (y.ClientLaDung.HasValue)
+                                    {
+                                        <span class="badge @(y.IsCorrect ? "bg-success" : "bg-danger")">
+                                            Bạn: @(y.ClientLaDung.Value ? "Đúng" : "Sai")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Bỏ trống</span>
+                                    }
+                                    <span class="badge bg-info text-dark">Đáp án: @(y.DapAnDung ? "Đúng" : "Sai")</span>
+                                </span>
                             </div>
                         }
-                    </div>
+                    }
+                    else if (q.Loai == "TraLoiNgan")
+                    {
+                        <div class="py-2">
+                            <div class="mb-1">
+                                <span class="text-muted">Bạn trả lời: </span>
+                                <span class="fw-bold @(q.IsCorrect ? "text-success" : "text-danger")">
+                                    @(string.IsNullOrWhiteSpace(q.NoiDungTraLoi) ? "(bỏ trống)" : q.NoiDungTraLoi)
+                                </span>
+                            </div>
+                            <div>
+                                <span class="text-muted">Đáp án đúng: </span>
+                                <span class="fw-bold text-success">@q.DapAnTraLoiNgan</span>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="row g-3 ps-4">
+                            @foreach (var opt in q.Options)
+                            {
+                                var isCorrect = opt.IsCorrect;
+                                var isSelected = opt.IsSelected;
+                                string cls = "option-item";
+                                string icon = "";
+                                if (isCorrect) { cls += " border-success"; icon = "bi bi-check-circle-fill text-success ms-auto"; }
+                                else if (isSelected) { cls += " border-danger"; icon = "bi bi-x-circle-fill text-danger ms-auto"; }
+
+                                <div class="col-md-6">
+                                    <div class="@cls mb-0" style="pointer-events: none; @(cls.Contains("border-success") || cls.Contains("border-danger") ? "" : "opacity: .8;")">
+                                        <span class="option-label">@opt.Label</span>
+                                        <span class="flex-grow-1">@Html.Raw(opt.Content)</span>
+                                        <partial name="_QuestionImages" model="@opt.Images" />
+                                        <i class="@icon"></i>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
         }

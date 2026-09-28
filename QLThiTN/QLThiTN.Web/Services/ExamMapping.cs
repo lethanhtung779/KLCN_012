@@ -111,6 +111,7 @@ public static class ExamMapping
                 OrderIndex = q.OrderIndex,
                 Content = content,
                 TypeName = q.LoaiCauHoiText,
+                Loai = q.LoaiCauHoi,
                 Images = ToImagesExcluding(q.HinhAnh, apiBaseUrl, content),
                 Options = q.Options.Select(o =>
                 {
@@ -146,9 +147,27 @@ public static class ExamMapping
             {
                 OrderIndex = r.OrderIndex,
                 Content = content,
+                Loai = r.LoaiCauHoi,
                 SelectedOptionId = r.SelectedDapAnID,
                 IsCorrect = r.IsCorrect,
                 Images = ToImagesExcluding(r.HinhAnh, apiBaseUrl, content),
+                NoiDungTraLoi = r.NoiDungTraLoi,
+                DapAnTraLoiNgan = r.DapAnTraLoiNgan,
+                DiemDat = r.DiemDat,
+                DiemToiDa = r.DiemToiDa,
+                YResults = r.YResults.Select(y =>
+                {
+                    var yc = ToApiAbsoluteHtml(y.NoiDung, apiBaseUrl);
+                    return new YResultViewModel
+                    {
+                        Label = y.Label,
+                        Content = yc,
+                        DapAnDung = y.DapAnDung,
+                        ClientLaDung = y.ClientLaDung,
+                        IsCorrect = y.IsCorrect,
+                        Images = ToImagesExcluding(y.HinhAnh, apiBaseUrl, yc)
+                    };
+                }).ToList(),
                 Options = r.Options.Select(o =>
                 {
                     var oc = ToApiAbsoluteHtml(o.NoiDung, apiBaseUrl);

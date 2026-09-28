@@ -19,10 +19,29 @@ public class QuestionResultViewModel
 {
     public int OrderIndex { get; set; }
     public string Content { get; set; } = string.Empty;
+    public string Loai { get; set; } = string.Empty;
     public List<ImageViewModel> Images { get; set; } = new();
     public List<OptionResultViewModel> Options { get; set; } = new();
     public int? SelectedOptionId { get; set; }
     public bool IsCorrect { get; set; }
+
+    public List<YResultViewModel> YResults { get; set; } = new();
+    public string? NoiDungTraLoi { get; set; }
+    public string? DapAnTraLoiNgan { get; set; }
+    public decimal DiemDat { get; set; }
+    public decimal DiemToiDa { get; set; }
+}
+
+public class YResultViewModel
+{
+    public string Label { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    /// <summary>Dap an dung: true = Dung, false = Sai.</summary>
+    public bool DapAnDung { get; set; }
+    /// <summary>Thi sinh chon: null = bo trong.</summary>
+    public bool? ClientLaDung { get; set; }
+    public bool IsCorrect { get; set; }
+    public List<ImageViewModel> Images { get; set; } = new();
 }
 
 public class OptionResultViewModel

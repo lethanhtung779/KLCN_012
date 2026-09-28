@@ -83,6 +83,16 @@ public class SubmitAnswerDto
     public int CauHoiID { get; set; }
     public int? DapAnID { get; set; }
     public string? NoiDungTraLoi { get; set; }
+
+    /// <summary>Chon Dung/Sai cho tung y cua cau LoaiCauHoi = "DungSai".</summary>
+    public List<SubmitYChoiceDto> YChoices { get; set; } = new();
+}
+
+public class SubmitYChoiceDto
+{
+    public int DapAnID { get; set; }
+    /// <summary>Thi sinh chon y nay Dung (true) hay Sai (false). Null = khong tra loi.</summary>
+    public bool? LaDung { get; set; }
 }
 
 public class SubmitExamResultDto
@@ -107,6 +117,35 @@ public class QuestionResultDto
     public string GiaiThich { get; set; } = string.Empty;
     public List<HinhAnhDto> HinhAnh { get; set; } = new();
     public List<OptionResultApiDto> Options { get; set; } = new();
+
+    /// <summary>Ket qua tung y cua cau DungSai.</summary>
+    public List<YResultDto> YResults { get; set; } = new();
+
+    /// <summary>Tra loi ngan: thi sinh da go. Null voi loai cau khac.</summary>
+    public string? NoiDungTraLoi { get; set; }
+
+    /// <summary>Tra loi ngan: dap an dung cua he thong.</summary>
+    public string? DapAnTraLoiNgan { get; set; }
+
+    /// <summary>Diem dat duoc cho cau nay (tru diem theo tung y voi DungSai).</summary>
+    public decimal DiemDat { get; set; }
+
+    /// <summary>Diem toi da cua cau (cot Diem trong bang CauHoi).</summary>
+    public decimal DiemToiDa { get; set; }
+}
+
+public class YResultDto
+{
+    public int DapAnID { get; set; }
+    public int ThuTu { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string NoiDung { get; set; } = string.Empty;
+    /// <summary>Dap an dung cua y: true = Dung, false = Sai.</summary>
+    public bool DapAnDung { get; set; }
+    /// <summary>Thi sinh da chon: true = Dung, false = Sai, null = bo trong.</summary>
+    public bool? ClientLaDung { get; set; }
+    public bool IsCorrect { get; set; }
+    public List<HinhAnhDto> HinhAnh { get; set; } = new();
 }
 
 public class OptionResultApiDto
