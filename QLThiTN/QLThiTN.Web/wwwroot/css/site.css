@@ -156,12 +156,16 @@ main {
     border-radius: 30px;
     font-size: .85rem;
     font-weight: 600;
+    /* inline-block de mb-2/mb-3 tren the span co tac dung,
+       tao khoang cach that voi tieu de ben duoi */
+    display: inline-block;
 }
 
 .hero h1 {
     font-size: 2.6rem;
     font-weight: 800;
-    line-height: 1.2;
+    /* 1.25 de du cho cho dau thanh tren chu cai (e^, o^...) khong cham phan tu phia tren */
+    line-height: 1.25;
 }
 
 .hero p {
