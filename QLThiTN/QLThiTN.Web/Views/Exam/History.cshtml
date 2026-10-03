@@ -63,7 +63,7 @@
                                         <div class="fw-semibold">@item.ExamTitle</div>
                                         <small class="text-muted">@item.Duration phút • @item.StatusText</small>
                                     </td>
-                                    <td><span class="badge-status" style="background: rgba(124, 77, 255, .12); color: #5e2fd4;">@item.ExamKindText</span></td>
+                                    <td><span class="badge-status badge-status-purple">@item.ExamKindText</span></td>
                                     <td><span class="subject-badge">@item.SubjectName</span></td>
                                     <td>@(item.EndTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</td>
                                     <td class="text-center">
@@ -73,7 +73,7 @@
                                         }
                                         else
                                         {
-                                            <span class="badge-status" style="background: rgba(255, 159, 67, .15); color: #b36200;">Chờ công bố</span>
+                                            <span class="badge-status badge-status-warn">Chờ công bố</span>
                                         }
                                     </td>
                                     <td class="text-center">
@@ -81,19 +81,19 @@
                                         {
                                             if (item.Score >= 8)
                                             {
-                                                <span class="badge-status" style="background: rgba(40, 167, 69, .15); color: #1e7e34;">Giỏi</span>
+                                                <span class="badge-status badge-status-success">Giỏi</span>
                                             }
                                             else if (item.Score >= 6.5m)
                                             {
-                                                <span class="badge-status" style="background: rgba(1, 180, 255, .15); color: #0275a8;">Khá</span>
+                                                <span class="badge-status badge-status-info">Khá</span>
                                             }
                                             else if (item.Score >= 5)
                                             {
-                                                <span class="badge-status" style="background: rgba(255, 159, 67, .15); color: #b36200;">Trung bình</span>
+                                                <span class="badge-status badge-status-warn">Trung bình</span>
                                             }
                                             else
                                             {
-                                                <span class="badge-status" style="background: rgba(220, 53, 69, .15); color: #c82333;">Yếu</span>
+                                                <span class="badge-status badge-status-danger">Yếu</span>
                                             }
                                         }
                                         else

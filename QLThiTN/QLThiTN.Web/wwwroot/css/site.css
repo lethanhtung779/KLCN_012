@@ -5,6 +5,8 @@
     --accent2: #7c4dff;
     --success: #28a745;
     --danger: #dc3545;
+    --warning: #ff9f43;
+    --pink: #e83e8c;
     --gradient: linear-gradient(135deg, #01b4ff 0%, #7c4dff 100%);
     --gradient-dark: linear-gradient(135deg, #1b2a4e 0%, #2d4a8f 100%);
     --bg-soft: #f4f7fb;
@@ -16,7 +18,7 @@ html, body {
 }
 
 body {
-    font-family: 'Segoe UI', 'Helvetica Neue', -apple-system, system-ui, sans-serif;
+    font-family: 'Be Vietnam Pro', 'Segoe UI', 'Helvetica Neue', -apple-system, system-ui, sans-serif;
     background-color: var(--bg-soft);
     color: #2b3452;
     display: flex;
@@ -476,6 +478,67 @@ main {
     font-weight: 600;
 }
 
+/* Bo badge trang thai thong nhat — thay the cac inline style rgba roi rac */
+.badge-status-success {
+    background: rgba(40, 167, 69, .14);
+    color: #1e7e34;
+}
+
+.badge-status-warn {
+    background: rgba(255, 159, 67, .16);
+    color: #b36200;
+}
+
+.badge-status-muted {
+    background: rgba(108, 117, 125, .15);
+    color: #495057;
+}
+
+.badge-status-info {
+    background: rgba(1, 180, 255, .12);
+    color: #0275a8;
+}
+
+.badge-status-danger {
+    background: rgba(220, 53, 69, .14);
+    color: #c82333;
+}
+
+.badge-status-purple {
+    background: rgba(124, 77, 255, .12);
+    color: #5e2fd4;
+}
+
+/* Footer mau thuong hieu (thay cho inline style trong _Layout) */
+.site-footer {
+    background-color: var(--primary);
+}
+
+/* Menu dang mo duoc to dam vien duoi */
+.navbar .nav-link.active {
+    font-weight: 700;
+    position: relative;
+}
+
+.navbar .nav-link.active::after {
+    content: "";
+    position: absolute;
+    left: .5rem;
+    right: .5rem;
+    bottom: 2px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+/* Minh hoa SVG o hero trang chu */
+.hero-art {
+    width: 100%;
+    max-width: 460px;
+    height: auto;
+    filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .35));
+}
+
 .list-group-item.clickable {
     cursor: pointer;
     transition: background .15s ease;
@@ -584,17 +647,8 @@ p .katex-display {
     border-radius: 4px;
 }
 
-/* Anh nhung truc tiep trong noi dung cau hoi */
+/* Anh nhung truc tiep trong noi dung cau hoi / phuong an (the <img> do import_db.py sinh) */
 p img,
-.option-item img {
-    max-width: 100%;
-    max-height: 320px;
-    height: auto;
-    vertical-align: middle;
-}
-
-/* Anh noi tuyến trong NoiDung cau hoi (the <img> do import_db.py sinh) */
-.question-card p img,
 .option-item img,
 .question-card span img {
     max-width: 100%;
