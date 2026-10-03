@@ -8,6 +8,8 @@ public class ExamHistoryViewModel
 public class ExamHistoryItemViewModel
 {
     public int ExamId { get; set; }
+    public int? BaiLamId { get; set; }
+    public int DeThiId { get; set; }
     public string ExamTitle { get; set; } = string.Empty;
     public string SubjectName { get; set; } = string.Empty;
     public string ExamKindText { get; set; } = string.Empty;

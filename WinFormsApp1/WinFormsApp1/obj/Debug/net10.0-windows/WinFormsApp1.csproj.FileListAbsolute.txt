@@ -41,4 +41,3 @@ D:\KLCN\QLThiTN\WinFormsApp1\WinFormsApp1\obj\Debug\net10.0-windows\refint\WinFo
 D:\KLCN\QLThiTN\WinFormsApp1\WinFormsApp1\obj\Debug\net10.0-windows\WinFormsApp1.pdb
 D:\KLCN\QLThiTN\WinFormsApp1\WinFormsApp1\obj\Debug\net10.0-windows\WinFormsApp1.genruntimeconfig.cache
 D:\KLCN\QLThiTN\WinFormsApp1\WinFormsApp1\obj\Debug\net10.0-windows\ref\WinFormsApp1.dll
-D:\KLCN\QLThiTN\WinFormsApp1\WinFormsApp1\obj\Debug\net10.0-windows\WinForms.E4050A35.Up2Date

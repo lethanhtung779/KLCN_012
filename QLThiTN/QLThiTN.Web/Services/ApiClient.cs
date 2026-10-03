@@ -73,6 +73,21 @@ public class ApiClient
     {
         return await _http.GetFromJsonAsync<List<ApiMonHoc>>("/api/monhoc", JsonOptions) ?? new();
     }
+
+    public async Task<List<ApiHistoryItem>> GetHistoryAsync(int hocVienId)
+    {
+        return await _http.GetFromJsonAsync<List<ApiHistoryItem>>($"/api/bailam/history/{hocVienId}", JsonOptions) ?? new();
+    }
+
+    public async Task<ApiKetQua?> GetBaiLamDetailAsync(int baiLamId)
+    {
+        return await _http.GetFromJsonAsync<ApiKetQua>($"/api/bailam/{baiLamId}", JsonOptions);
+    }
+
+    public async Task<ApiStudentStats?> GetStudentStatsAsync(int hocVienId)
+    {
+        return await _http.GetFromJsonAsync<ApiStudentStats>($"/api/bailam/stats/{hocVienId}", JsonOptions);
+    }
 }
 
 public class ApiMessage

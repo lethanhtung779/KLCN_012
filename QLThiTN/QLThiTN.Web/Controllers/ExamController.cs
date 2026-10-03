@@ -77,9 +77,13 @@ public class ExamController : Controller
             return RedirectToAction(nameof(Taking), new { id = model.ExamId });
         }
 
+        var hocVienId = HttpContext.Session.GetInt32("HocVienId");
+
         var request = new ApiNopBaiRequest
         {
             DeThiID = model.ExamId,
+            HocVienID = hocVienId,
+            ThoiGianBatDau = model.StartTime > DateTime.MinValue ? model.StartTime : DateTime.Now.AddMinutes(-45),
             Answers = (model.Answers ?? new List<AnswerViewModel>())
                 .Select(a => new ApiCauTraLoi
                 {
@@ -98,6 +102,11 @@ public class ExamController : Controller
 
         var result = await _api.NopBaiAsync(request);
 
+        if (result.BaiLamID.HasValue && result.BaiLamID.Value > 0)
+        {
+            return RedirectToAction(nameof(Result), new { id = result.BaiLamID.Value });
+        }
+
         var exam = await _api.GetDeThiAsync(model.ExamId);
         var vm = ExamMapping.ToResult(
             result,
@@ -110,36 +119,52 @@ public class ExamController : Controller
     }
 
     [HttpGet]
-    public IActionResult Result(int id)
+    public async Task<IActionResult> Result(int id)
     {
-        // TODO: Gọi API /api/results/{id} để tải chi tiết kết quả đã lưu
-        return RedirectToAction(nameof(History));
+        var baiLam = await _api.GetBaiLamDetailAsync(id);
+        if (baiLam == null)
+        {
+            TempData["ErrorMessage"] = "Không tìm thấy kết quả bài làm.";
+            return RedirectToAction(nameof(History));
+        }
+
+        var vm = ExamMapping.ToResult(
+            baiLam,
+            string.IsNullOrWhiteSpace(baiLam.TenDe) ? $"Kỳ thi #{baiLam.DeThiID}" : baiLam.TenDe,
+            baiLam.DurationUsed > 0 ? baiLam.DurationUsed : 45,
+            baiLam.ThoiGianBatDau,
+            _api.BaseUrl);
+
+        return View(vm);
     }
 
     [HttpGet]
     public async Task<IActionResult> History()
     {
-        var exams = await _api.GetDeThisAsync();
+        var hocVienId = HttpContext.Session.GetInt32("HocVienId");
+        if (!hocVienId.HasValue)
+        {
+            ViewBag.RequireLogin = true;
+            return View(new ExamHistoryViewModel());
+        }
+
+        var historyItems = await _api.GetHistoryAsync(hocVienId.Value);
         var model = new ExamHistoryViewModel
         {
-            Items = exams
-                .Where(e => e.TrangThai == "DaDong")
-                .Select(e =>
-                {
-                    var kind = ExamMapping.ToExamKind(e.LoaiDe);
-                    return new ExamHistoryItemViewModel
-                    {
-                        ExamId = e.DeThiID,
-                        ExamTitle = e.TenDe,
-                        SubjectName = e.TenMon,
-                        ExamKindText = kind.ToDisplayName(),
-                        Score = 0m,
-                        EndTime = e.ThoiGianDongCong,
-                        StatusText = "Đã kết thúc",
-                        Duration = e.ThoiLuongLamBai ?? 45,
-                        ScorePublished = false
-                    };
-                }).ToList()
+            Items = historyItems.Select(h => new ExamHistoryItemViewModel
+            {
+                ExamId = h.BaiLamID,
+                BaiLamId = h.BaiLamID,
+                DeThiId = h.DeThiID,
+                ExamTitle = h.TenDe,
+                SubjectName = h.TenMon,
+                ExamKindText = h.LoaiDeText,
+                Score = h.TongDiem,
+                EndTime = h.ThoiGianNop,
+                StatusText = $"Lần thi {h.LanThi}",
+                Duration = h.ThoiLuongLamBai,
+                ScorePublished = h.ScorePublished
+            }).ToList()
         };
         return View(model);
     }

@@ -37,6 +37,7 @@
     <div class="container">
         <form id="examForm" asp-controller="Exam" asp-action="Submit" method="post">
             <input type="hidden" name="ExamId" value="@Model.ExamId" />
+            <input type="hidden" name="StartTime" value="@Model.StartTime.ToString("o")" />
             <div class="row g-4">
                 <!-- Questions -->
                 <div class="col-lg-8">
@@ -169,6 +170,55 @@
             // Khởi động đồng hồ đếm ngược
             examTimer.start(durationSeconds);
 
+            var examId = $('input[name="ExamId"]').val();
+            var storageKey = 'exam_draft_' + examId;
+
+            function saveDraft() {
+                try {
+                    var draft = {
+                        radios: [],
+                        texts: []
+                    };
+                    $('input[type="radio"]:checked').each(function () {
+                        draft.radios.push({ name: $(this).attr('name'), val: $(this).val() });
+                    });
+                    $('.tln-input').each(function () {
+                        draft.texts.push({ name: $(this).attr('name'), val: $(this).val() });
+                    });
+                    localStorage.setItem(storageKey, JSON.stringify(draft));
+                } catch (e) {
+                    console.warn('Lỗi lưu tạm bài thi:', e);
+                }
+            }
+
+            function loadDraft() {
+                try {
+                    var raw = localStorage.getItem(storageKey);
+                    if (!raw) return;
+                    var draft = JSON.parse(raw);
+                    if (draft.radios) {
+                        draft.radios.forEach(function (r) {
+                            var $input = $('input[name="' + r.name + '"][value="' + r.val + '"]');
+                            if ($input.length > 0) {
+                                $input.prop('checked', true);
+                                $input.closest('.option-item').addClass('selected');
+                            }
+                        });
+                    }
+                    if (draft.texts) {
+                        draft.texts.forEach(function (t) {
+                            $('input[name="' + t.name + '"]').val(t.val);
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Lỗi phục hồi bài thi tạm:', e);
+                }
+            }
+
+            // Phục hồi bài thi nếu có bản nháp
+            loadDraft();
+            updatePalette();
+
             // Xử lý chọn đáp án trắc nghiệm
             $('.option-item').on('click', function () {
                 var $option = $(this);
@@ -177,6 +227,7 @@
                 $option.addClass('selected');
                 $option.find('input[type="radio"]').prop('checked', true);
                 updatePalette();
+                saveDraft();
             });
 
             // Cau Dung/Sai: nhan Dung/Sai lam noi bat y dang chon
@@ -185,10 +236,14 @@
                     .find('.btn-check-dung, .btn-check-sai')
                     .removeClass('text-success text-danger fw-bold');
                 updatePalette();
+                saveDraft();
             });
 
             // Cau tra loi ngan: tinh ngay khi go
-            $('.tln-input').on('input', updatePalette);
+            $('.tln-input').on('input', function () {
+                updatePalette();
+                saveDraft();
+            });
 
             // Mot cau duoc tinh la DA TRA LOI khi:
             //  - TracNghiem: da chon 1 phuong an
@@ -233,6 +288,7 @@
                     $('.option-item').removeClass('selected');
                     $('input[type="radio"]').prop('checked', false);
                     $('.tln-input').val('');
+                    localStorage.removeItem(storageKey);
                     updatePalette();
                 }
             });
@@ -246,7 +302,9 @@
                     : 'Bạn chỉ mới trả lời ' + answered + '/' + total + ' câu. Vẫn nộp bài?';
                 if (!confirm(msg)) {
                     e.preventDefault();
+                    return false;
                 }
+                localStorage.removeItem(storageKey);
             });
         });
     </script>

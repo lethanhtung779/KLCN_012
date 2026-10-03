@@ -48,6 +48,8 @@ public class ApiDapAnBaiLam
 public class ApiNopBaiRequest
 {
     public int DeThiID { get; set; }
+    public int? HocVienID { get; set; }
+    public DateTime? ThoiGianBatDau { get; set; }
     public List<ApiCauTraLoi> Answers { get; set; } = new();
 }
 
@@ -68,12 +70,41 @@ public class ApiYChon
 
 public class ApiKetQua
 {
+    public int? BaiLamID { get; set; }
     public int DeThiID { get; set; }
+    public string TenDe { get; set; } = string.Empty;
+    public string TenMon { get; set; } = string.Empty;
     public decimal Score { get; set; }
     public int Total { get; set; }
     public int Correct { get; set; }
     public int Wrong { get; set; }
+    public DateTime ThoiGianBatDau { get; set; }
+    public DateTime ThoiGianNop { get; set; }
+    public int DurationUsed { get; set; }
     public List<ApiKetQuaCau> Results { get; set; } = new();
+}
+
+public class ApiHistoryItem
+{
+    public int BaiLamID { get; set; }
+    public int DeThiID { get; set; }
+    public string TenDe { get; set; } = string.Empty;
+    public string TenMon { get; set; } = string.Empty;
+    public string LoaiDe { get; set; } = string.Empty;
+    public string LoaiDeText { get; set; } = string.Empty;
+    public int LanThi { get; set; }
+    public DateTime ThoiGianNop { get; set; }
+    public decimal TongDiem { get; set; }
+    public int ThoiLuongLamBai { get; set; }
+    public string TrangThai { get; set; } = string.Empty;
+    public bool ScorePublished { get; set; } = true;
+}
+
+public class ApiStudentStats
+{
+    public int TotalExams { get; set; }
+    public decimal AverageScore { get; set; }
+    public decimal HighestScore { get; set; }
 }
 
 public class ApiKetQuaCau

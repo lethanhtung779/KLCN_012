@@ -39,6 +39,7 @@ public class OptionViewModel
 public class SubmitExamViewModel
 {
     public int ExamId { get; set; }
+    public DateTime? StartTime { get; set; }
     public List<AnswerViewModel> Answers { get; set; } = new();
 }
 

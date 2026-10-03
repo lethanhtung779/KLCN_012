@@ -295,13 +295,156 @@ public class DeThiController : ControllerBase
             ? Math.Round(tongDiemDat / tongDiemToiDa * 10, 2, MidpointRounding.AwayFromZero)
             : 0m;
 
+        // Lưu bài làm vào Database
+        var de = await _db.DeThis
+            .Include(d => d.MonHoc)
+            .FirstOrDefaultAsync(d => d.DeThiID == id);
+
+        int hocVienId = request.HocVienID ?? 0;
+        if (hocVienId <= 0 || !await _db.HocViens.AnyAsync(h => h.HocVienID == hocVienId))
+        {
+            var guest = await _db.HocViens.Include(h => h.TaiKhoan)
+                .FirstOrDefaultAsync(h => h.TaiKhoan!.TenDangNhap == "khach")
+                ?? await _db.HocViens.OrderBy(h => h.HocVienID).FirstOrDefaultAsync();
+            hocVienId = guest?.HocVienID ?? 1;
+        }
+
+        var dotThi = await _db.DotThis
+            .Where(d => d.DeThiID == id && d.TrangThai == "DangMo")
+            .OrderByDescending(d => d.DotThiID)
+            .FirstOrDefaultAsync()
+            ?? await _db.DotThis.OrderByDescending(d => d.DotThiID).FirstOrDefaultAsync(d => d.DeThiID == id);
+
+        if (dotThi == null)
+        {
+            dotThi = new DotThi
+            {
+                DeThiID = id,
+                TenDotThi = "Đợt thi - " + (de?.TenDe ?? $"Đề #{id}"),
+                ThoiGianMoCong = DateTime.Now.AddDays(-1),
+                ThoiGianDongCong = DateTime.Now.AddDays(30),
+                ThoiLuongLamBai = 45,
+                TrangThai = "DangMo",
+                PhamVi = "ToanTruong",
+                SoLanThiToiDa = 0
+            };
+            _db.DotThis.Add(dotThi);
+            await _db.SaveChangesAsync();
+        }
+
+        var maDe = await _db.MaDeThis.FirstOrDefaultAsync(m => m.DeThiID == id);
+        if (maDe == null)
+        {
+            maDe = new MaDeThi { DeThiID = id, TenMaDe = "101" };
+            _db.MaDeThis.Add(maDe);
+            await _db.SaveChangesAsync();
+        }
+
+        var maxLanThi = await _db.BaiLams
+            .Where(b => b.HocVienID == hocVienId && b.DotThiID == dotThi.DotThiID)
+            .Select(b => (int?)b.LanThi)
+            .MaxAsync() ?? 0;
+        var lanThi = maxLanThi + 1;
+
+        var now = DateTime.Now;
+        var startTime = request.ThoiGianBatDau ?? now.AddMinutes(-(dotThi.ThoiLuongLamBai > 0 ? dotThi.ThoiLuongLamBai : 45));
+        var durationUsed = (int)Math.Max(1, Math.Round((now - startTime).TotalMinutes));
+
+        var baiLam = new BaiLam
+        {
+            HocVienID = hocVienId,
+            DotThiID = dotThi.DotThiID,
+            MaDeID = maDe.MaDeID,
+            LanThi = lanThi,
+            ThoiGianBatDau = startTime,
+            ThoiGianNop = now,
+            TongDiem = score,
+            TrangThai = "DaNop"
+        };
+        _db.BaiLams.Add(baiLam);
+        await _db.SaveChangesAsync();
+
+        var resultMap = results.ToDictionary(r => r.CauHoiID);
+        var chiTietsToInsert = new List<ChiTietBaiLam>();
+        foreach (var item in items)
+        {
+            var res = resultMap.GetValueOrDefault(item.CauHoiID);
+            var ct = new ChiTietBaiLam
+            {
+                BaiLamID = baiLam.BaiLamID,
+                CauHoiID = item.CauHoiID,
+                DiemDatDuoc = res?.DiemDat ?? 0m
+            };
+            chiTietsToInsert.Add(ct);
+        }
+        _db.ChiTietBaiLams.AddRange(chiTietsToInsert);
+        await _db.SaveChangesAsync();
+
+        var luaChonsToInsert = new List<LuaChonBaiLam>();
+        foreach (var ct in chiTietsToInsert)
+        {
+            var answer = answerMap.GetValueOrDefault(ct.CauHoiID);
+            var cau = items.First(x => x.CauHoiID == ct.CauHoiID).CauHoi!;
+
+            if (cau.LoaiCauHoi == "TraLoiNgan")
+            {
+                if (!string.IsNullOrWhiteSpace(answer?.NoiDungTraLoi))
+                {
+                    luaChonsToInsert.Add(new LuaChonBaiLam
+                    {
+                        ChiTietID = ct.ChiTietID,
+                        DapAnID = null,
+                        NoiDungTraLoi = answer.NoiDungTraLoi.Trim()
+                    });
+                }
+            }
+            else if (cau.LoaiCauHoi == "DungSai")
+            {
+                if (answer?.YChoices != null)
+                {
+                    foreach (var y in answer.YChoices.Where(y => y.DapAnID > 0))
+                    {
+                        luaChonsToInsert.Add(new LuaChonBaiLam
+                        {
+                            ChiTietID = ct.ChiTietID,
+                            DapAnID = y.DapAnID,
+                            NoiDungTraLoi = y.LaDung == true ? "Dung" : (y.LaDung == false ? "Sai" : null)
+                        });
+                    }
+                }
+            }
+            else // TracNghiem
+            {
+                if (answer?.DapAnID != null && answer.DapAnID > 0)
+                {
+                    luaChonsToInsert.Add(new LuaChonBaiLam
+                    {
+                        ChiTietID = ct.ChiTietID,
+                        DapAnID = answer.DapAnID,
+                        NoiDungTraLoi = null
+                    });
+                }
+            }
+        }
+        if (luaChonsToInsert.Count > 0)
+        {
+            _db.LuaChonBaiLams.AddRange(luaChonsToInsert);
+            await _db.SaveChangesAsync();
+        }
+
         return Ok(new SubmitExamResultDto
         {
+            BaiLamID = baiLam.BaiLamID,
             DeThiID = id,
+            TenDe = de?.TenDe ?? $"Kỳ thi #{id}",
+            TenMon = de?.MonHoc?.TenMon ?? string.Empty,
             Score = score,
             Total = total,
             Correct = correct,
             Wrong = total - correct,
+            ThoiGianBatDau = startTime,
+            ThoiGianNop = now,
+            DurationUsed = durationUsed,
             Results = results
         });
     }

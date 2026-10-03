@@ -16,12 +16,26 @@ public class HomeController : Controller
         var exams = await _api.GetDeThisAsync();
         var schedules = exams.Select(ExamMapping.ToSchedule).ToList();
 
+        int completedExams = 0;
+        decimal averageScore = 0m;
+
+        var hocVienId = HttpContext.Session.GetInt32("HocVienId");
+        if (hocVienId.HasValue)
+        {
+            var stats = await _api.GetStudentStatsAsync(hocVienId.Value);
+            if (stats != null)
+            {
+                completedExams = stats.TotalExams;
+                averageScore = stats.AverageScore;
+            }
+        }
+
         var model = new HomeViewModel
         {
             TotalExams = schedules.Count,
             UpcomingExams = schedules.Count(e => e.EndTime >= DateTime.Now),
-            CompletedExams = 0,
-            AverageScore = 0m,
+            CompletedExams = completedExams,
+            AverageScore = averageScore,
             LatestExams = schedules.Take(6).ToList(),
             LatestPublicExams = schedules
                 .Where(e => e.ExamKind == ExamKind.PublicMock)

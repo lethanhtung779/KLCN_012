@@ -32,4 +32,6 @@ public class BaiLam
     public DotThi? DotThi { get; set; }
 
     public MaDeThi? MaDeThi { get; set; }
+
+    public List<ChiTietBaiLam> ChiTietBaiLams { get; set; } = new();
 }

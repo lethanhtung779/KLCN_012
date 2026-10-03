@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj": {}
+    "d:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj": {}
   },
   "projects": {
-    "D:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj": {
+    "d:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj",
+        "projectUniqueName": "d:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj",
         "projectName": "WinFormsApp1",
-        "projectPath": "D:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj",
+        "projectPath": "d:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\WinFormsApp1.csproj",
         "packagesPath": "C:\\Users\\TUNG\\.nuget\\packages\\",
-        "outputPath": "D:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\obj\\",
+        "outputPath": "d:\\KLCN\\QLThiTN\\WinFormsApp1\\WinFormsApp1\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

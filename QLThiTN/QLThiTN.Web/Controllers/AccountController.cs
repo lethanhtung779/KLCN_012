@@ -43,6 +43,10 @@ public class AccountController : Controller
         HttpContext.Session.SetInt32(SessionUserId, user.TaiKhoanID);
         HttpContext.Session.SetString(SessionUserRole, user.VaiTro);
         HttpContext.Session.SetString(SessionEmail, user.Email);
+        if (user.HocVienID.HasValue)
+        {
+            HttpContext.Session.SetInt32("HocVienId", user.HocVienID.Value);
+        }
         return RedirectToAction("Index", "Home");
     }
 

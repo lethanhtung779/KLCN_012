@@ -109,7 +109,7 @@ public class QLThiTNDbContext : DbContext
         modelBuilder.Entity<ChiTietBaiLam>(e =>
         {
             e.HasIndex(x => new { x.BaiLamID, x.CauHoiID }).IsUnique();
-            e.HasOne(x => x.BaiLam).WithMany().HasForeignKey(x => x.BaiLamID);
+            e.HasOne(x => x.BaiLam).WithMany(b => b.ChiTietBaiLams).HasForeignKey(x => x.BaiLamID);
             e.HasOne(x => x.CauHoi).WithMany().HasForeignKey(x => x.CauHoiID);
         });
 
