@@ -3,19 +3,40 @@ using System.Text.Json;
 
 namespace QLThiTN.Web.Services;
 
-public class ApiClient
-{
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    public class ApiClient
     {
-        PropertyNameCaseInsensitive = true
-    };
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
-    private readonly HttpClient _http;
+        private readonly HttpClient _http;
 
-    public ApiClient(HttpClient http) => _http = http;
+        public ApiClient(HttpClient http) => _http = http;
 
-    /// <summary>Dia chi API dang dung, de ghep duong dan anh tuong doi thanh URL day du.</summary>
-    public string BaseUrl => _http.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+        /// <summary>Dia chi API dang dung, de ghep duong dan anh tuong doi thanh URL day du.</summary>
+        public string BaseUrl => _http.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+
+        /// <summary>Doc message tu body loi cua API; body co the la JSON hoac text thuan
+        /// (vd trang loi 500 cua developer exception page).</summary>
+        private async Task<string?> ReadErrorMessageAsync(HttpResponseMessage response)
+        {
+            try
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                if (string.IsNullOrWhiteSpace(body)) return null;
+                if (body.TrimStart().StartsWith('{'))
+                {
+                    var msg = System.Text.Json.JsonSerializer.Deserialize<ApiMessage>(body, JsonOptions);
+                    if (!string.IsNullOrWhiteSpace(msg?.Message)) return msg.Message;
+                }
+                return null; // body la text loi he thong -> de web hien thong bao chung
+            }
+            catch
+            {
+                return null;
+            }
+        }
 
     public async Task<List<ApiDeThi>> GetDeThisAsync(int? monHocId = null, string? loaiDe = null)
     {
@@ -52,8 +73,8 @@ public class ApiClient
         if (response.IsSuccessStatusCode)
             return (await response.Content.ReadFromJsonAsync<ApiKetQua>(JsonOptions), null);
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (null, body?.Message ?? $"Nop bai that bai ({(int)response.StatusCode}).");
+        var err = await ReadErrorMessageAsync(response);
+        return (null, err ?? $"Nop bai that bai ({(int)response.StatusCode}).");
     }
 
     /// <summary>Goi bat dau lam bai: kiem tra thoi gian/so lan thi/dang ky,
@@ -64,8 +85,8 @@ public class ApiClient
         if (response.IsSuccessStatusCode)
             return (await response.Content.ReadFromJsonAsync<ApiBatDauResult>(JsonOptions), null);
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (null, body?.Message ?? "Khong the bat dau bai thi.");
+        var err = await ReadErrorMessageAsync(response);
+        return (null, err ?? "Khong the bat dau bai thi.");
     }
 
     public async Task<(bool Success, string? Error)> LuuTamAsync(int deThiId, ApiLuuTamRequest request)
@@ -73,8 +94,8 @@ public class ApiClient
         var response = await _http.PostAsJsonAsync($"/api/dethi/{deThiId}/luutam", request, JsonOptions);
         if (response.IsSuccessStatusCode) return (true, null);
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (false, body?.Message ?? "Luu tam that bai.");
+        var err = await ReadErrorMessageAsync(response);
+        return (false, err ?? "Luu tam that bai.");
     }
 
     public async Task<List<ApiDotThi>> GetDotThisAsync(int? hocVienId = null)
@@ -89,8 +110,8 @@ public class ApiClient
         if (response.IsSuccessStatusCode)
             return (true, "Đăng ký đợt thi thành công!");
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (false, body?.Message ?? "Đăng ký thất bại.");
+        var err = await ReadErrorMessageAsync(response);
+        return (false, err ?? "Đăng ký thất bại.");
     }
 
     public async Task<(bool Success, string Message)> HuyDangKyDotThiAsync(int dotThiId, int hocVienId)
@@ -99,8 +120,8 @@ public class ApiClient
         if (response.IsSuccessStatusCode)
             return (true, "Đã hủy đăng ký đợt thi.");
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (false, body?.Message ?? "Hủy đăng ký thất bại.");
+        var err = await ReadErrorMessageAsync(response);
+        return (false, err ?? "Hủy đăng ký thất bại.");
     }
 
     public async Task<ApiProfile?> GetProfileAsync(int taiKhoanId)
@@ -114,8 +135,8 @@ public class ApiClient
         if (response.IsSuccessStatusCode)
             return (true, "Cập nhật thông tin thành công!");
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (false, body?.Message ?? "Cập nhật thất bại.");
+        var err = await ReadErrorMessageAsync(response);
+        return (false, err ?? "Cập nhật thất bại.");
     }
 
     public async Task<(bool Success, string Message)> ChangePasswordAsync(ApiChangePasswordRequest request)
@@ -124,8 +145,8 @@ public class ApiClient
         if (response.IsSuccessStatusCode)
             return (true, "Đổi mật khẩu thành công!");
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (false, body?.Message ?? "Đổi mật khẩu thất bại.");
+        var err = await ReadErrorMessageAsync(response);
+        return (false, err ?? "Đổi mật khẩu thất bại.");
     }
 
     public async Task<ApiLoginResult?> LoginAsync(string username, string password)
@@ -148,8 +169,8 @@ public class ApiClient
         if (response.IsSuccessStatusCode)
             return (true, "Đăng ký tài khoản thành công! Vui lòng đăng nhập.");
 
-        var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
-        return (false, body?.Message ?? "Đăng ký thất bại.");
+        var err = await ReadErrorMessageAsync(response);
+        return (false, err ?? "Đăng ký thất bại.");
     }
 
     public async Task<List<ApiMonHoc>> GetMonHocsAsync()

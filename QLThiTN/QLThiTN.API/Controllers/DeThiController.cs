@@ -559,7 +559,6 @@ public class DeThiController : ControllerBase
                     DiemDatDuoc = res?.DiemDat ?? 0m
                 };
                 _db.ChiTietBaiLams.Add(ct);
-                baiLam.ChiTietBaiLams.Add(ct);
                 ctMap[item.CauHoiID] = ct;
             }
         }
@@ -622,7 +621,14 @@ public class DeThiController : ControllerBase
     private async Task<int> LuuDapAnTamAsync(BaiLam baiLam, List<DeThi_CauHoi> items, List<SubmitAnswerDto> answers)
     {
         var answerMap = answers.ToDictionary(a => a.CauHoiID);
-        var ctMap = baiLam.ChiTietBaiLams.ToDictionary(ct => ct.CauHoiID);
+
+        // Doc lai chi tiet hien co tu DB thay vi dung navigation da Include:
+        // them dong chao ca hai duong (navigation + FK) deu bi EF fixup la
+        // nguyen nhan trung CauHoiID trong collection.
+        var ctMap = await _db.ChiTietBaiLams
+            .Where(x => x.BaiLamID == baiLam.BaiLamID)
+            .Include(x => x.LuaChonBaiLams)
+            .ToDictionaryAsync(x => x.CauHoiID);
         var changed = false;
 
         foreach (var item in items)
@@ -652,7 +658,6 @@ public class DeThiController : ControllerBase
                     DiemDatDuoc = 0
                 };
                 _db.ChiTietBaiLams.Add(ct);
-                baiLam.ChiTietBaiLams.Add(ct);
                 ctMap[item.CauHoiID] = ct;
                 changed = true;
             }
@@ -666,8 +671,9 @@ public class DeThiController : ControllerBase
 
             foreach (var lc in BuildLuaChon(cau, answer, ct.ChiTietID))
             {
+                // Gan navigation thay vi FK de EF tu sinh ChiTietID cho chi tiet moi
+                lc.ChiTietBaiLam = ct;
                 _db.LuaChonBaiLams.Add(lc);
-                ct.LuaChonBaiLams.Add(lc);
                 changed = true;
             }
         }
@@ -693,12 +699,13 @@ public class DeThiController : ControllerBase
         {
             foreach (var y in answer?.YChoices ?? new List<SubmitYChoiceDto>())
             {
-                if (y.DapAnID > 0)
+                // Chi ghi nhung y thi sinh thuc su chon Dung/Sai
+                if (y.DapAnID > 0 && y.LaDung != null)
                     rows.Add(new LuaChonBaiLam
                     {
                         ChiTietID = chiTietID,
                         DapAnID = y.DapAnID,
-                        NoiDungTraLoi = y.LaDung == true ? "Dung" : (y.LaDung == false ? "Sai" : null)
+                        NoiDungTraLoi = y.LaDung == true ? "Dung" : "Sai"
                     });
             }
         }

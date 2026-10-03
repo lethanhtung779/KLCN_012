@@ -90,7 +90,7 @@ public class ExamController : Controller
     [HttpPost]
     [RequireLogin]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> DangKy(int id)
+    public async Task<IActionResult> DangKy(int id, int deThiId)
     {
         if (HocVienId is not int hocVienId)
             return RedirectToAction("Login", "Account");
@@ -98,14 +98,17 @@ public class ExamController : Controller
         var (success, message) = await _api.DangKyDotThiAsync(id, hocVienId);
         TempData[success ? "SuccessMessage" : "ErrorMessage"] = message;
 
-        var exam = await _api.GetDeThiAsync(id);
-        return RedirectToAction(nameof(Detail), new { id });
+        if (deThiId > 0)
+            return RedirectToAction(nameof(Detail), new { id = deThiId });
+
+        // Khong biet DeThiID -> tra ve lich thi
+        return RedirectToAction(nameof(Schedule));
     }
 
     [HttpPost]
     [RequireLogin]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> HuyDangKy(int id)
+    public async Task<IActionResult> HuyDangKy(int id, int deThiId)
     {
         if (HocVienId is not int hocVienId)
             return RedirectToAction("Login", "Account");
@@ -113,7 +116,10 @@ public class ExamController : Controller
         var (success, message) = await _api.HuyDangKyDotThiAsync(id, hocVienId);
         TempData[success ? "SuccessMessage" : "ErrorMessage"] = message;
 
-        return RedirectToAction(nameof(Detail), new { id });
+        if (deThiId > 0)
+            return RedirectToAction(nameof(Detail), new { id = deThiId });
+
+        return RedirectToAction(nameof(Schedule));
     }
 
     [HttpGet]
@@ -171,7 +177,7 @@ public class ExamController : Controller
                     DapAnID = a.SelectedOptionId,
                     NoiDungTraLoi = a.NoiDungTraLoi,
                     YChoices = (a.YChoices ?? new List<YChoiceViewModel>())
-                        .Where(y => y.DapAnID > 0)
+                        .Where(y => y.DapAnID > 0 && y.LaDung != null)
                         .Select(y => new ApiYChon { DapAnID = y.DapAnID, LaDung = y.LaDung })
                         .ToList()
                 }).ToList()
@@ -213,7 +219,7 @@ public class ExamController : Controller
                     DapAnID = a.SelectedOptionId,
                     NoiDungTraLoi = a.NoiDungTraLoi,
                     YChoices = (a.YChoices ?? new List<YChoiceViewModel>())
-                        .Where(y => y.DapAnID > 0)
+                        .Where(y => y.DapAnID > 0 && y.LaDung != null)
                         .Select(y => new ApiYChon
                         {
                             DapAnID = y.DapAnID,
