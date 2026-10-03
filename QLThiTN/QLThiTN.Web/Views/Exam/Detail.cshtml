@@ -1,8 +1,12 @@
 @model ExamDetailViewModel
 @{
     ViewData["Title"] = Model.Title;
-}
+    var now = DateTime.Now;
+    var isOpen = Model.StartTime <= now && Model.EndTime >= now;
 
+    // Đợt thi có giới hạn số lượng => bắt buộc đăng ký; không giới hạn => thi thử công khai
+    bool requireRegister = Model.DotThiID.HasValue && Model.SoChoConLai.HasValue && !Model.HasRegistered;
+}
 <section class="hero py-4">
     <div class="container position-relative">
         <div class="row align-items-center">
@@ -32,19 +36,77 @@
                             <span class="fw-bold">@(Model.EndTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</span>
                         </div>
                         <div class="d-flex align-items-center justify-content-between py-2">
-                            <span class="text-muted small"><i class="bi bi-people me-2"></i>Giới hạn thí sinh</span>
-                            <span class="fw-bold">@(Model.MaxStudents.HasValue ? Model.MaxStudents + " người" : "Không giới hạn")</span>
+                            <span class="text-muted small"><i class="bi bi-people me-2"></i>Thí sinh đăng ký</span>
+                            <span class="fw-bold">
+                                @if (Model.SoChoConLai.HasValue)
+                                {
+                                    <text>@Model.SoDangKy người — còn @(Model.SoChoConLai.Value) chỗ</text>
+                                }
+                                else
+                                {
+                                    <text>@(Model.SoDangKy > 0 ? Model.SoDangKy + " người" : "Không giới hạn")</text>
+                                }
+                            </span>
                         </div>
-                        <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 btn-lg mt-3">
-                            @if (Model.HasRegistered)
+
+                        @if (Model.HasRegistered)
+                        {
+                            @if (isOpen)
                             {
-                                <text><i class="bi bi-pencil-square me-2"></i>Làm bài ngay</text>
+                                <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 btn-lg mt-3">
+                                    <i class="bi bi-pencil-square me-2"></i>Làm bài ngay
+                                </a>
+                                <form asp-controller="Exam" asp-action="HuyDangKy" asp-route-id="@Model.DotThiID" method="post" class="mt-2">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-outline-danger btn-sm w-100"
+                                            onclick="return confirm('Bạn chắc chắn muốn hủy đăng ký đợt thi này?');">
+                                        <i class="bi bi-x-circle me-1"></i>Hủy đăng ký
+                                    </button>
+                                </form>
                             }
                             else
                             {
-                                <text><i class="bi bi-person-plus me-2"></i>Đăng ký thi</text>
+                                <div class="btn btn-primary-custom w-100 btn-lg mt-3 disabled" aria-disabled="true">
+                                    <i class="bi bi-hourglass-split me-2"></i>Chưa đến giờ thi
+                                </div>
                             }
-                        </a>
+                        }
+                        else if (requireRegister)
+                        {
+                            @if (isOpen && Model.CanRegister)
+                            {
+                                <form asp-controller="Exam" asp-action="DangKy" asp-route-id="@Model.DotThiID" method="post" class="mt-3">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-primary-custom w-100 btn-lg">
+                                        <i class="bi bi-person-plus me-2"></i>Đăng ký thi
+                                    </button>
+                                </form>
+                                <small class="text-muted d-block text-center mt-2">Đợt thi theo lớp — bạn cần đăng ký trước khi vào thi.</small>
+                            }
+                            else
+                            {
+                                <div class="btn btn-primary-custom w-100 btn-lg mt-3 disabled" aria-disabled="true">
+                                    <i class="bi bi-slash-circle me-2"></i>@(isOpen ? "Đã đủ số lượng" : "Chưa thể đăng ký")
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            // Thi thử công khai (không giới hạn số lượng): vào thi trực tiếp
+                            if (isOpen)
+                            {
+                                <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 btn-lg mt-3">
+                                    <i class="bi bi-play-circle me-2"></i>Vào thi ngay
+                                </a>
+                                <small class="text-muted d-block text-center mt-2">Thi thử công khai — không cần đăng ký.</small>
+                            }
+                            else
+                            {
+                                <div class="btn btn-primary-custom w-100 btn-lg mt-3 disabled" aria-disabled="true">
+                                    <i class="bi bi-stop-circle me-2"></i>@(Model.StartTime > now ? "Chưa mở công" : "Đã kết thúc")
+                                </div>
+                            }
+                        }
                     </div>
                 </div>
             </div>
@@ -59,10 +121,10 @@
                 <h5 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>Quy chế thi</h5>
                 <ul class="mb-0 text-muted">
                     <li class="mb-2">Bài thi gồm @Model.QuestionCount câu hỏi trắc nghiệm, thời gian làm bài @Model.Duration phút.</li>
-                    <li class="mb-2">Bạn chỉ được phép vào thi trong khoảng thời gian từ <b>@(Model.StartTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</b> đến <b>@(Model.EndTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</b>.</li>
-                    <li class="mb-2">Đồng hồ đếm ngược sẽ được hiển thị trong suốt quá trình làm bài; hệ thống tự động nộp bài khi hết giờ.</li>
-                    <li class="mb-2">Mỗi câu hỏi chỉ được chọn một đáp án. Có thể thay đổi đáp án trước khi nộp bài.</li>
-                    <li class="mb-2">Kết quả điểm sẽ được thông báo ngay sau khi nộp bài.</li>
+                    <li class="mb-2">Bạn chỉ được phép vào thi trong khoảng thời gian từ <b>@(Model.StartTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</b> đến <b>@(Model.EndTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</b>; thời gian còn lại được tính theo đồng hồ của máy chủ nên tải lại trang không được cộng thêm giờ.</li>
+                    <li class="mb-2">Tiến trình làm bài được hệ thống tự động lưu liên tục — gặp sự cố (mất mạng, tắt máy) bạn đăng nhập lại là làm tiếp từ chỗ đã lưu.</li>
+                    <li class="mb-2">Hết giờ hệ thống tự động nộp bài và chấm điểm; có thể thay đổi đáp án bất cứ lúc nào trước khi nộp.</li>
+                    <li class="mb-2">Kết quả điểm được hiển thị ngay sau khi nộp bài nếu trung tâm cho phép công bố sớm, ngược lại sẽ hiển thị khi có thông báo.</li>
                 </ul>
             </div>
         </div>

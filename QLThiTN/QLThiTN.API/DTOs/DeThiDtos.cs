@@ -76,6 +76,14 @@ public class SubmitExamRequestDto
 {
     public int DeThiID { get; set; }
     public int? HocVienID { get; set; }
+
+    /// <summary>ID bai lam trang thai DangLam tao boi POST {id}/batdau.
+    /// Neu co, nopbai se cap nhat bai nay thay vi tao moi.</summary>
+    public int? BaiLamID { get; set; }
+
+    /// <summary>true = he thong tu dong nop khi het gio (BaiLam.TrangThai = HetGio).</summary>
+    public bool HetGio { get; set; }
+
     public DateTime? ThoiGianBatDau { get; set; }
     public List<SubmitAnswerDto> Answers { get; set; } = new();
 }
@@ -110,13 +118,71 @@ public class SubmitExamResultDto
     public DateTime ThoiGianBatDau { get; set; }
     public DateTime ThoiGianNop { get; set; }
     public int DurationUsed { get; set; }
+    public bool ScorePublished { get; set; } = true;
     public List<QuestionResultDto> Results { get; set; } = new();
+}
+
+// ---------------------------------------------------------------------------
+// Bat dau / luu tam bai thi
+// ---------------------------------------------------------------------------
+
+public class BatDauRequestDto
+{
+    [System.ComponentModel.DataAnnotations.Required]
+    public int HocVienID { get; set; }
+}
+
+public class SavedAnswerDto
+{
+    public int CauHoiID { get; set; }
+    public int? DapAnID { get; set; }
+    public string? NoiDungTraLoi { get; set; }
+    public List<SubmitYChoiceDto> YChoices { get; set; } = new();
+}
+
+public class BatDauResponseDto
+{
+    public int BaiLamID { get; set; }
+    public int DotThiID { get; set; }
+    public int LanThi { get; set; }
+
+    /// <summary>true = phuc hoi bai lam dang lam du (F5, mat ket noi).</summary>
+    public bool IsResume { get; set; }
+
+    /// <summary>So giay con lai tinh theo dong ho server.</summary>
+    public int RemainingSeconds { get; set; }
+
+    public DateTime ThoiGianBatDau { get; set; }
+    public DateTime ThoiGianDongCong { get; set; }
+
+    /// <summary>Thoi luong lam bai cua dot thi (phut).</summary>
+    public int ThoiLuongLamBai { get; set; }
+
+    public List<SavedAnswerDto> SavedAnswers { get; set; } = new();
+}
+
+public class LuuTamRequestDto
+{
+    [System.ComponentModel.DataAnnotations.Required]
+    public int BaiLamID { get; set; }
+
+    [System.ComponentModel.DataAnnotations.Required]
+    public int HocVienID { get; set; }
+
+    public List<SubmitAnswerDto> Answers { get; set; } = new();
+}
+
+public class LuuTamResponseDto
+{
+    public DateTime LuuLuc { get; set; }
+    public int SoCauDaLuu { get; set; }
 }
 
 public class BaiLamHistoryItemDto
 {
     public int BaiLamID { get; set; }
     public int DeThiID { get; set; }
+    public int? DotThiID { get; set; }
     public string TenDe { get; set; } = string.Empty;
     public string TenMon { get; set; } = string.Empty;
     public string LoaiDe { get; set; } = string.Empty;

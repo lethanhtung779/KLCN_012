@@ -9,7 +9,7 @@ builder.Services.AddSession(options =>
 });
 builder.Services.AddHttpClient<QLThiTN.Web.Services.ApiClient>(client =>
 {
-    var baseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5080";
+    var baseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5264";
     client.BaseAddress = new Uri(baseUrl);
     client.Timeout = TimeSpan.FromSeconds(30);
 });

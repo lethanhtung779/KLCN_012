@@ -15,7 +15,7 @@ public class DotThiController : ControllerBase
     public DotThiController(QLThiTNDbContext db) => _db = db;
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public async Task<IActionResult> GetAll([FromQuery] int? hocVienId)
     {
         var list = await _db.DotThis
             .Include(d => d.DeThi)
@@ -23,7 +23,29 @@ public class DotThiController : ControllerBase
             .OrderBy(d => d.ThoiGianMoCong)
             .ToListAsync();
 
-        return Ok(list.Select(ToDto));
+        var counts = await _db.DangKyDotThis
+            .Where(k => k.TrangThai != "DaHuy")
+            .GroupBy(k => k.DotThiID)
+            .Select(g => new { DotThiID = g.Key, SoLuong = g.Count() })
+            .ToDictionaryAsync(x => x.DotThiID, x => x.SoLuong);
+
+        var myRegs = hocVienId.HasValue
+            ? (await _db.DangKyDotThis
+                .Where(k => k.HocVienID == hocVienId.Value && k.TrangThai != "DaHuy")
+                .Select(k => k.DotThiID)
+                .ToListAsync()).ToHashSet()
+            : new HashSet<int>();
+
+        return Ok(list.Select(d =>
+        {
+            var dto = ToDto(d);
+            dto.SoDangKy = counts.GetValueOrDefault(d.DotThiID);
+            dto.SoChoConLai = d.GioiHanSoLuong.HasValue
+                ? d.GioiHanSoLuong.Value - dto.SoDangKy
+                : null;
+            dto.DaDangKy = myRegs.Contains(d.DotThiID);
+            return dto;
+        }));
     }
 
     [HttpGet("{id:int}")]
@@ -72,6 +94,64 @@ public class DotThiController : ControllerBase
         _db.DotThis.Remove(dot);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpPost("{id:int}/dangky")]
+    public async Task<IActionResult> DangKy(int id, [FromBody] DangKyDotThiRequestDto request)
+    {
+        var dot = await _db.DotThis.FirstOrDefaultAsync(d => d.DotThiID == id);
+        if (dot is null) return NotFound(new { message = "Khong tim thay dot thi" });
+
+        if (dot.TrangThai == "DaDong" || dot.ThoiGianDongCong < DateTime.Now)
+            return BadRequest(new { message = "Dot thi da dong, khong the dang ky" });
+
+        var hv = await _db.HocViens.FindAsync(request.HocVienID);
+        if (hv is null) return BadRequest(new { message = "Hoc vien khong ton tai" });
+
+        var existing = await _db.DangKyDotThis
+            .FirstOrDefaultAsync(k => k.DotThiID == id && k.HocVienID == request.HocVienID);
+
+        if (existing is not null && existing.TrangThai != "DaHuy")
+            return Conflict(new { message = "Ban da dang ky dot thi nay" });
+
+        if (dot.GioiHanSoLuong.HasValue && existing is null)
+        {
+            var soDangKy = await _db.DangKyDotThis
+                .CountAsync(k => k.DotThiID == id && k.TrangThai != "DaHuy");
+            if (soDangKy >= dot.GioiHanSoLuong.Value)
+                return Conflict(new { message = "Dot thi da du so luong thi sinh" });
+        }
+
+        if (existing is not null)
+        {
+            existing.TrangThai = "DaDangKy";
+            existing.NgayDangKy = DateTime.Now;
+        }
+        else
+        {
+            _db.DangKyDotThis.Add(new DangKyDotThi
+            {
+                HocVienID = request.HocVienID,
+                DotThiID = id,
+                TrangThai = "DaDangKy",
+                NgayDangKy = DateTime.Now
+            });
+        }
+        await _db.SaveChangesAsync();
+
+        return Ok(new { message = "Dang ky dot thi thanh cong" });
+    }
+
+    [HttpDelete("{id:int}/dangky/{hocVienId:int}")]
+    public async Task<IActionResult> HuyDangKy(int id, int hocVienId)
+    {
+        var dk = await _db.DangKyDotThis
+            .FirstOrDefaultAsync(k => k.DotThiID == id && k.HocVienID == hocVienId && k.TrangThai != "DaHuy");
+        if (dk is null) return NotFound(new { message = "Ban chua dang ky dot thi nay" });
+
+        dk.TrangThai = "DaHuy";
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Da huy dang ky dot thi" });
     }
 
     private static DotThiDto ToDto(DotThi d) => new()

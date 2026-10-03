@@ -14,52 +14,69 @@
         </div>
         <h2 class="fw-bold mb-3">@Model.ExamTitle</h2>
 
-        <div class="d-flex justify-content-center align-items-center flex-wrap gap-4 mt-4">
-            <div class="score-circle">
-                <span class="text-white-50 small">Điểm số</span>
-                <span class="score-val">@Model.Score.ToString("0.00")</span>
-                <span class="text-white-50 small">/ 10.00</span>
-            </div>
-            <div class="d-flex flex-column gap-3 align-items-start">
-                <span class="score-badge bg-success bg-opacity-25 text-white"><i class="bi bi-check-circle-fill me-2"></i>Trả lời đúng: @Model.CorrectAnswers câu</span>
-                <span class="score-badge bg-danger bg-opacity-25 text-white"><i class="bi bi-x-circle-fill me-2"></i>Trả lời sai: @Model.WrongAnswers câu</span>
-            </div>
-        </div>
-
-        <div class="row justify-content-center mt-4">
-            <div class="col-lg-6">
-                <div class="progress" style="height: 18px; border-radius: 30px; background: rgba(255,255,255,.15);">
-                    <div class="progress-bar" role="progressbar"
-                         style="width: @percentage%; background: var(--gradient); border-radius: 30px;"
-                         aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">@percentage%</div>
+        @if (Model.ScorePublished)
+        {
+            <div class="d-flex justify-content-center align-items-center flex-wrap gap-4 mt-4">
+                <div class="score-circle">
+                    <span class="text-white-50 small">Điểm số</span>
+                    <span class="score-val">@Model.Score.ToString("0.00")</span>
+                    <span class="text-white-50 small">/ 10.00</span>
+                </div>
+                <div class="d-flex flex-column gap-3 align-items-start">
+                    <span class="score-badge bg-success bg-opacity-25 text-white"><i class="bi bi-check-circle-fill me-2"></i>Trả lời đúng: @Model.CorrectAnswers câu</span>
+                    <span class="score-badge bg-danger bg-opacity-25 text-white"><i class="bi bi-x-circle-fill me-2"></i>Trả lời sai: @Model.WrongAnswers câu</span>
                 </div>
             </div>
-        </div>
+
+            <div class="row justify-content-center mt-4">
+                <div class="col-lg-6">
+                    <div class="progress" style="height: 18px; border-radius: 30px; background: rgba(255,255,255,.15);">
+                        <div class="progress-bar" role="progressbar"
+                             style="width: @percentage%; background: var(--gradient); border-radius: 30px;"
+                             aria-valuenow="@percentage" aria-valuemin="0" aria-valuemax="100">@percentage%</div>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex justify-content-center mt-4">
+                <div class="d-flex flex-column gap-3 align-items-center">
+                    <span class="score-badge bg-warning bg-opacity-25 text-white" style="font-size: 1.05rem;">
+                        <i class="bi bi-hourglass-split me-2"></i>Bài thi đã được nộp thành công
+                    </span>
+                    <span class="text-white-50">Điểm số của bạn sẽ được trung tâm công bố sau khi đợt thi kết thúc.</span>
+                </div>
+            </div>
+        }
     </div>
 </section>
 
 <!-- Summary -->
 <section class="py-4">
     <div class="container">
-        <div class="row g-4">
-            <div class="col-md-3">
-                <div class="card stat-card text-center">
-                    <div class="card-body">
-                        <span class="stat-icon mb-2 mx-auto" style="background: var(--success);"><i class="bi bi-check2-circle"></i></span>
-                        <h3 class="mt-2">@Model.CorrectAnswers</h3>
-                        <div class="stat-label">Đúng</div>
+        <div class="row g-4 @(Model.ScorePublished ? "" : "justify-content-center")">
+            @if (Model.ScorePublished)
+            {
+                <div class="col-md-3">
+                    <div class="card stat-card text-center">
+                        <div class="card-body">
+                            <span class="stat-icon mb-2 mx-auto" style="background: var(--success);"><i class="bi bi-check2-circle"></i></span>
+                            <h3 class="mt-2">@Model.CorrectAnswers</h3>
+                            <div class="stat-label">Đúng</div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card stat-card text-center">
-                    <div class="card-body">
-                        <span class="stat-icon mb-2 mx-auto" style="background: var(--danger);"><i class="bi bi-x-circle"></i></span>
-                        <h3 class="mt-2">@Model.WrongAnswers</h3>
-                        <div class="stat-label">Sai</div>
+                <div class="col-md-3">
+                    <div class="card stat-card text-center">
+                        <div class="card-body">
+                            <span class="stat-icon mb-2 mx-auto" style="background: var(--danger);"><i class="bi bi-x-circle"></i></span>
+                            <h3 class="mt-2">@Model.WrongAnswers</h3>
+                            <div class="stat-label">Sai</div>
+                        </div>
                     </div>
                 </div>
-            </div>
+            }
             <div class="col-md-3">
                 <div class="card stat-card text-center">
                     <div class="card-body">
@@ -85,6 +102,19 @@
 <!-- Review answers -->
 <section class="py-4">
     <div class="container">
+        @if (!Model.ScorePublished)
+        {
+            <div class="card border-0 rounded-4 shadow-sm">
+                <div class="card-body p-5 text-center text-muted">
+                    <i class="bi bi-eye-slash fs-1 d-block mb-3" style="color: var(--accent); opacity: .5;"></i>
+                    <h5 class="fw-bold">Kết quả chi tiết chưa được công bố</h5>
+                    <p class="mb-0">Trung tâm chưa cho phép hiển thị điểm và đáp án của đợt thi này.<br />
+                    Vui lòng quay lại sau khi đợt thi kết thúc.</p>
+                </div>
+            </div>
+        }
+        else
+        {
         <h5 class="fw-bold mb-4"><i class="bi bi-clipboard-check me-2"></i>Chi tiết bài làm</h5>
 
         @foreach (var q in Model.QuestionResults)
@@ -177,5 +207,6 @@
                 <a asp-controller="Exam" asp-action="History" class="btn btn-outline-secondary btn-lg"><i class="bi bi-clock-history me-2"></i>Lịch sử thi</a>
             </div>
         </div>
+        }
     </div>
 </section>

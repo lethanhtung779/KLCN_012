@@ -154,19 +154,200 @@ public class DeThiController : ControllerBase
         }));
     }
 
+    /// <summary>Bat dau (hoac phuc hoi) bai thi: kiem tra cua so thoi gian, so lan thi,
+    /// dang ky dot thi; tao BaiLam trang thai DangLam va tra ve so giay con lai
+    /// tinh theo dong ho server (F5 khong duoc them thoi gian).</summary>
+    [HttpPost("{id:int}/batdau")]
+    public async Task<IActionResult> BatDau(int id, [FromBody] BatDauRequestDto request)
+    {
+        var de = await _db.DeThis
+            .Include(d => d.DotThis)
+            .FirstOrDefaultAsync(d => d.DeThiID == id);
+        if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
+
+        var hv = await _db.HocViens.FindAsync(request.HocVienID);
+        if (hv is null) return Unauthorized(new { message = "Ban can dang nhap de lam bai thi" });
+
+        var now = DateTime.Now;
+        var dot = de.DotThis.FirstOrDefault();
+        if (dot is null)
+        {
+            dot = TaoDotThiFallback(de);
+            await _db.SaveChangesAsync();
+        }
+
+        if (dot.ThoiGianMoCong > now)
+            return BadRequest(new { message = "De thi chua mo cong, vui long quay lai dung han" });
+        if (dot.ThoiGianDongCong < now)
+            return BadRequest(new { message = "De thi da dong cong, het han lam bai" });
+
+        // SoLanThiToiDa <= 0 = khong gioi han (du lieu cu co the de 0)
+        if (dot.SoLanThiToiDa > 0)
+        {
+            var soLanDa = await _db.BaiLams
+                .CountAsync(b => b.HocVienID == request.HocVienID
+                    && b.DotThiID == dot.DotThiID && b.TrangThai != "DangLam");
+            if (soLanDa >= dot.SoLanThiToiDa)
+                return Conflict(new { message = $"Ban da het luot thi toi da ({dot.SoLanThiToiDa} lan)" });
+        }
+
+        // Dot thi co gioi han so luong = thi theo lop/hoc vien duoc phan cong,
+        // bat buoc dang ky truoc. Thi thu cong khai (khong gioi han) thi vao tu do.
+        if (dot.GioiHanSoLuong.HasValue)
+        {
+            var daDangKy = await _db.DangKyDotThis
+                .AnyAsync(k => k.DotThiID == dot.DotThiID
+                    && k.HocVienID == request.HocVienID && k.TrangThai != "DaHuy");
+            if (!daDangKy)
+                return StatusCode(403, new { message = "Ban chua dang ky dot thi nay. Hay dang ky truoc khi vao thi." });
+        }
+
+        var thoiLuong = dot.ThoiLuongLamBai > 0 ? dot.ThoiLuongLamBai : 45;
+
+        var dangLam = await _db.BaiLams
+            .Include(b => b.ChiTietBaiLams)
+                .ThenInclude(ct => ct.LuaChonBaiLams)
+            .FirstOrDefaultAsync(b => b.HocVienID == request.HocVienID
+                && b.DotThiID == dot.DotThiID && b.TrangThai == "DangLam");
+
+        BaiLam baiLam;
+        bool isResume;
+        if (dangLam is not null)
+        {
+            baiLam = dangLam;
+            isResume = true;
+        }
+        else
+        {
+            var maDe = await _db.MaDeThis.FirstOrDefaultAsync(m => m.DeThiID == id);
+            if (maDe == null)
+            {
+                maDe = new MaDeThi { DeThiID = id, TenMaDe = "101" };
+                _db.MaDeThis.Add(maDe);
+                await _db.SaveChangesAsync();
+            }
+
+            var maxLanThi = await _db.BaiLams
+                .Where(b => b.HocVienID == request.HocVienID && b.DotThiID == dot.DotThiID)
+                .Select(b => (int?)b.LanThi)
+                .MaxAsync() ?? 0;
+
+            baiLam = new BaiLam
+            {
+                HocVienID = request.HocVienID,
+                DotThiID = dot.DotThiID,
+                MaDeID = maDe.MaDeID,
+                LanThi = maxLanThi + 1,
+                ThoiGianBatDau = now,
+                TrangThai = "DangLam"
+            };
+            _db.BaiLams.Add(baiLam);
+            await _db.SaveChangesAsync();
+            isResume = false;
+        }
+
+        var remainingSeconds = Math.Max(0, thoiLuong * 60 - (int)(now - baiLam.ThoiGianBatDau).TotalSeconds);
+
+        // Phuc hoi dap an da luu (neu co) de web khoi phuc form
+        var savedAnswers = new List<SavedAnswerDto>();
+        if (baiLam.ChiTietBaiLams.Count > 0)
+        {
+            var loaiMap = await _db.DeThi_CauHois
+                .Where(x => x.DeThiID == id)
+                .Include(x => x.CauHoi)
+                .ToDictionaryAsync(x => x.CauHoiID, x => x.CauHoi!.LoaiCauHoi);
+
+            foreach (var ct in baiLam.ChiTietBaiLams)
+            {
+                if (!loaiMap.TryGetValue(ct.CauHoiID, out var loai)) continue;
+                var saved = new SavedAnswerDto { CauHoiID = ct.CauHoiID };
+                foreach (var lc in ct.LuaChonBaiLams)
+                {
+                    if (loai == "DungSai")
+                    {
+                        saved.YChoices.Add(new SubmitYChoiceDto
+                        {
+                            DapAnID = lc.DapAnID ?? 0,
+                            LaDung = lc.NoiDungTraLoi == "Dung" ? true
+                                : lc.NoiDungTraLoi == "Sai" ? false : null
+                        });
+                    }
+                    else if (loai == "TraLoiNgan")
+                    {
+                        saved.NoiDungTraLoi = lc.NoiDungTraLoi;
+                    }
+                    else
+                    {
+                        saved.DapAnID = lc.DapAnID;
+                    }
+                }
+                if (saved.DapAnID != null || saved.NoiDungTraLoi != null || saved.YChoices.Count > 0)
+                    savedAnswers.Add(saved);
+            }
+        }
+
+        return Ok(new BatDauResponseDto
+        {
+            BaiLamID = baiLam.BaiLamID,
+            DotThiID = dot.DotThiID,
+            LanThi = baiLam.LanThi,
+            IsResume = isResume,
+            RemainingSeconds = remainingSeconds,
+            ThoiGianBatDau = baiLam.ThoiGianBatDau,
+            ThoiGianDongCong = dot.ThoiGianDongCong,
+            ThoiLuongLamBai = thoiLuong,
+            SavedAnswers = savedAnswers
+        });
+    }
+
+    /// <summary>Luu tam dap an vao DB cho bai thi DangLam (goi dinh ky tu web).</summary>
+    [HttpPost("{id:int}/luutam")]
+    public async Task<IActionResult> LuuTam(int id, [FromBody] LuuTamRequestDto request)
+    {
+        var baiLam = await _db.BaiLams
+            .Include(b => b.ChiTietBaiLams)
+                .ThenInclude(ct => ct.LuaChonBaiLams)
+            .FirstOrDefaultAsync(b => b.BaiLamID == request.BaiLamID);
+        if (baiLam is null) return NotFound(new { message = "Khong tim thay bai lam" });
+        if (baiLam.HocVienID != request.HocVienID)
+            return Unauthorized(new { message = "Bai lam khong thuoc ve hoc vien nay" });
+        if (baiLam.TrangThai != "DangLam")
+            return BadRequest(new { message = "Bai thi da duoc nop, khong the luu tiep" });
+
+        var items = await LoadExamItemsAsync(id);
+        var soCau = await LuuDapAnTamAsync(baiLam, items, request.Answers);
+
+        return Ok(new LuuTamResponseDto { LuuLuc = DateTime.Now, SoCauDaLuu = soCau });
+    }
+
     [HttpPost("{id:int}/nopbai")]
     public async Task<IActionResult> Submit(int id, [FromBody] SubmitExamRequestDto request)
     {
-        var items = await _db.DeThi_CauHois
-            .Where(x => x.DeThiID == id)
-            .OrderBy(x => x.ThuTu)
-            .Include(x => x.CauHoi)
-                .ThenInclude(c => c!.DapAns)
-                    .ThenInclude(d => d.HinhAnhs)
-            .Include(x => x.CauHoi)
-                .ThenInclude(c => c!.HinhAnhs)
-            .ToListAsync();
+        var de = await _db.DeThis
+            .Include(d => d.MonHoc)
+            .Include(d => d.DotThis)
+            .FirstOrDefaultAsync(d => d.DeThiID == id);
+        if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
 
+        var now = DateTime.Now;
+        var dotThi = de.DotThis.FirstOrDefault();
+        if (dotThi is null)
+        {
+            dotThi = TaoDotThiFallback(de);
+            await _db.SaveChangesAsync();
+        }
+
+        // Chi chan nop thu cong ngoai cua so thoi gian; tu dong nop khi het gio
+        // (HetGio) van duoc chap nhan de chot bai thi sinh dang lam truoc do.
+        if (!request.HetGio)
+        {
+            if (dotThi.ThoiGianMoCong > now)
+                return BadRequest(new { message = "De thi chua mo cong, khong the nop bai" });
+            if (dotThi.ThoiGianDongCong < now)
+                return BadRequest(new { message = "De thi da dong cong, khong the nop bai" });
+        }
+
+        var items = await LoadExamItemsAsync(id);
         if (items.Count == 0) return NotFound();
 
         var answerMap = request.Answers.ToDictionary(a => a.CauHoiID);
@@ -296,10 +477,6 @@ public class DeThiController : ControllerBase
             : 0m;
 
         // Lưu bài làm vào Database
-        var de = await _db.DeThis
-            .Include(d => d.MonHoc)
-            .FirstOrDefaultAsync(d => d.DeThiID == id);
-
         int hocVienId = request.HocVienID ?? 0;
         if (hocVienId <= 0 || !await _db.HocViens.AnyAsync(h => h.HocVienID == hocVienId))
         {
@@ -307,29 +484,6 @@ public class DeThiController : ControllerBase
                 .FirstOrDefaultAsync(h => h.TaiKhoan!.TenDangNhap == "khach")
                 ?? await _db.HocViens.OrderBy(h => h.HocVienID).FirstOrDefaultAsync();
             hocVienId = guest?.HocVienID ?? 1;
-        }
-
-        var dotThi = await _db.DotThis
-            .Where(d => d.DeThiID == id && d.TrangThai == "DangMo")
-            .OrderByDescending(d => d.DotThiID)
-            .FirstOrDefaultAsync()
-            ?? await _db.DotThis.OrderByDescending(d => d.DotThiID).FirstOrDefaultAsync(d => d.DeThiID == id);
-
-        if (dotThi == null)
-        {
-            dotThi = new DotThi
-            {
-                DeThiID = id,
-                TenDotThi = "Đợt thi - " + (de?.TenDe ?? $"Đề #{id}"),
-                ThoiGianMoCong = DateTime.Now.AddDays(-1),
-                ThoiGianDongCong = DateTime.Now.AddDays(30),
-                ThoiLuongLamBai = 45,
-                TrangThai = "DangMo",
-                PhamVi = "ToanTruong",
-                SoLanThiToiDa = 0
-            };
-            _db.DotThis.Add(dotThi);
-            await _db.SaveChangesAsync();
         }
 
         var maDe = await _db.MaDeThis.FirstOrDefaultAsync(m => m.DeThiID == id);
@@ -340,97 +494,79 @@ public class DeThiController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        var maxLanThi = await _db.BaiLams
-            .Where(b => b.HocVienID == hocVienId && b.DotThiID == dotThi.DotThiID)
-            .Select(b => (int?)b.LanThi)
-            .MaxAsync() ?? 0;
-        var lanThi = maxLanThi + 1;
+        BaiLam baiLam;
+        if (request.BaiLamID is int baiLamId && baiLamId > 0)
+        {
+            // Luong chuan: web da goi batdau truoc khi lam bai, cap nhat bai DangLam
+            var existing = await _db.BaiLams
+                .Include(b => b.ChiTietBaiLams)
+                    .ThenInclude(ct => ct.LuaChonBaiLams)
+                .FirstOrDefaultAsync(b => b.BaiLamID == baiLamId);
+            if (existing is null)
+                return BadRequest(new { message = "Bai lam khong ton tai hoac da het han" });
+            if (existing.HocVienID != hocVienId || existing.DotThiID != dotThi.DotThiID)
+                return BadRequest(new { message = "Bai lam khong hop le voi dot thi nay" });
+            if (existing.TrangThai != "DangLam")
+                return BadRequest(new { message = "Bai thi da duoc nop truoc do" });
 
-        var now = DateTime.Now;
-        var startTime = request.ThoiGianBatDau ?? now.AddMinutes(-(dotThi.ThoiLuongLamBai > 0 ? dotThi.ThoiLuongLamBai : 45));
+            baiLam = existing;
+            baiLam.ThoiGianNop = now;
+            baiLam.TongDiem = score;
+            baiLam.TrangThai = request.HetGio ? "HetGio" : "DaNop";
+        }
+        else
+        {
+            // Luong du phong: goi nopbai truc tiep ma khong qua batdau
+            var maxLanThi = await _db.BaiLams
+                .Where(b => b.HocVienID == hocVienId && b.DotThiID == dotThi.DotThiID)
+                .Select(b => (int?)b.LanThi)
+                .MaxAsync() ?? 0;
+
+            baiLam = new BaiLam
+            {
+                HocVienID = hocVienId,
+                DotThiID = dotThi.DotThiID,
+                MaDeID = maDe.MaDeID,
+                LanThi = maxLanThi + 1,
+                ThoiGianBatDau = request.ThoiGianBatDau
+                    ?? now.AddMinutes(-(dotThi.ThoiLuongLamBai > 0 ? dotThi.ThoiLuongLamBai : 45)),
+                ThoiGianNop = now,
+                TongDiem = score,
+                TrangThai = request.HetGio ? "HetGio" : "DaNop"
+            };
+            _db.BaiLams.Add(baiLam);
+            await _db.SaveChangesAsync();
+        }
+
+        var startTime = baiLam.ThoiGianBatDau;
         var durationUsed = (int)Math.Max(1, Math.Round((now - startTime).TotalMinutes));
 
-        var baiLam = new BaiLam
-        {
-            HocVienID = hocVienId,
-            DotThiID = dotThi.DotThiID,
-            MaDeID = maDe.MaDeID,
-            LanThi = lanThi,
-            ThoiGianBatDau = startTime,
-            ThoiGianNop = now,
-            TongDiem = score,
-            TrangThai = "DaNop"
-        };
-        _db.BaiLams.Add(baiLam);
-        await _db.SaveChangesAsync();
-
         var resultMap = results.ToDictionary(r => r.CauHoiID);
-        var chiTietsToInsert = new List<ChiTietBaiLam>();
+        var ctMap = baiLam.ChiTietBaiLams.ToDictionary(ct => ct.CauHoiID);
         foreach (var item in items)
         {
             var res = resultMap.GetValueOrDefault(item.CauHoiID);
-            var ct = new ChiTietBaiLam
+            if (ctMap.TryGetValue(item.CauHoiID, out var ct))
             {
-                BaiLamID = baiLam.BaiLamID,
-                CauHoiID = item.CauHoiID,
-                DiemDatDuoc = res?.DiemDat ?? 0m
-            };
-            chiTietsToInsert.Add(ct);
+                ct.DiemDatDuoc = res?.DiemDat ?? 0m;
+            }
+            else
+            {
+                ct = new ChiTietBaiLam
+                {
+                    BaiLamID = baiLam.BaiLamID,
+                    CauHoiID = item.CauHoiID,
+                    DiemDatDuoc = res?.DiemDat ?? 0m
+                };
+                _db.ChiTietBaiLams.Add(ct);
+                baiLam.ChiTietBaiLams.Add(ct);
+                ctMap[item.CauHoiID] = ct;
+            }
         }
-        _db.ChiTietBaiLams.AddRange(chiTietsToInsert);
         await _db.SaveChangesAsync();
 
-        var luaChonsToInsert = new List<LuaChonBaiLam>();
-        foreach (var ct in chiTietsToInsert)
-        {
-            var answer = answerMap.GetValueOrDefault(ct.CauHoiID);
-            var cau = items.First(x => x.CauHoiID == ct.CauHoiID).CauHoi!;
-
-            if (cau.LoaiCauHoi == "TraLoiNgan")
-            {
-                if (!string.IsNullOrWhiteSpace(answer?.NoiDungTraLoi))
-                {
-                    luaChonsToInsert.Add(new LuaChonBaiLam
-                    {
-                        ChiTietID = ct.ChiTietID,
-                        DapAnID = null,
-                        NoiDungTraLoi = answer.NoiDungTraLoi.Trim()
-                    });
-                }
-            }
-            else if (cau.LoaiCauHoi == "DungSai")
-            {
-                if (answer?.YChoices != null)
-                {
-                    foreach (var y in answer.YChoices.Where(y => y.DapAnID > 0))
-                    {
-                        luaChonsToInsert.Add(new LuaChonBaiLam
-                        {
-                            ChiTietID = ct.ChiTietID,
-                            DapAnID = y.DapAnID,
-                            NoiDungTraLoi = y.LaDung == true ? "Dung" : (y.LaDung == false ? "Sai" : null)
-                        });
-                    }
-                }
-            }
-            else // TracNghiem
-            {
-                if (answer?.DapAnID != null && answer.DapAnID > 0)
-                {
-                    luaChonsToInsert.Add(new LuaChonBaiLam
-                    {
-                        ChiTietID = ct.ChiTietID,
-                        DapAnID = answer.DapAnID,
-                        NoiDungTraLoi = null
-                    });
-                }
-            }
-        }
-        if (luaChonsToInsert.Count > 0)
-        {
-            _db.LuaChonBaiLams.AddRange(luaChonsToInsert);
-            await _db.SaveChangesAsync();
-        }
+        // Ghi lua chon cua thi sinh (thay the toan bo lua chon cu neu co)
+        await LuuDapAnTamAsync(baiLam, items, request.Answers);
 
         return Ok(new SubmitExamResultDto
         {
@@ -445,8 +581,133 @@ public class DeThiController : ControllerBase
             ThoiGianBatDau = startTime,
             ThoiGianNop = now,
             DurationUsed = durationUsed,
+            ScorePublished = dotThi.CongBoDiemSom || dotThi.ThoiGianDongCong <= now,
             Results = results
         });
+    }
+
+    private async Task<List<DeThi_CauHoi>> LoadExamItemsAsync(int id) =>
+        await _db.DeThi_CauHois
+            .Where(x => x.DeThiID == id)
+            .OrderBy(x => x.ThuTu)
+            .Include(x => x.CauHoi)
+                .ThenInclude(c => c!.DapAns)
+                    .ThenInclude(d => d.HinhAnhs)
+            .Include(x => x.CauHoi)
+                .ThenInclude(c => c!.HinhAnhs)
+            .ToListAsync();
+
+    /// <summary>Dot thi du phong khi de chua duoc lap lich (mo 30 ngay, khong gioi han).</summary>
+    private DotThi TaoDotThiFallback(DeThi de)
+    {
+        var dot = new DotThi
+        {
+            DeThiID = de.DeThiID,
+            TenDotThi = "Đợt thi - " + (de.TenDe ?? $"Đề #{de.DeThiID}"),
+            ThoiGianMoCong = DateTime.Now.AddDays(-1),
+            ThoiGianDongCong = DateTime.Now.AddDays(30),
+            ThoiLuongLamBai = 45,
+            TrangThai = "DangMo",
+            PhamVi = "ToanTruong",
+            SoLanThiToiDa = 0
+        };
+        _db.DotThis.Add(dot);
+        de.DotThis.Add(dot);
+        return dot;
+    }
+
+    /// <summary>Ghi (thay the) lua chon cua thi sinh cho tung cau — dung chung cho
+    /// luutam (autosave) va nopbai. Chi tao ChiTietBaiLam cho cau co noi dung;
+    /// cau bo trong thi xoa du lieu cu neu co.</summary>
+    private async Task<int> LuuDapAnTamAsync(BaiLam baiLam, List<DeThi_CauHoi> items, List<SubmitAnswerDto> answers)
+    {
+        var answerMap = answers.ToDictionary(a => a.CauHoiID);
+        var ctMap = baiLam.ChiTietBaiLams.ToDictionary(ct => ct.CauHoiID);
+        var changed = false;
+
+        foreach (var item in items)
+        {
+            var cau = item.CauHoi!;
+            var answer = answerMap.GetValueOrDefault(item.CauHoiID);
+            var hasContent = HasAnyContent(answer);
+            var hasOld = ctMap.TryGetValue(item.CauHoiID, out var ct);
+
+            if (!hasContent)
+            {
+                if (hasOld && ct!.LuaChonBaiLams.Count > 0)
+                {
+                    _db.LuaChonBaiLams.RemoveRange(ct.LuaChonBaiLams);
+                    ct.LuaChonBaiLams.Clear();
+                    changed = true;
+                }
+                continue;
+            }
+
+            if (!hasOld)
+            {
+                ct = new ChiTietBaiLam
+                {
+                    BaiLamID = baiLam.BaiLamID,
+                    CauHoiID = item.CauHoiID,
+                    DiemDatDuoc = 0
+                };
+                _db.ChiTietBaiLams.Add(ct);
+                baiLam.ChiTietBaiLams.Add(ct);
+                ctMap[item.CauHoiID] = ct;
+                changed = true;
+            }
+
+            if (ct!.LuaChonBaiLams.Count > 0)
+            {
+                _db.LuaChonBaiLams.RemoveRange(ct.LuaChonBaiLams);
+                ct.LuaChonBaiLams.Clear();
+                changed = true;
+            }
+
+            foreach (var lc in BuildLuaChon(cau, answer, ct.ChiTietID))
+            {
+                _db.LuaChonBaiLams.Add(lc);
+                ct.LuaChonBaiLams.Add(lc);
+                changed = true;
+            }
+        }
+
+        if (changed) await _db.SaveChangesAsync();
+        return ctMap.Values.Count(ct => ct.LuaChonBaiLams.Count > 0);
+    }
+
+    private static bool HasAnyContent(SubmitAnswerDto? a) =>
+        a is not null && ((a.DapAnID is int id && id > 0)
+            || !string.IsNullOrWhiteSpace(a.NoiDungTraLoi)
+            || a.YChoices.Any(y => y.DapAnID > 0));
+
+    private static List<LuaChonBaiLam> BuildLuaChon(CauHoi cau, SubmitAnswerDto? answer, int chiTietID)
+    {
+        var rows = new List<LuaChonBaiLam>();
+        if (cau.LoaiCauHoi == "TraLoiNgan")
+        {
+            if (!string.IsNullOrWhiteSpace(answer?.NoiDungTraLoi))
+                rows.Add(new LuaChonBaiLam { ChiTietID = chiTietID, DapAnID = null, NoiDungTraLoi = answer.NoiDungTraLoi.Trim() });
+        }
+        else if (cau.LoaiCauHoi == "DungSai")
+        {
+            foreach (var y in answer?.YChoices ?? new List<SubmitYChoiceDto>())
+            {
+                if (y.DapAnID > 0)
+                    rows.Add(new LuaChonBaiLam
+                    {
+                        ChiTietID = chiTietID,
+                        DapAnID = y.DapAnID,
+                        NoiDungTraLoi = y.LaDung == true ? "Dung" : (y.LaDung == false ? "Sai" : null)
+                    });
+            }
+        }
+        else // TracNghiem
+        {
+            if (answer?.DapAnID is int da && da > 0)
+                rows.Add(new LuaChonBaiLam { ChiTietID = chiTietID, DapAnID = da, NoiDungTraLoi = null });
+        }
+        return rows;
     }
 
     private static decimal DiemMacDinh(string loai) => loai switch

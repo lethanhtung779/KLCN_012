@@ -3,7 +3,13 @@
     ViewData["Title"] = "Làm bài thi: " + Model.ExamTitle;
     Layout = "_Layout";
     var totalQuestions = Model.Questions.Count;
-    var durationSeconds = Model.Duration * 60;
+
+    // Dap an da luu tren server (phuc hoi bai lam) — tra cuoc theo CauHoiID
+    var savedByQuestion = Model.SavedAnswers.ToDictionary(a => a.CauHoiID);
+    string? SavedText(int qid) => savedByQuestion.TryGetValue(qid, out var a) ? a.NoiDungTraLoi : null;
+    int? SavedOption(int qid) => savedByQuestion.TryGetValue(qid, out var a) ? a.DapAnID : null;
+    bool? SavedY(int qid, int dapAnId) => savedByQuestion.TryGetValue(qid, out var a)
+        ? a.YChoices.Where(y => y.DapAnID == dapAnId).Select(y => y.LaDung).FirstOrDefault() : null;
 }
 
 <!-- Exam header -->
@@ -25,6 +31,14 @@
     </div>
 </header>
 
+@if (Model.IsResume)
+{
+    <div class="alert alert-info alert-dismissible fade show m-4 mb-0">
+        <i class="bi bi-cloud-arrow-down me-2"></i><b>Đã phục hồi bài làm:</b> hệ thống đã khôi phục các đáp án bạn làm dở và thời gian còn lại tính theo máy chủ.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 @if (TempData["ErrorMessage"] != null)
 {
     <div class="alert alert-danger alert-dismissible fade show m-4 mb-0">
@@ -37,7 +51,10 @@
     <div class="container">
         <form id="examForm" asp-controller="Exam" asp-action="Submit" method="post">
             <input type="hidden" name="ExamId" value="@Model.ExamId" />
+            <input type="hidden" name="BaiLamID" value="@Model.BaiLamID" />
+            <input type="hidden" name="HetGio" id="hetGioFlag" value="false" />
             <input type="hidden" name="StartTime" value="@Model.StartTime.ToString("o")" />
+            @Html.AntiForgeryToken()
             <div class="row g-4">
                 <!-- Questions -->
                 <div class="col-lg-8">
@@ -67,7 +84,7 @@
                                     <div data-question-id="@q.Id" data-question-type="TraLoiNgan">
                                         <label class="form-label fw-medium">Đáp số:</label>
                                         <input type="text" class="form-control tln-input" style="max-width: 320px;"
-                                               name="Answers[@i].NoiDungTraLoi" placeholder="Nhập đáp số..."
+                                               name="Answers[@i].NoiDungTraLoi" value="@SavedText(q.Id)" placeholder="Nhập đáp số..."
                                                autocomplete="off" />
                                         <input type="hidden" name="Answers[@i].QuestionId" value="@q.Id" />
                                     </div>
@@ -79,6 +96,7 @@
                                         @for (int j = 0; j < q.Options.Count; j++)
                                         {
                                             var opt = q.Options[j];
+                                            var yChon = SavedY(q.Id, opt.Id);
                                             <div class="d-flex align-items-start gap-3 py-2 border-bottom ds-y-row">
                                                 <div class="flex-grow-1">
                                                     <span class="option-label">@opt.Label</span>
@@ -87,11 +105,11 @@
                                                 </div>
                                                 <div class="d-flex gap-3 flex-shrink-0 pt-1">
                                                     <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
-                                                        <input type="radio" name="Answers[@i].YChoices[@j].LaDung" value="true" />
+                                                        <input type="radio" name="Answers[@i].YChoices[@j].LaDung" value="true" checked="@(yChon == true)" />
                                                         Đúng
                                                     </label>
                                                     <label class="d-flex align-items-center gap-1 mb-0" style="cursor: pointer;">
-                                                        <input type="radio" name="Answers[@i].YChoices[@j].LaDung" value="false" />
+                                                        <input type="radio" name="Answers[@i].YChoices[@j].LaDung" value="false" checked="@(yChon == false)" />
                                                         Sai
                                                     </label>
                                                 </div>
@@ -103,12 +121,14 @@
                                 }
                                 else
                                 {
+                                    var chon = SavedOption(q.Id);
                                     <div class="row g-3" data-question-id="@q.Id" data-question-type="TracNghiem">
                                         @foreach (var opt in q.Options)
                                         {
+                                            var isSelected = chon == opt.Id;
                                             <div class="col-md-6">
-                                                <label class="option-item w-100 mb-0" data-option-id="@opt.Id">
-                                                    <input type="radio" class="d-none" name="Answers[@i].SelectedOptionId" value="@opt.Id" />
+                                                <label class="option-item w-100 mb-0 @(isSelected ? "selected" : "")" data-option-id="@opt.Id">
+                                                    <input type="radio" class="d-none" name="Answers[@i].SelectedOptionId" value="@opt.Id" checked="@isSelected" />
                                                     <span class="option-label">@opt.Label</span>
                                                     <span>@Html.Raw(opt.Content)</span>
                                                     <partial name="_QuestionImages" model="@opt.Images" />
@@ -152,7 +172,9 @@
                             <button type="submit" class="btn btn-success btn-lg w-100">
                                 <i class="bi bi-send me-2"></i>Nộp bài
                             </button>
-                            <small class="text-muted text-center"><i class="bi bi-cloud-arrow-up me-1"></i>Tiến trình làm bài được tự động lưu liên tục</small>
+                            <small class="text-muted text-center" id="autosaveStatus">
+                                <i class="bi bi-cloud-arrow-up me-1"></i>Tiến trình được tự động lưu về máy chủ
+                            </small>
                             <small class="text-muted text-center"><i class="bi bi-alarm me-1"></i>Bài thi tự động nộp khi hết giờ</small>
                         </div>
                     </div>
@@ -165,85 +187,48 @@
 @section Scripts {
     <script>
         $(function () {
-            var durationSeconds = @durationSeconds;
+            var remainingSeconds = @Model.RemainingSeconds;
+            var examId = @Model.ExamId;
+            var baiLamId = @Model.BaiLamID;
+            var antiForgeryToken = $('input[name="__RequestVerificationToken"]').first().val();
+            var submitting = false;
 
-            // Khởi động đồng hồ đếm ngược
-            examTimer.start(durationSeconds);
+            // Đồng hồ đếm ngược theo mốc server (F5 không được cộng thêm thời gian)
+            var deadline = new Date().getTime() + remainingSeconds * 1000;
+            var timerInterval = window.setInterval(tickTimer, 1000);
+            tickTimer();
 
-            var examId = $('input[name="ExamId"]').val();
-            var storageKey = 'exam_draft_' + examId;
+            function tickTimer() {
+                var remaining = Math.max(0, Math.round((deadline - new Date().getTime()) / 1000));
+                var display = $('.timer-box').first();
+                if (display.length === 0) return;
 
-            function saveDraft() {
-                try {
-                    var draft = {
-                        radios: [],
-                        texts: []
-                    };
-                    $('input[type="radio"]:checked').each(function () {
-                        draft.radios.push({ name: $(this).attr('name'), val: $(this).val() });
-                    });
-                    $('.tln-input').each(function () {
-                        draft.texts.push({ name: $(this).attr('name'), val: $(this).val() });
-                    });
-                    localStorage.setItem(storageKey, JSON.stringify(draft));
-                } catch (e) {
-                    console.warn('Lỗi lưu tạm bài thi:', e);
+                var h = Math.floor(remaining / 3600);
+                var m = Math.floor((remaining % 3600) / 60);
+                var s = remaining % 60;
+                var text = '';
+                if (h > 0) text += (h < 10 ? '0' : '') + h + ':';
+                text += (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+                display.text(text);
+
+                if (remaining <= 300) display.addClass('critical');
+
+                if (remaining <= 0) {
+                    window.clearInterval(timerInterval);
+                    if (!submitting) {
+                        $('#hetGioFlag').val('true');
+                        submitting = true;
+                        $('#examForm').submit();
+                    }
                 }
             }
 
-            function loadDraft() {
-                try {
-                    var raw = localStorage.getItem(storageKey);
-                    if (!raw) return;
-                    var draft = JSON.parse(raw);
-                    if (draft.radios) {
-                        draft.radios.forEach(function (r) {
-                            var $input = $('input[name="' + r.name + '"][value="' + r.val + '"]');
-                            if ($input.length > 0) {
-                                $input.prop('checked', true);
-                                $input.closest('.option-item').addClass('selected');
-                            }
-                        });
-                    }
-                    if (draft.texts) {
-                        draft.texts.forEach(function (t) {
-                            $('input[name="' + t.name + '"]').val(t.val);
-                        });
-                    }
-                } catch (e) {
-                    console.warn('Lỗi phục hồi bài thi tạm:', e);
-                }
+            // Bai phuc hoi ma thoi gian da het -> nop ngay
+            if (remainingSeconds <= 0 && !submitting) {
+                $('#hetGioFlag').val('true');
+                submitting = true;
+                $('#examForm').submit();
             }
-
-            // Phục hồi bài thi nếu có bản nháp
-            loadDraft();
-            updatePalette();
-
-            // Xử lý chọn đáp án trắc nghiệm
-            $('.option-item').on('click', function () {
-                var $option = $(this);
-                var $group = $option.closest('[data-question-id]');
-                $group.find('.option-item').removeClass('selected');
-                $option.addClass('selected');
-                $option.find('input[type="radio"]').prop('checked', true);
-                updatePalette();
-                saveDraft();
-            });
-
-            // Cau Dung/Sai: nhan Dung/Sai lam noi bat y dang chon
-            $('.ds-y-row input[type="radio"]').on('change', function () {
-                $(this).closest('.ds-y-row')
-                    .find('.btn-check-dung, .btn-check-sai')
-                    .removeClass('text-success text-danger fw-bold');
-                updatePalette();
-                saveDraft();
-            });
-
-            // Cau tra loi ngan: tinh ngay khi go
-            $('.tln-input').on('input', function () {
-                updatePalette();
-                saveDraft();
-            });
 
             // Mot cau duoc tinh la DA TRA LOI khi:
             //  - TracNghiem: da chon 1 phuong an
@@ -282,29 +267,126 @@
                 $('#answeredCount').text(demDaTraLoi());
             }
 
-            // Xóa tất cả đáp án
+            // Xu ly chon dap an trac nghiem
+            $('.option-item').on('click', function () {
+                var $option = $(this);
+                var $group = $option.closest('[data-question-id]');
+                $group.find('.option-item').removeClass('selected');
+                $option.addClass('selected');
+                $option.find('input[type="radio"]').prop('checked', true);
+                updatePalette();
+                markDirty();
+            });
+
+            // Cau Dung/Sai
+            $('.ds-y-row input[type="radio"]').on('change', function () {
+                updatePalette();
+                markDirty();
+            });
+
+            // Cau tra loi ngan
+            $('.tln-input').on('input', function () {
+                updatePalette();
+                markDirty();
+            });
+
+            updatePalette();
+
+            // ------------------------------------------------------------------
+            // Tu dong luu tien trinh ve server (de cuong: phong su co)
+            // ------------------------------------------------------------------
+            var dirtySinceSave = false;
+            var saveTimerId = null;
+
+            function markDirty() {
+                dirtySinceSave = true;
+            }
+
+            function collectAnswers() {
+                var answers = [];
+                $('[data-question-id]').each(function () {
+                    var $group = $(this);
+                    var qId = parseInt($group.attr('data-question-id'), 10);
+                    var loai = $group.attr('data-question-type');
+                    var answer = { QuestionId: qId, SelectedOptionId: null, NoiDungTraLoi: null, YChoices: [] };
+                    if (loai === 'TraLoiNgan') {
+                        var text = $group.find('.tln-input').val();
+                        if (text && text.trim().length > 0) answer.NoiDungTraLoi = text;
+                    } else if (loai === 'DungSai') {
+                        $group.find('.ds-y-row').each(function () {
+                            var dapAnId = parseInt($(this).find('input[name$=".DapAnID"]').val(), 10);
+                            var chon = $(this).find('input[type="radio"]:checked');
+                            if (dapAnId > 0 && chon.length > 0) {
+                                answer.YChoices.push({ DapAnID: dapAnId, LaDung: chon.val() === 'true' });
+                            }
+                        });
+                    } else {
+                        var selected = parseInt($group.find('input[type="radio"]:checked').val(), 10);
+                        if (selected > 0) answer.SelectedOptionId = selected;
+                    }
+                    answers.push(answer);
+                });
+                return answers;
+            }
+
+            function luuTam(whenDone) {
+                if (!dirtySinceSave || submitting) {
+                    if (whenDone) whenDone();
+                    return;
+                }
+                dirtySinceSave = false;
+                $.ajax({
+                    url: '@Url.Action("LuuTam", "Exam")',
+                    type: 'POST',
+                    contentType: 'application/json; charset=utf-8',
+                    dataType: 'json',
+                    headers: { 'RequestVerificationToken': antiForgeryToken },
+                    data: JSON.stringify({ ExamId: examId, BaiLamID: baiLamId, Answers: collectAnswers() }),
+                    success: function (res) {
+                        if (res.success) {
+                            $('#autosaveStatus').html('<i class="bi bi-cloud-check me-1"></i>Đã lưu lúc ' + res.luuLuc);
+                        } else if (res.message) {
+                            $('#autosaveStatus').html('<i class="bi bi-exclamation-triangle me-1"></i>' + res.message);
+                        }
+                    },
+                    complete: function () { if (whenDone) whenDone(); }
+                });
+            }
+
+            saveTimerId = window.setInterval(function () { luuTam(); }, 20000);
+
+            // Luu ngay khi roi trang (chuyen tab, thu nho cua so)
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'hidden') luuTam();
+            });
+
+            // Xoa tat ca dap an
             $('#btnReset').on('click', function () {
                 if (confirm('Bạn có chắc chắn muốn xóa tất cả câu trả lời?')) {
                     $('.option-item').removeClass('selected');
                     $('input[type="radio"]').prop('checked', false);
                     $('.tln-input').val('');
-                    localStorage.removeItem(storageKey);
+                    dirtySinceSave = true;
                     updatePalette();
                 }
             });
 
-            // Xác nhận trước khi nộp bài
-            $('#examForm').on('submit', function (e) {
+            // Xac nhận trước khi nộp bài
+            $('#examForm').on('submit', function () {
+                if (submitting) return true;
                 var answered = demDaTraLoi();
                 var total = $('[data-question-id]').length;
                 var msg = answered === total
                     ? 'Bạn đã trả lời tất cả ' + total + ' câu hỏi. Xác nhận nộp bài?'
                     : 'Bạn chỉ mới trả lời ' + answered + '/' + total + ' câu. Vẫn nộp bài?';
-                if (!confirm(msg)) {
-                    e.preventDefault();
-                    return false;
+                if ($('#hetGioFlag').val() !== 'true') {
+                    if (!confirm(msg)) return false;
                 }
-                localStorage.removeItem(storageKey);
+                submitting = true;
+                dirtySinceSave = false;
+                window.clearInterval(saveTimerId);
+                $('#btnSubmit, #btnReset').prop('disabled', true);
+                return true;
             });
         });
     </script>

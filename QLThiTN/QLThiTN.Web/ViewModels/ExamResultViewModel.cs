@@ -12,6 +12,11 @@ public class ExamResultViewModel
     public DateTime StartTime { get; set; }
     public DateTime? EndTime { get; set; }
     public int DurationUsed { get; set; }
+
+    /// <summary>false = dot thi chua cho phep cong bo diem (CongBoDiemSom = 0
+    /// va dot thi chua ket thuc) — hien trang "cho cong bo" thay vi diem chi tiet.</summary>
+    public bool ScorePublished { get; set; } = true;
+
     public List<QuestionResultViewModel> QuestionResults { get; set; } = new();
 }
 

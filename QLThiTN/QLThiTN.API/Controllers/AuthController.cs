@@ -37,42 +37,95 @@ public class AuthController : ControllerBase
         if (await _db.TaiKhoans.AnyAsync(t => t.Email == request.Email))
             return Conflict(new { message = "Email da duoc su dung" });
 
-        var vaiTro = request.VaiTro switch
-        {
-            "GiaoVien" => "GiaoVien",
-            "QuanTriVien" => "QuanTriVien",
-            _ => "HocVien"
-        };
-
+        // Website chi danh cho thi sinh: moi dang ky tu do deu la HocVien,
+        // tai khoan GiaoVien/QuanTriVien do quan tri vien tao truc tiep trong DB.
         var tk = new TaiKhoan
         {
             TenDangNhap = request.UserName,
             MatKhau = PasswordHelper.Hash(request.Password),
             Email = request.Email,
-            VaiTro = vaiTro,
+            VaiTro = "HocVien",
             TrangThai = "HoatDong",
             NgayTao = DateTime.Now
         };
         _db.TaiKhoans.Add(tk);
         await _db.SaveChangesAsync();
 
-        if (vaiTro == "GiaoVien")
+        _db.HocViens.Add(new HocVien
         {
-            _db.GiaoViens.Add(new GiaoVien { TaiKhoanID = tk.TaiKhoanID, HoTen = request.FullName });
-        }
-        else
-        {
-            _db.HocViens.Add(new HocVien
-            {
-                TaiKhoanID = tk.TaiKhoanID,
-                HoTen = request.FullName,
-                LoaiHocVien = "HocSinh",
-                NgayDangKy = DateTime.Now
-            });
-        }
+            TaiKhoanID = tk.TaiKhoanID,
+            HoTen = request.FullName,
+            LoaiHocVien = "HocSinh",
+            NgayDangKy = DateTime.Now
+        });
         await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(Login), await BuildResponse(tk));
+    }
+
+    [HttpGet("profile/{taiKhoanId:int}")]
+    public async Task<IActionResult> GetProfile(int taiKhoanId)
+    {
+        var tk = await _db.TaiKhoans.FirstOrDefaultAsync(t => t.TaiKhoanID == taiKhoanId);
+        if (tk is null) return NotFound();
+
+        var hv = await _db.HocViens.FirstOrDefaultAsync(h => h.TaiKhoanID == taiKhoanId);
+        var gv = await _db.GiaoViens.FirstOrDefaultAsync(g => g.TaiKhoanID == taiKhoanId);
+
+        return Ok(new ProfileResponseDto
+        {
+            TaiKhoanID = tk.TaiKhoanID,
+            TenDangNhap = tk.TenDangNhap,
+            HoTen = gv?.HoTen ?? hv?.HoTen ?? tk.TenDangNhap,
+            Email = tk.Email,
+            VaiTro = tk.VaiTro,
+            NgaySinh = hv?.NgaySinh,
+            SoDienThoai = hv?.SoDienThoai,
+            NgayDangKy = hv?.NgayDangKy ?? tk.NgayTao,
+            HocVienID = hv?.HocVienID
+        });
+    }
+
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequestDto request)
+    {
+        var tk = await _db.TaiKhoans.FirstOrDefaultAsync(t => t.TaiKhoanID == request.TaiKhoanID);
+        if (tk is null) return NotFound(new { message = "Khong tim thay tai khoan" });
+
+        if (await _db.TaiKhoans.AnyAsync(t => t.Email == request.Email && t.TaiKhoanID != request.TaiKhoanID))
+            return Conflict(new { message = "Email da duoc su dung" });
+
+        tk.Email = request.Email;
+
+        var hv = await _db.HocViens.FirstOrDefaultAsync(h => h.TaiKhoanID == request.TaiKhoanID);
+        if (hv is not null)
+        {
+            hv.HoTen = request.HoTen;
+            hv.NgaySinh = request.NgaySinh;
+            hv.SoDienThoai = request.SoDienThoai;
+        }
+        else
+        {
+            var gv = await _db.GiaoViens.FirstOrDefaultAsync(g => g.TaiKhoanID == request.TaiKhoanID);
+            if (gv is not null) gv.HoTen = request.HoTen;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(await BuildResponse(tk));
+    }
+
+    [HttpPut("password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+    {
+        var tk = await _db.TaiKhoans.FirstOrDefaultAsync(t => t.TaiKhoanID == request.TaiKhoanID);
+        if (tk is null) return NotFound(new { message = "Khong tim thay tai khoan" });
+
+        if (!PasswordHelper.Verify(request.MatKhauCu, tk.MatKhau))
+            return BadRequest(new { message = "Mat khau hien tai khong dung" });
+
+        tk.MatKhau = PasswordHelper.Hash(request.MatKhauMoi);
+        await _db.SaveChangesAsync();
+        return Ok(new { message = "Doi mat khau thanh cong" });
     }
 
     private async Task<AuthResponseDto> BuildResponse(TaiKhoan tk)

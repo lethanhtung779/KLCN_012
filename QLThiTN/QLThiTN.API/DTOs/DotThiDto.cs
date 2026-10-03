@@ -15,4 +15,15 @@ public class DotThiDto
     public string TrangThai { get; set; } = string.Empty;
     public string PhamVi { get; set; } = string.Empty;
     public int SoLanThiToiDa { get; set; }
+
+    // Thong tin dang ky (nap khi goi GET kem tham hocVienId)
+    public int SoDangKy { get; set; }
+    public int? SoChoConLai { get; set; }
+    public bool DaDangKy { get; set; }
+}
+
+public class DangKyDotThiRequestDto
+{
+    [System.ComponentModel.DataAnnotations.Required]
+    public int HocVienID { get; set; }
 }

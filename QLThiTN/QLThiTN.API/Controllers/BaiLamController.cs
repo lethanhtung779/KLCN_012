@@ -21,24 +21,28 @@ public class BaiLamController : ControllerBase
     public async Task<IActionResult> GetHistory(int hocVienId)
     {
         var list = await _db.BaiLams
-            .Where(b => b.HocVienID == hocVienId)
+            .Where(b => b.HocVienID == hocVienId && b.TrangThai != "DangLam")
             .Include(b => b.DotThi)
                 .ThenInclude(d => d!.DeThi)
                     .ThenInclude(dt => dt!.MonHoc)
             .OrderByDescending(b => b.ThoiGianNop ?? b.ThoiGianBatDau)
             .ToListAsync();
 
+        var now = DateTime.Now;
         var result = list.Select(b =>
         {
             var de = b.DotThi?.DeThi;
             var mon = de?.MonHoc;
             var loaiDe = de?.LoaiDe ?? "ThiThu";
-            var congBoDiem = b.DotThi?.CongBoDiemSom ?? true;
+            // CongBoDiemSom = 1 hoac dot thi da ket thuc -> diem duoc cong bo
+            var congBoDiem = (b.DotThi?.CongBoDiemSom ?? true)
+                || (b.DotThi is not null && b.DotThi.ThoiGianDongCong <= now);
 
             return new BaiLamHistoryItemDto
             {
                 BaiLamID = b.BaiLamID,
                 DeThiID = de?.DeThiID ?? b.DotThi?.DeThiID ?? 0,
+                DotThiID = b.DotThiID,
                 TenDe = de?.TenDe ?? b.DotThi?.TenDotThi ?? $"Kỳ thi #{b.BaiLamID}",
                 TenMon = mon?.TenMon ?? "Tổng hợp",
                 LoaiDe = loaiDe,
@@ -240,6 +244,23 @@ public class BaiLamController : ControllerBase
         var total = results.Count;
         var durationUsed = (int)Math.Max(1, Math.Round(((baiLam.ThoiGianNop ?? DateTime.Now) - baiLam.ThoiGianBatDau).TotalMinutes));
 
+        var dotThi = baiLam.DotThi;
+        var scorePublished = (dotThi?.CongBoDiemSom ?? true)
+            || (dotThi is not null && dotThi.ThoiGianDongCong <= DateTime.Now);
+
+        // Chua cong bo diem -> khong tra ve dap an dung / giai thich
+        if (!scorePublished)
+        {
+            foreach (var r in results)
+            {
+                r.IsCorrect = false;
+                r.GiaiThich = string.Empty;
+                r.DapAnTraLoiNgan = null;
+                foreach (var y in r.YResults) { y.DapAnDung = false; y.IsCorrect = false; }
+                foreach (var o in r.Options) { o.IsCorrect = false; }
+            }
+        }
+
         return Ok(new SubmitExamResultDto
         {
             BaiLamID = baiLam.BaiLamID,
@@ -253,6 +274,7 @@ public class BaiLamController : ControllerBase
             ThoiGianBatDau = baiLam.ThoiGianBatDau,
             ThoiGianNop = baiLam.ThoiGianNop ?? DateTime.Now,
             DurationUsed = durationUsed,
+            ScorePublished = scorePublished,
             Results = results
         });
     }

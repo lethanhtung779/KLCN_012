@@ -5,19 +5,89 @@
 
 <section class="py-5">
     <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
+        <div class="row g-4">
+            <!-- Cột trái: thẻ hồ sơ + thống kê -->
+            <div class="col-lg-4">
                 <div class="card border-0 rounded-4 shadow-sm overflow-hidden mb-4">
                     <div class="card-body p-0">
                         <div class="p-4 text-white text-center" style="background: var(--gradient-dark);">
-                            <span class="user-avatar mb-2" style="width: 70px; height: 70px; font-size: 1.8rem; border-radius: 50%; background: var(--gradient);">@Model.FullName.Substring(0, 1)</span>
+                            <span class="user-avatar mb-2" style="width: 78px; height: 78px; font-size: 1.9rem; border-radius: 50%; background: var(--gradient);">@Model.FullName.Substring(0, 1)</span>
                             <h4 class="fw-bold mb-1">@Model.FullName</h4>
-                            <p class="text-white-50 mb-0"><i class="bi bi-at me-1"></i>@Model.Username</p>
+                            <p class="text-white-50 mb-2"><i class="bi bi-at me-1"></i>@Model.Username</p>
+                            <span class="badge-status" style="background: rgba(255,255,255,.18); color: #fff;">
+                                <i class="bi bi-mortarboard me-1"></i>Học viên
+                            </span>
+                        </div>
+                        <div class="p-4 text-muted small">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-envelope me-2" style="width: 1.2rem;"></i>
+                                <span class="text-truncate">@Model.Email</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-telephone me-2" style="width: 1.2rem;"></i>
+                                <span>@(string.IsNullOrWhiteSpace(Model.Phone) ? "Chưa cập nhật" : Model.Phone)</span>
+                            </div>
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="bi bi-calendar-event me-2" style="width: 1.2rem;"></i>
+                                <span>@(Model.NgaySinh?.ToString("dd/MM/yyyy") ?? "Chưa cập nhật ngày sinh")</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-person-plus me-2" style="width: 1.2rem;"></i>
+                                <span>Thành viên từ @(Model.NgayDangKy?.ToString("MM/yyyy") ?? "—")</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="card border-0 rounded-4 shadow-sm">
+                <div class="row g-3">
+                    <div class="col-4">
+                        <div class="card stat-card text-center h-100">
+                            <div class="card-body p-3">
+                                <span class="stat-icon mb-2 mx-auto" style="background: var(--accent);"><i class="bi bi-journal-check"></i></span>
+                                <h5 class="mt-2 mb-0">@Model.TotalExams</h5>
+                                <div class="stat-label">Bài thi</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="card stat-card text-center h-100">
+                            <div class="card-body p-3">
+                                <span class="stat-icon mb-2 mx-auto" style="background: var(--success);"><i class="bi bi-graph-up-arrow"></i></span>
+                                <h5 class="mt-2 mb-0">@Model.AverageScore.ToString("0.0")</h5>
+                                <div class="stat-label">Điểm TB</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="card stat-card text-center h-100">
+                            <div class="card-body p-3">
+                                <span class="stat-icon mb-2 mx-auto" style="background: var(--accent2);"><i class="bi bi-trophy"></i></span>
+                                <h5 class="mt-2 mb-0">@Model.HighestScore.ToString("0.0")</h5>
+                                <div class="stat-label">Cao nhất</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cột phải: 2 form -->
+            <div class="col-lg-8">
+                @if (TempData["SuccessMessage"] != null)
+                {
+                    <div class="alert alert-success alert-dismissible fade show">
+                        <i class="bi bi-check-circle me-2"></i>@TempData["SuccessMessage"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+                @if (TempData["ErrorMessage"] != null)
+                {
+                    <div class="alert alert-danger alert-dismissible fade show">
+                        <i class="bi bi-exclamation-triangle me-2"></i>@TempData["ErrorMessage"]
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                }
+
+                <div class="card border-0 rounded-4 shadow-sm mb-4">
                     <div class="card-header bg-white py-3 fw-bold"><i class="bi bi-person-gear me-2"></i>Thông tin cá nhân</div>
                     <div class="card-body p-4">
                         <form asp-controller="Account" asp-action="Profile" method="post">
@@ -42,8 +112,37 @@
                                     <input asp-for="Phone" class="form-control" placeholder="0xxxxxxxxx" />
                                     <span asp-validation-for="Phone" class="text-danger small"></span>
                                 </div>
+                                <div class="col-md-6 mb-3">
+                                    <label asp-for="NgaySinh" class="form-label fw-semibold">Ngày sinh</label>
+                                    <input asp-for="NgaySinh" type="date" class="form-control" />
+                                    <span asp-validation-for="NgaySinh" class="text-danger small"></span>
+                                </div>
                             </div>
                             <button type="submit" class="btn btn-primary-custom mt-2"><i class="bi bi-check2-circle me-2"></i>Lưu thay đổi</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card border-0 rounded-4 shadow-sm">
+                    <div class="card-header bg-white py-3 fw-bold"><i class="bi bi-shield-lock me-2"></i>Đổi mật khẩu</div>
+                    <div class="card-body p-4">
+                        <form asp-controller="Account" asp-action="ChangePassword" method="post">
+                            <div class="row">
+                                <div class="col-md-12 mb-3">
+                                    <label for="MatKhauCu" class="form-label fw-semibold">Mật khẩu hiện tại</label>
+                                    <input type="password" id="MatKhauCu" name="MatKhauCu" class="form-control" autocomplete="current-password" />
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="MatKhauMoi" class="form-label fw-semibold">Mật khẩu mới</label>
+                                    <input type="password" id="MatKhauMoi" name="MatKhauMoi" class="form-control" autocomplete="new-password" />
+                                    <small class="text-muted">Tối thiểu 6 ký tự</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="XacNhanMatKhau" class="form-label fw-semibold">Xác nhận mật khẩu mới</label>
+                                    <input type="password" id="XacNhanMatKhau" name="XacNhanMatKhau" class="form-control" autocomplete="new-password" />
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary-custom mt-2"><i class="bi bi-key me-2"></i>Đổi mật khẩu</button>
                         </form>
                     </div>
                 </div>

@@ -17,4 +17,13 @@ public class ExamScheduleViewModel
     public bool IsPublic => ExamKind == ExamKind.PublicMock;
     public bool IsAssignedToMe { get; set; }
     public bool ScorePublished { get; set; } = true;
+
+    /// <summary>Dot thi gan voi de (de dang ky/huy dang ky).</summary>
+    public int? DotThiID { get; set; }
+
+    /// <summary>So luot dang ky hien tai cua dot thi.</summary>
+    public int SoDangKy { get; set; }
+
+    /// <summary>So cho con lai (null = khong gioi han — thi thu cong khai).</summary>
+    public int? SoChoConLai { get; set; }
 }

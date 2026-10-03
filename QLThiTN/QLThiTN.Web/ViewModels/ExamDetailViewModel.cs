@@ -14,4 +14,16 @@ public class ExamDetailViewModel
     public bool HasRegistered { get; set; }
     public bool CanStart { get; set; }
     public string StatusText { get; set; } = string.Empty;
+
+    /// <summary>Dot thi gan voi de (de dang ky/huy dang ky).</summary>
+    public int? DotThiID { get; set; }
+
+    /// <summary>So luot dang ky hien tai cua dot thi.</summary>
+    public int SoDangKy { get; set; }
+
+    /// <summary>So cho con lai (null = khong gioi han — thi thu cong khai).</summary>
+    public int? SoChoConLai { get; set; }
+
+    /// <summary>Dang ky la bat buoc khi dot thi co gioi han so luong.</summary>
+    public bool CanRegister { get; set; }
 }
