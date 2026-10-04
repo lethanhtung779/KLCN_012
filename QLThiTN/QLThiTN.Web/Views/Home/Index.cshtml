@@ -10,6 +10,17 @@
             <div class="col-lg-7">
                 <span class="badge-gradient mb-3"><i class="bi bi-megaphone me-1"></i> Thi thử THPT Quốc gia miễn phí — mở đăng ký</span>
                 <h1 class="mb-3">Kiểm tra — đánh giá chuẩn khoa học</h1>
+
+                @* Social-proof tu so lieu that cua he thong *@
+                <div class="hero-social-pill mb-4">
+                    <span class="avatar-stack">
+                        <span class="mini-avatar"><i class="bi bi-person-fill"></i></span>
+                        <span class="mini-avatar"><i class="bi bi-person-fill"></i></span>
+                        <span class="mini-avatar"><i class="bi bi-person-fill"></i></span>
+                    </span>
+                    <span><b>@Model.TongCauHoi.ToString("N0")</b> câu hỏi trong ngân hàng • <b>@Model.TongLuotLamBai.ToString("N0")</b> lượt làm bài</span>
+                </div>
+
                 <p class="fs-5 mb-4">Hệ thống thi trắc nghiệm trực tuyến của trung tâm luyện thi: làm bài tính giờ, tự động lưu tiến trình, chấm điểm tức thì và phân tích kết quả chi tiết cho từng học viên.</p>
                 <div class="d-flex gap-3 flex-wrap">
                     <a asp-controller="Exam" asp-action="Schedule" class="btn btn-primary-custom btn-lg"><i class="bi bi-calendar-check me-2"></i>Xem lịch thi</a>
@@ -209,18 +220,20 @@
                 @foreach (var exam in Model.LatestPublicExams)
                 {
                     <div class="col-md-6 col-lg-4">
-                        <div class="card card-exam h-100">
-                            <div class="card-body d-flex flex-column">
-                                <div class="d-flex align-items-center justify-content-between mb-3">
-                                    <span class="subject-badge"><i class="bi bi-book me-1"></i>@exam.SubjectName</span>
-                                    <small class="text-muted"><i class="bi bi-clock me-1"></i>@exam.Duration phút</small>
+                        <div class="card exam-cover-card h-100">
+                            <partial name="_ExamCover" model="exam" />
+                            <div class="card-body p-3 d-flex flex-column">
+                                <div class="cover-card-stats small text-muted mb-2">
+                                    <span><i class="bi bi-people me-1"></i>@exam.SoLuotThi lượt thi</span>
+                                    @if (exam.DiemTrungBinh.HasValue)
+                                    {
+                                        <span class="ms-2"><i class="bi bi-bullseye me-1"></i>TB @exam.DiemTrungBinh.Value.ToString("0.0#")</span>
+                                    }
+                                    <span class="ms-2"><i class="bi bi-list-ol me-1"></i>@exam.QuestionCount câu</span>
                                 </div>
-                                <h5 class="card-title fw-bold mb-2">@exam.Title</h5>
-                                <p class="card-text text-muted small flex-grow-1">@exam.Description</p>
-                                <div class="d-flex align-items-center justify-content-between mt-3">
-                                    <small class="text-muted"><i class="bi bi-people me-1"></i>@exam.QuestionCount câu hỏi</small>
-                                    <a asp-controller="Exam" asp-action="Detail" asp-route-id="@exam.Id" class="btn btn-sm btn-primary-custom">Xem chi tiết</a>
-                                </div>
+                                <a asp-controller="Exam" asp-action="Detail" asp-route-id="@exam.Id" class="btn btn-sm btn-primary-custom mt-auto">
+                                    <i class="bi bi-play-fill me-1"></i>Xem chi tiết
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -301,6 +314,61 @@
                     <div>
                         <h6 class="fw-bold">Hỗ trợ mọi thiết bị</h6>
                         <p class="text-muted small mb-0">Làm bài trên máy tính, tablet hay điện thoại — mở laptop là làm bài trực tuyến được ngay.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonials -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="badge-status badge-status-info mb-2"><i class="bi bi-chat-heart me-1"></i>Trải nghiệm từ học viên</span>
+            <h2 class="section-title mb-2">Học viên nói gì về hệ thống</h2>
+            <p class="section-subtitle">Nhận xét minh họa cho trải nghiệm sử dụng các tính năng của nền tảng</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="quote-stack">
+                    <div class="quote-mark"><i class="bi bi-quote"></i></div>
+                    <p class="quote-text">Làm bài thi thử trên web rất mượt, đồng hồ đếm ngược rõ ràng, hết giờ hệ thống tự nộp bài luôn nên không lo quên thời gian.</p>
+                    <div class="quote-author">
+                        <span class="quote-avatar">K</span>
+                        <div>
+                            <div class="fw-bold small">Nguyễn Khánh Linh</div>
+                            <small class="text-muted">Học viên lớp 12</small>
+                        </div>
+                        <span class="quote-score-chip">Thi thử Toán</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="quote-stack">
+                    <div class="quote-mark"><i class="bi bi-quote"></i></div>
+                    <p class="quote-text">Mình thích nhất là bài làm được tự động lưu, hôm trước mất mạng vào lại vẫn thi tiếp từ đúng chỗ đã làm, điểm xem ngay sau khi nộp.</p>
+                    <div class="quote-author">
+                        <span class="quote-avatar">B</span>
+                        <div>
+                            <div class="fw-bold small">Trần Quốc Bảo</div>
+                            <small class="text-muted">Lớp luyện Vật Lý</small>
+                        </div>
+                        <span class="quote-score-chip">Lần thi 2</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="quote-stack">
+                    <div class="quote-mark"><i class="bi bi-quote"></i></div>
+                    <p class="quote-text">Kho đề chia theo từng môn rất dễ tra cứu, mỗi đề có thống kê lượt thi và điểm trung bình nên biết đề nào khó để sắp xếp ôn tập.</p>
+                    <div class="quote-author">
+                        <span class="quote-avatar">A</span>
+                        <div>
+                            <div class="fw-bold small">Lê Mai Anh</div>
+                            <small class="text-muted">Học viên lớp 12</small>
+                        </div>
+                        <span class="quote-score-chip">Kho đề Vật Lý</span>
                     </div>
                 </div>
             </div>

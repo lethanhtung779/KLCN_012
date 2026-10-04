@@ -202,6 +202,31 @@ public class StudentStatsDto
     public decimal HighestScore { get; set; }
 }
 
+// ---------------------------------------------------------------------------
+// Thong ke tong hop cho social-proof (kho de, trang chu)
+// ---------------------------------------------------------------------------
+
+public class ExamStatItemDto
+{
+    public int DeThiID { get; set; }
+
+    /// <summary>So bai thi da nop (khong tinh DangLam).</summary>
+    public int SoLuotThi { get; set; }
+
+    /// <summary>So bai co diem (hoan thanh cham).</summary>
+    public int SoHoanThanh { get; set; }
+
+    public decimal? DiemTrungBinh { get; set; }
+}
+
+public class ExamStatsDto
+{
+    public int TongCauHoi { get; set; }
+    public int TongLuotLamBai { get; set; }
+    public int TongHocVien { get; set; }
+    public List<ExamStatItemDto> TheoDe { get; set; } = new();
+}
+
 public class QuestionResultDto
 {
     public int OrderIndex { get; set; }

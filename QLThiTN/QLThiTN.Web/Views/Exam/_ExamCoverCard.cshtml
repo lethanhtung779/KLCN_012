@@ -1,0 +1,52 @@
+@model KhoDeExamItem
+@{
+    var now = DateTime.Now;
+    var isOpen = Model.StartTime <= now && Model.EndTime >= now;
+    var loaiDe = Model.ExamKind.ToDisplayName();
+}
+<div class="card exam-cover-card h-100 exam-item" data-loaide="@Model.ExamKind" data-trangthai="@(Model.StartTime > now ? "SapMo" : Model.EndTime < now ? "DaDong" : "DangMo")">
+    <partial name="_ExamCover" model="Model" />
+    <div class="card-body p-3 d-flex flex-column">
+        <div class="d-flex align-items-center gap-2 mb-2 small text-muted">
+            <span class="text-nowrap">@loaiDe • @Model.Nam</span>
+            <span class="ms-auto flex-shrink-0">
+                @if (Model.StartTime > now)
+                {
+                    <span class="badge-status badge-status-warn py-1 px-2 text-nowrap"><i class="bi bi-hourglass-split me-1"></i>Sắp mở</span>
+                }
+                else if (Model.EndTime < now)
+                {
+                    <span class="badge-status badge-status-muted py-1 px-2 text-nowrap"><i class="bi bi-stop-circle me-1"></i>Đã đóng</span>
+                }
+                else
+                {
+                    <span class="badge-status badge-status-success py-1 px-2 text-nowrap"><i class="bi bi-play-circle me-1"></i>Đang mở</span>
+                }
+            </span>
+        </div>
+        <h6 class="fw-bold mb-2 flex-grow-0 cover-card-title">@Model.Title</h6>
+        <div class="cover-card-stats small text-muted mb-3">
+            <span><i class="bi bi-people me-1"></i>@Model.SoLuotThi lượt thi</span>
+            @if (Model.DiemTrungBinh.HasValue)
+            {
+                <span class="ms-2"><i class="bi bi-bullseye me-1"></i>TB @Model.DiemTrungBinh.Value.ToString("0.0#")</span>
+            }
+            @if (Model.SoChoConLai.HasValue)
+            {
+                <span class="ms-2"><i class="bi bi-person-plus me-1"></i>còn @Model.SoChoConLai.Value chỗ</span>
+            }
+        </div>
+        @if (Model.HasRegistered && isOpen)
+        {
+            <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 mt-auto">
+                <i class="bi bi-play-fill me-1"></i>Vào thi ngay
+            </a>
+        }
+        else
+        {
+            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" class="btn btn-outline-custom w-100 mt-auto">
+                <i class="bi bi-play-fill me-1"></i>@(isOpen && !Model.HasRegistered && !Model.SoChoConLai.HasValue ? "Làm bài" : "Xem chi tiết")
+            </a>
+        }
+    </div>
+</div>

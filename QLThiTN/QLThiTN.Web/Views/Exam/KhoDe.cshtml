@@ -1,0 +1,214 @@
+@model KhoDeViewModel
+@{
+    ViewData["Title"] = "Kho đề thi" + (string.IsNullOrWhiteSpace(Model.TenMon) ? "" : " môn " + Model.TenMon);
+}
+
+@* Chip chon mon — pattern thu cap du navbar nhu DOL THPT *@
+<div class="subject-chipbar bg-white border-bottom">
+    <div class="container d-flex align-items-center gap-2 py-2 overflow-auto">
+        @foreach (var m in Model.MonHocs)
+        {
+            <a asp-controller="Exam" asp-action="KhoDe" asp-route-mon="@m.MonHocID"
+               class="subject-chip @(m.MonHocID == Model.MonHocId ? "active" : "")">
+                <i class="bi @MonHocVisual.ToIcon(m.TenMon)"></i> @m.TenMon
+            </a>
+        }
+    </div>
+</div>
+
+<section class="py-4">
+    <div class="container">
+        @if (Model.MonHocId == null)
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 4rem; color: #c3cbe0;"></i>
+                <h5 class="mt-3 fw-bold text-muted">Chưa có môn học nào trong hệ thống</h5>
+            </div>
+        }
+        else
+        {
+            <div class="row g-4 align-items-stretch mb-4">
+                @* Header mon hoc *@
+                <div class="col-lg-7">
+                    <div class="d-flex gap-3">
+                        <div class="kho-de-icon"><i class="bi @MonHocVisual.ToIcon(Model.TenMon)"></i></div>
+                        <div>
+                            <h1 class="section-title mb-1">Kho đề môn @Model.TenMon</h1>
+                            <p class="text-muted small mb-2">
+                                Tổng hợp <b>@Model.SoDe đề thi trực tuyến</b> với <b>@Model.SoCau câu hỏi</b> —
+                                làm bài tính giờ, tự động lưu tiến trình và chấm điểm tức thì.
+                            </p>
+                            <div class="d-flex flex-wrap gap-3 small text-muted">
+                                <span><i class="bi bi-collection me-1" style="color: var(--accent);"></i><b>@Model.SoDe</b> đề</span>
+                                <span><i class="bi bi-question-circle me-1" style="color: var(--accent2);"></i><b>@Model.SoCau</b> câu hỏi</span>
+                                <span><i class="bi bi-people me-1" style="color: var(--success);"></i><b>@Model.LuotLamBai</b> lượt làm bài</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @* The thong ke Cong dong / Cua ban *@
+                <div class="col-lg-5">
+                    <div class="card border-0 rounded-4 shadow-sm h-100">
+                        <div class="card-body p-3">
+                            <ul class="nav nav-pills stats-toggle mb-3" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#paneCongDong" type="button" role="tab">
+                                        <i class="bi bi-people me-1"></i>Cộng đồng
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#paneCuaBan" type="button" role="tab">
+                                        <i class="bi bi-person me-1"></i>Của bạn
+                                    </button>
+                                </li>
+                            </ul>
+                            <div class="tab-content">
+                                <div class="tab-pane fade show active" id="paneCongDong" role="tabpanel">
+                                    <div class="row g-2 text-center">
+                                        <div class="col-4">
+                                            <div class="p-2 rounded-3 bg-soft-stat">
+                                                <h5 class="fw-bold mb-0">@Model.LuotLamBai.ToString("N0")</h5>
+                                                <small class="text-muted">lượt làm bài</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="p-2 rounded-3 bg-soft-stat">
+                                                <h5 class="fw-bold mb-0">@Model.BaiHoanThanh.ToString("N0")</h5>
+                                                <small class="text-muted">bài hoàn thành</small>
+                                            </div>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="p-2 rounded-3 bg-soft-stat">
+                                                <h5 class="fw-bold mb-0">@(Model.DiemTrungBinh?.ToString("0.0#") ?? "—")</h5>
+                                                <small class="text-muted">điểm trung bình</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tab-pane fade" id="paneCuaBan" role="tabpanel">
+                                    @if (Model.DaDangNhap)
+                                    {
+                                        <div class="row g-2 text-center">
+                                            <div class="col-6">
+                                                <div class="p-2 rounded-3 bg-soft-stat">
+                                                    <h5 class="fw-bold mb-0">@Model.LuotThiCuaBan</h5>
+                                                    <small class="text-muted">lượt thi môn này</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="p-2 rounded-3 bg-soft-stat">
+                                                    <h5 class="fw-bold mb-0">@(Model.DiemTBCuaBan?.ToString("0.0#") ?? "—")</h5>
+                                                    <small class="text-muted">điểm trung bình của bạn</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-center text-muted small py-2">
+                                            <i class="bi bi-lock me-1"></i>
+                                            <a asp-controller="Account" asp-action="Login" class="fw-semibold">Đăng nhập</a> để xem thống kê của bạn
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                @* Bo loc doc *@
+                <div class="col-lg-3">
+                    <div class="card border-0 rounded-4 shadow-sm filter-panel sticky-top" style="top: 130px;">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3"><i class="bi bi-funnel me-2"></i>Bộ lọc</h6>
+
+                            <div class="small fw-bold text-muted text-uppercase mb-2">Loại đề</div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input filter-check" type="checkbox" id="fOnTap" value="Homework" checked>
+                                <label class="form-check-label" for="fOnTap">Bài tập về nhà</label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input filter-check" type="checkbox" id="fThiThu" value="MonthlyMock" checked>
+                                <label class="form-check-label" for="fThiThu">Thi thử cuối tháng</label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input filter-check" type="checkbox" id="fChinhThuc" value="PublicMock" checked>
+                                <label class="form-check-label" for="fChinhThuc">Thi thử công khai</label>
+                            </div>
+
+                            <div class="small fw-bold text-muted text-uppercase mb-2">Trạng thái</div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input status-check" type="checkbox" id="sDangMo" value="DangMo" checked>
+                                <label class="form-check-label" for="sDangMo">Đang mở</label>
+                            </div>
+                            <div class="form-check mb-1">
+                                <input class="form-check-input status-check" type="checkbox" id="sSapMo" value="SapMo" checked>
+                                <label class="form-check-label" for="sSapMo">Sắp mở</label>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input status-check" type="checkbox" id="sDaDong" value="DaDong" checked>
+                                <label class="form-check-label" for="sDaDong">Đã đóng</label>
+                            </div>
+
+                            <div class="small text-muted" id="filterCount"></div>
+                        </div>
+                    </div>
+                </div>
+
+                @* Grid de thi *@
+                <div class="col-lg-9">
+                    @if (Model.DeThis.Any())
+                    {
+                        <div class="row g-4">
+                            @foreach (var exam in Model.DeThis)
+                            {
+                                <div class="col-md-6 col-xl-4">
+                                    <partial name="_ExamCoverCard" model="exam" />
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="card border-0 rounded-4 shadow-sm">
+                            <div class="card-body p-5 text-center text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-3" style="color: #c3cbe0;"></i>
+                                <b>Môn này chưa có đề thi nào</b>
+                                <div class="small">Đề thi sẽ xuất hiện tại đây khi trung tâm đăng tải.</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        // Cuon chip mon dang chon vao giua thanh chip
+        var activeChip = document.querySelector('.subject-chip.active');
+        if (activeChip) activeChip.scrollIntoView({ inline: 'center', block: 'nearest' });
+
+        // Bo loc client-side: moi nhom checkbox la OR, giua cac nhom la AND
+        $(function () {
+            function apDungBoLoc() {
+                var loai = $('.filter-check:checked').map(function () { return this.value; }).get();
+                var trang = $('.status-check:checked').map(function () { return this.value; }).get();
+                var hien = 0;
+                $('.exam-item').each(function () {
+                    var $el = $(this);
+                    var ok = loai.indexOf($el.data('loaide')) >= 0 && trang.indexOf($el.data('trangthai')) >= 0;
+                    $el.parent().toggleClass('d-none', !ok);
+                    if (ok) hien++;
+                });
+                $('#filterCount').text('Hiển thị ' + hien + '/' + $('.exam-item').length + ' đề');
+            }
+            $('.filter-check, .status-check').on('change', apDungBoLoc);
+            apDungBoLoc();
+        });
+    </script>
+}

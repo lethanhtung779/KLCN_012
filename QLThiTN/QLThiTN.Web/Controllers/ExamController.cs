@@ -38,6 +38,109 @@ public class ExamController : Controller
         }).ToList());
     }
 
+    /// <summary>Trang Kho de: duyet de thi theo mon hoc, kem thong ke cong dong
+    /// (bai lam that) va bo loc loai de / trang thai.</summary>
+    [HttpGet]
+    public async Task<IActionResult> KhoDe(int? mon)
+    {
+        var monHocs = await _api.GetMonHocsAsync();
+        var stats = await _api.GetExamStatsAsync();
+        var statsByDe = (stats?.TheoDe ?? new()).ToDictionary(x => x.DeThiID);
+
+        var monId = mon.HasValue && monHocs.Any(m => m.MonHocID == mon.Value)
+            ? mon.Value
+            : monHocs.FirstOrDefault()?.MonHocID;
+
+        if (monId == null)
+        {
+            return View(new KhoDeViewModel { MonHocs = monHocs });
+        }
+
+        var exams = await _api.GetDeThisAsync(monId);
+        var dotThis = await _api.GetDotThisAsync(HocVienId);
+        var dotByDeThi = dotThis.GroupBy(d => d.DeThiID).ToDictionary(g => g.Key, g => g.First());
+
+        var items = exams.Select(e =>
+        {
+            var vm = ExamMapping.ToSchedule(e);
+            if (dotByDeThi.TryGetValue(e.DeThiID, out var dot))
+            {
+                vm.DotThiID = dot.DotThiID;
+                vm.SoDangKy = dot.SoDangKy;
+                vm.SoChoConLai = dot.SoChoConLai;
+                vm.HasRegistered = dot.DaDangKy;
+                vm.CanRegister = dot.TrangThai != "DaDong" && !dot.DaDangKy
+                    && (!dot.SoChoConLai.HasValue || dot.SoChoConLai.Value > 0);
+            }
+
+            var item = new KhoDeExamItem
+            {
+                Id = vm.Id,
+                Title = vm.Title,
+                Description = vm.Description,
+                Duration = vm.Duration,
+                StartTime = vm.StartTime,
+                EndTime = vm.EndTime,
+                MaxStudents = vm.MaxStudents,
+                SubjectName = vm.SubjectName,
+                QuestionCount = vm.QuestionCount,
+                HasRegistered = vm.HasRegistered,
+                CanRegister = vm.CanRegister,
+                ExamKind = vm.ExamKind,
+                IsAssignedToMe = vm.IsAssignedToMe,
+                ScorePublished = vm.ScorePublished,
+                DotThiID = vm.DotThiID,
+                SoDangKy = vm.SoDangKy,
+                SoChoConLai = vm.SoChoConLai,
+                Nam = vm.StartTime?.Year ?? DateTime.Now.Year
+            };
+
+            if (statsByDe.TryGetValue(e.DeThiID, out var st))
+            {
+                item.SoLuotThi = st.SoLuotThi;
+                item.DiemTrungBinh = st.DiemTrungBinh;
+            }
+            return item;
+        })
+        .OrderByDescending(e => e.SoLuotThi)
+        .ThenBy(e => e.Id)
+        .ToList();
+
+        var model = new KhoDeViewModel
+        {
+            MonHocs = monHocs,
+            MonHocId = monId,
+            TenMon = monHocs.FirstOrDefault(m => m.MonHocID == monId)?.TenMon ?? string.Empty,
+            SoDe = items.Count,
+            SoCau = items.Sum(e => e.QuestionCount),
+            DeThis = items
+        };
+
+        // Thong ke cong dong cua mon = tong hop bai lam cac de thuoc mon
+        var ids = items.Select(e => e.Id).ToHashSet();
+        var statRows = (stats?.TheoDe ?? new()).Where(s => ids.Contains(s.DeThiID)).ToList();
+        model.LuotLamBai = statRows.Sum(s => s.SoLuotThi);
+        model.BaiHoanThanh = statRows.Sum(s => s.SoHoanThanh);
+        var coDiem = statRows.Where(s => s.DiemTrungBinh.HasValue && s.SoHoanThanh > 0).ToList();
+        model.DiemTrungBinh = coDiem.Count > 0
+            ? Math.Round(coDiem.Sum(s => (s.DiemTrungBinh ?? 0) * s.SoHoanThanh) / coDiem.Sum(s => s.SoHoanThanh), 2)
+            : null;
+
+        // Thong ke ca nhan theo mon (loc lich su thi theo ten mon)
+        var hocVienId = HocVienId;
+        if (hocVienId.HasValue)
+        {
+            model.DaDangNhap = true;
+            var history = await _api.GetHistoryAsync(hocVienId.Value);
+            var cuaMon = history.Where(h => string.Equals(h.TenMon, model.TenMon, StringComparison.OrdinalIgnoreCase)).ToList();
+            model.LuotThiCuaBan = cuaMon.Count;
+            var diemCuaMon = cuaMon.Where(h => h.TongDiem > 0).Select(h => h.TongDiem).ToList();
+            model.DiemTBCuaBan = diemCuaMon.Count > 0 ? Math.Round(diemCuaMon.Average(), 2) : null;
+        }
+
+        return View(model);
+    }
+
     [HttpGet]
     public async Task<IActionResult> Detail(int id)
     {

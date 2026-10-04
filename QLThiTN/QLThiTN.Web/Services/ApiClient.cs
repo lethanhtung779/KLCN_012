@@ -178,6 +178,11 @@ namespace QLThiTN.Web.Services;
         return await _http.GetFromJsonAsync<List<ApiMonHoc>>("/api/monhoc", JsonOptions) ?? new();
     }
 
+    public async Task<ApiExamStats?> GetExamStatsAsync()
+    {
+        return await _http.GetFromJsonAsync<ApiExamStats>("/api/dethi/stats", JsonOptions);
+    }
+
     public async Task<List<ApiHistoryItem>> GetHistoryAsync(int hocVienId)
     {
         return await _http.GetFromJsonAsync<List<ApiHistoryItem>>($"/api/bailam/history/{hocVienId}", JsonOptions) ?? new();

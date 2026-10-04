@@ -1,0 +1,13 @@
+@model KhoDeExamItem
+@* Bia de tu sinh — cam hung tu bia sach de thi cua DOL THPT: nen pastel,
+    ghi nam + ten de + thong tin nhanh. Palette chon theo ID de. *@
+<div class="exam-cover cover-@MonHocVisual.CoverPalette(Model.Id)">
+    <span class="cover-year">@(Model.Nam > 0 ? Model.Nam.ToString() : DateTime.Now.Year.ToString())</span>
+    <span class="cover-bookmark"><i class="bi bi-bookmarks-fill"></i></span>
+    <div class="cover-title">@Model.Title</div>
+    <div class="cover-meta">
+        <span><i class="bi bi-list-ol me-1"></i>@Model.QuestionCount câu</span>
+        <span class="dot"></span>
+        <span><i class="bi bi-stopwatch me-1"></i>@Model.Duration phút</span>
+    </div>
+</div>

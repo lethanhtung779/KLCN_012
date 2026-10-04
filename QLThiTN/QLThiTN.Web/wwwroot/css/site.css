@@ -676,3 +676,309 @@ mjx-container[jax="CHTML"][display="true"] {
     overflow-x: auto;
     overflow-y: hidden;
 }
+/* ---------- Kho de (tham khao pattern DOL THPT, bien tau theo nhan dien navy/cyan) ---------- */
+
+/* Chip chon mon du navbar */
+.subject-chipbar {
+    position: sticky;
+    top: 66px;
+    z-index: 1020;
+    scrollbar-width: thin;
+}
+
+.subject-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .45rem .95rem;
+    border-radius: 30px;
+    background: var(--bg-soft);
+    color: #4a5470;
+    font-size: .85rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: all .15s ease;
+}
+
+.subject-chip:hover {
+    border-color: var(--accent);
+    color: var(--primary);
+}
+
+.subject-chip.active {
+    background: var(--gradient);
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(1, 180, 255, .35);
+}
+
+/* O icon lon o header mon hoc */
+.kho-de-icon {
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: 20px;
+    background: var(--gradient);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.7rem;
+    box-shadow: 0 8px 20px rgba(1, 180, 255, .3);
+}
+
+.bg-soft-stat {
+    background: var(--bg-soft);
+}
+
+/* Bo loc doc */
+.filter-panel .form-check-label {
+    font-size: .88rem;
+}
+
+/* Bia de tu sinh — 6 palette pastel */
+.exam-cover {
+    position: relative;
+    height: 170px;
+    border-radius: 16px 16px 0 0;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.exam-cover::before {
+    content: '';
+    position: absolute;
+    right: -46px;
+    top: -46px;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .55);
+}
+
+.exam-cover::after {
+    content: '';
+    position: absolute;
+    left: -30px;
+    bottom: -60px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .35);
+}
+
+.cover-0 { background: linear-gradient(135deg, #ffe3ea 0%, #ffd3dd 100%); }
+.cover-1 { background: linear-gradient(135deg, #e2ecff 0%, #d0e4ff 100%); }
+.cover-2 { background: linear-gradient(135deg, #fff3d1 0%, #ffe8b0 100%); }
+.cover-3 { background: linear-gradient(135deg, #dcf7ec 0%, #c9efe0 100%); }
+.cover-4 { background: linear-gradient(135deg, #eee2ff 0%, #e0d0ff 100%); }
+.cover-5 { background: linear-gradient(135deg, #ffe9d6 0%, #ffdcb8 100%); }
+
+.exam-cover .cover-year {
+    position: relative;
+    z-index: 1;
+    align-self: flex-start;
+    background: rgba(255, 255, 255, .85);
+    color: var(--primary);
+    font-size: .72rem;
+    font-weight: 700;
+    padding: .2rem .7rem;
+    border-radius: 20px;
+}
+
+.exam-cover .cover-bookmark {
+    position: absolute;
+    z-index: 1;
+    top: 12px;
+    right: 14px;
+    color: rgba(27, 42, 78, .35);
+    font-size: 1.1rem;
+}
+
+.exam-cover .cover-title {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    color: var(--primary);
+    font-weight: 800;
+    font-size: 1.02rem;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.exam-cover .cover-meta {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-size: .74rem;
+    font-weight: 600;
+    color: rgba(27, 42, 78, .65);
+}
+
+.exam-cover .cover-meta .dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(27, 42, 78, .35);
+}
+
+.exam-cover-card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(27, 42, 78, .06);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.exam-cover-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(27, 42, 78, .12);
+}
+
+.cover-card-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.6em;
+}
+
+.cover-card-stats {
+    border-top: 1px dashed var(--border-soft);
+    padding-top: .6rem;
+}
+
+/* Toggle thong ke Cong dong / Cua ban */
+.stats-toggle .nav-link {
+    border-radius: 20px;
+    font-size: .85rem;
+    font-weight: 600;
+    color: #4a5470;
+    padding: .35rem 1rem;
+}
+
+.stats-toggle .nav-link.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* ---------- Section "Hoc vien noi gi" (quote card xep chong) ---------- */
+.quote-stack {
+    position: relative;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 8px 26px rgba(27, 42, 78, .09);
+    padding: 1.6rem 1.6rem 1.3rem;
+    height: 100%;
+}
+
+.quote-stack::before,
+.quote-stack::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: 0 8px 26px rgba(27, 42, 78, .09);
+    z-index: -1;
+}
+
+.quote-stack::before {
+    transform: rotate(2deg) translateX(8px);
+    opacity: .75;
+}
+
+.quote-stack::after {
+    transform: rotate(-2deg) translateX(-8px);
+    opacity: .55;
+}
+
+.quote-mark {
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--accent);
+    opacity: .55;
+}
+
+.quote-text {
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--primary);
+    font-weight: 500;
+}
+
+.quote-author {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    margin-top: 1rem;
+}
+
+.quote-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 700;
+    background: var(--gradient);
+    flex-shrink: 0;
+}
+
+.quote-score-chip {
+    margin-left: auto;
+    background: var(--bg-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
+    padding: .25rem .8rem;
+    font-size: .8rem;
+    font-weight: 700;
+    color: var(--primary);
+    white-space: nowrap;
+}
+
+/* Social-proof pill trong hero trang chu */
+.hero-social-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .8rem;
+    background: rgba(255, 255, 255, .12);
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 30px;
+    padding: .45rem 1.1rem .45rem .5rem;
+    font-size: .9rem;
+    color: rgba(255, 255, 255, .92);
+}
+
+.avatar-stack {
+    display: inline-flex;
+}
+
+.mini-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gradient);
+    border: 2px solid rgba(255, 255, 255, .85);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    color: #fff;
+    margin-left: -8px;
+}
+
+.mini-avatar:first-child {
+    margin-left: 0;
+}

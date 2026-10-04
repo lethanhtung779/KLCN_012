@@ -34,6 +34,41 @@ public class DeThiController : ControllerBase
         return Ok(list.Select(ToListItemDto));
     }
 
+    /// <summary>Thong ke tong hop: so lieu toan he thong + theo tung de
+    /// (dung cho kho de va social-proof trang chu).</summary>
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetStats()
+    {
+        var raw = await _db.BaiLams
+            .Where(b => b.TrangThai != "DangLam")
+            .Join(_db.DotThis, b => b.DotThiID, d => d.DotThiID,
+                (b, d) => new { d.DeThiID, Diem = b.TongDiem })
+            .ToListAsync();
+
+        var theoDe = raw.GroupBy(x => x.DeThiID).Select(g =>
+        {
+            var diems = g.Where(x => x.Diem != null).Select(x => x.Diem!.Value).ToList();
+            return new ExamStatItemDto
+            {
+                DeThiID = g.Key,
+                SoLuotThi = g.Count(),
+                SoHoanThanh = diems.Count,
+                DiemTrungBinh = diems.Count > 0
+                    ? Math.Round(diems.Average(), 2, MidpointRounding.AwayFromZero)
+                    : null
+            };
+        }).ToList();
+
+        var stats = new ExamStatsDto
+        {
+            TongCauHoi = await _db.CauHois.CountAsync(c => c.TrangThai == "HoatDong"),
+            TongLuotLamBai = raw.Count,
+            TongHocVien = await _db.HocViens.CountAsync(),
+            TheoDe = theoDe
+        };
+        return Ok(stats);
+    }
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {

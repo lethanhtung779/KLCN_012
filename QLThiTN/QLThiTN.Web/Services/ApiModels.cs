@@ -211,6 +211,22 @@ public class ApiStudentStats
     public decimal HighestScore { get; set; }
 }
 
+public class ApiExamStatItem
+{
+    public int DeThiID { get; set; }
+    public int SoLuotThi { get; set; }
+    public int SoHoanThanh { get; set; }
+    public decimal? DiemTrungBinh { get; set; }
+}
+
+public class ApiExamStats
+{
+    public int TongCauHoi { get; set; }
+    public int TongLuotLamBai { get; set; }
+    public int TongHocVien { get; set; }
+    public List<ApiExamStatItem> TheoDe { get; set; } = new();
+}
+
 public class ApiKetQuaCau
 {
     public int OrderIndex { get; set; }
