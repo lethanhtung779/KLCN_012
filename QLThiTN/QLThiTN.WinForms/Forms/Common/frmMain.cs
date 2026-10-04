@@ -5,10 +5,8 @@ namespace QLThiTN.WinForms.Forms.Common;
 /// <summary>Man hinh chinh: sidebar dieu huong theo vai tro + vung noi dung.</summary>
 public class frmMain : Form
 {
-    private readonly Panel _content = new();
+    private readonly Panel _content = new() { Dock = DockStyle.Fill, BackColor = Ui.BgSoft };
     private readonly StatisticsService _stats = new();
-    private readonly Button _btnDoiMatKhau = new();
-    private readonly Label _lblUserInfo = new();
 
     public frmMain()
     {
@@ -18,6 +16,7 @@ public class frmMain : Form
         MinimumSize = new Size(1100, 680);
         BackColor = Ui.BgSoft;
 
+        Controls.Add(_content);
         BuildSidebar();
         BuildContent();
         MoManHinh("Tổng quan", TaoTongQuan);
@@ -28,40 +27,45 @@ public class frmMain : Form
     {
         var sidebar = new Panel { Dock = DockStyle.Left, Width = 232, BackColor = Ui.Navy };
 
+        // Header thong tin (thuong hieu + nguoi dung)
         var lblBrand = new Label
         {
             Text = "🎓  QLTHI TN-THPT",
             Font = new Font("Segoe UI", 12f, FontStyle.Bold),
             ForeColor = Color.White,
             AutoSize = false,
-            Size = new Size(232, 40),
-            Location = new Point(0, 18),
+            Size = new Size(232, 36),
+            Location = new Point(0, 14),
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(20, 0, 0, 0)
         };
 
         var lblRole = new Label
         {
-            Text = "PHÂN HỆ QUẢN TRỊ & GIÁO VIÊN",
+            Text = "QUẢN TRỊ & GIÁO VIÊN",
             Font = Ui.Small,
             ForeColor = Color.FromArgb(120, 140, 180),
             AutoSize = false,
             Size = new Size(232, 22),
-            Location = new Point(0, 56),
+            Location = new Point(0, 52),
             Padding = new Padding(20, 0, 0, 0)
         };
 
-        _lblUserInfo.Text = $"👤 {Session.HoTen}\n{Session.Current?.VaiTro switch { "QuanTriVien" => "Quản trị viên", "GiaoVien" => "Giáo viên", _ => "" }}";
-        _lblUserInfo.Font = Ui.Body;
-        _lblUserInfo.ForeColor = Color.White;
-        _lblUserInfo.AutoSize = false;
-        _lblUserInfo.Size = new Size(232, 46);
-        _lblUserInfo.Padding = new Padding(20, 0, 0, 0);
+        var lblUserInfo = new Label
+        {
+            Text = "👤  " + Session.HoTen,
+            Font = Ui.Body,
+            ForeColor = Color.White,
+            AutoSize = false,
+            Size = new Size(232, 26),
+            Location = new Point(0, 78)
+        };
 
+        // Menu chinh
         var flow = new FlowLayoutPanel
         {
-            Location = new Point(0, 120),
-            Size = new Size(232, 400),
+            Location = new Point(0, 116),
+            Size = new Size(232, 340),
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             BackColor = Ui.Navy
@@ -80,54 +84,27 @@ public class frmMain : Form
             flow.Controls.Add(NavButton("📊  Thống kê kết quả", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));
         }
 
-        flow.Controls.Add(NavButton("🔄  Tổng quan", () => MoManHinh("Tổng quan", TaoTongQuan)));
-
-        _btnDoiMatKhau.Text = "🔑  Đổi mật khẩu";
-        _btnDoiMatKhau.Font = Ui.Body;
-        _btnDoiMatKhau.ForeColor = Color.White;
-        _btnDoiMatKhau.BackColor = Ui.Navy;
-        _btnDoiMatKhau.FlatStyle = FlatStyle.Flat;
-        _btnDoiMatKhau.FlatAppearance.BorderSize = 0;
-        _btnDoiMatKhau.Size = new Size(232, 44);
-        _btnDoiMatKhau.TextAlign = ContentAlignment.MiddleLeft;
-        _btnDoiMatKhau.Padding = new Padding(20, 0, 0, 0);
-        _btnDoiMatKhau.Cursor = Cursors.Hand;
-        _btnDoiMatKhau.Click += (s, e) =>
+        flow.Controls.Add(new Label { Height = 10, Width = 232, BackColor = Ui.Navy });
+        flow.Controls.Add(NavButton("🔑  Đổi mật khẩu", () =>
         {
             using var f = new frmDoiMatKhau();
             f.ShowDialog(this);
-        };
-
-        var btnLogout = new Button
-        {
-            Text = "⏻  Đăng xuất",
-            Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
-            ForeColor = Color.White,
-            BackColor = Ui.NavyDark,
-            FlatStyle = FlatStyle.Flat,
-            Size = new Size(232, 46),
-            Dock = DockStyle.Bottom,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(20, 0, 0, 0),
-            Cursor = Cursors.Hand
-        };
-        btnLogout.FlatAppearance.BorderSize = 0;
-        btnLogout.Click += (s, e) =>
+        }));
+        var btnLogout = NavButton("⏻  Đăng xuất", () =>
         {
             Session.Clear();
             Close();
-        };
+        });
+        btnLogout.ForeColor = Color.FromArgb(255, 150, 150);
+        flow.Controls.Add(btnLogout);
+        flow.Controls.Add(new Label { Height = 10, Width = 232, BackColor = Ui.Navy });
+        flow.Controls.Add(NavButton("🔄  Tổng quan", () => MoManHinh("Tổng quan", TaoTongQuan)));
 
-        sidebar.Controls.AddRange([lblBrand, lblRole, _lblUserInfo, flow, _btnDoiMatKhau, btnLogout]);
-        _btnDoiMatKhau.Location = new Point(0, ClientSize.Height - 90);
-
+        sidebar.Controls.Add(lblBrand);
+        sidebar.Controls.Add(lblRole);
+        sidebar.Controls.Add(lblUserInfo);
+        sidebar.Controls.Add(flow);
         Controls.Add(sidebar);
-        sidebar.Paint += (s, e) =>
-        {
-            using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                sidebar.ClientRectangle, Ui.NavyDark, Ui.Navy, 90f);
-            e.Graphics.FillRectangle(brush, sidebar.ClientRectangle);
-        };
     }
 
     private Button NavButton(string text, Action onClick)
@@ -142,7 +119,8 @@ public class frmMain : Form
             Size = new Size(232, 46),
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(20, 0, 0, 0),
-            Cursor = Cursors.Hand
+            Cursor = Cursors.Hand,
+            Margin = new Padding(0)
         };
         b.FlatAppearance.BorderSize = 0;
         b.FlatAppearance.MouseOverBackColor = Ui.NavyDark;
@@ -153,12 +131,8 @@ public class frmMain : Form
     // ------------------------------------------------------------------ content
     private void BuildContent()
     {
-        _content.Dock = DockStyle.Fill;
         _content.BackColor = Ui.BgSoft;
-        Controls.Add(_content);
     }
-
-    private Label? _lblTitle;
 
     /// <summary>Do mot form con (TopLevel=false) vao vung noi dung.</summary>
     private void MoManHinh(string tieuDe, Func<Form> tao)
@@ -168,7 +142,7 @@ public class frmMain : Form
         _content.Controls.Clear();
 
         var header = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = Color.White };
-        _lblTitle = new Label
+        var lblTitle = new Label
         {
             Text = tieuDe,
             Font = Ui.H1,
@@ -176,7 +150,7 @@ public class frmMain : Form
             AutoSize = true,
             Location = new Point(24, 16)
         };
-        header.Controls.Add(_lblTitle);
+        header.Controls.Add(lblTitle);
 
         var child = tao();
         child.TopLevel = false;

@@ -24,35 +24,31 @@ public class frmLogin : Form
 
     private void BuildUi()
     {
-        // Panel trai: nhan dien thuong hieu (navy)
-        var side = new Panel { Dock = DockStyle.Left, Width = 340, BackColor = Ui.Navy };
-        var logo = Ui.Label("🎓", new Font("Segoe UI Emoji", 34f), Color.White);
-        var title = Ui.Label("QUẢN LÝ & THI\nTRẮC NGHIỆM THPT", Ui.H1, Color.White);
-        var sub = Ui.Label("Phân hệ dành cho\nQuản trị viên và Giáo viên", Ui.Body, Color.FromArgb(150, 165, 200));
-
-        var features = Ui.Label(
-            "✓  Quản lý tài khoản người dùng\n" +
-            "✓  Biên soạn ngân hàng câu hỏi\n" +
-            "✓  Tạo đề thi từ ngân hàng câu hỏi\n" +
-            "✓  Tổ chức kỳ thi trực tuyến\n" +
-            "✓  Thống kê – báo cáo kết quả",
-            Ui.Body, Color.FromArgb(190, 200, 225));
-
-        side.Controls.AddRange([logo, title, sub, features]);
+        // Panel trai: nhan dien thuong hieu — van ban ve truc tiep trong Paint
+        // de khong co "hop mau" cua Label dua tren nen gradient.
+        var side = new Panel { Dock = DockStyle.Left, Width = 340 };
         side.Paint += (s, e) =>
         {
+            var rect = side.ClientRectangle;
             using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(
-                side.ClientRectangle, Ui.NavyDark, Color.FromArgb(45, 74, 143), 135f);
-            e.Graphics.FillRectangle(brush, side.ClientRectangle);
-        };
+                rect, Ui.NavyDark, Color.FromArgb(45, 74, 143), 135f);
+            e.Graphics.FillRectangle(brush, rect);
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-        // Vi tri cac thuoc tinh trong panel trai (sau khi gan dock de tinh duoc toa do)
-        side.Resize += (s, e) =>
-        {
-            logo.Location = new Point(40, 80);
-            title.Location = new Point(40, 150);
-            sub.Location = new Point(40, 220);
-            features.Location = new Point(40, 320);
+            TextRenderer.DrawText(e.Graphics, "🎓", new Font("Segoe UI Emoji", 30f),
+                new Point(40, 78), Color.White);
+            TextRenderer.DrawText(e.Graphics, "QUẢN LÝ & THI\nTRẮC NGHIỆM THPT", Ui.H1,
+                new Point(40, 150), Color.White);
+            TextRenderer.DrawText(e.Graphics, "Phân hệ dành cho\nQuản trị viên và Giáo viên", Ui.Body,
+                new Point(40, 224), Color.FromArgb(165, 178, 208));
+
+            TextRenderer.DrawText(e.Graphics,
+                "✓  Quản lý tài khoản người dùng\n" +
+                "✓  Biên soạn ngân hàng câu hỏi\n" +
+                "✓  Tạo đề thi từ ngân hàng câu hỏi\n" +
+                "✓  Tổ chức kỳ thi trực tuyến\n" +
+                "✓  Thống kê – báo cáo kết quả",
+                Ui.Body, new Point(40, 318), Color.FromArgb(200, 210, 230));
         };
 
         // Panel phai: form dang nhap
@@ -67,29 +63,23 @@ public class frmLogin : Form
 
         var btnLogin = Ui.ButtonAccent("Đăng nhập", 280, 44);
         Ui.GradientButton(btnLogin, Ui.Accent, Ui.Accent2);
-        btnLogin.Location = new Point(0, 0);
         btnLogin.Click += (s, e) => DangNhap();
 
         var lblNote = Ui.Label("Thí sinh vui lòng đăng nhập trên website để làm bài thi.", Ui.Small, Ui.TextMuted);
 
         Controls.AddRange([side, lblTitle, lblSub, lblUser, _txtUser, lblPass, _txtPass, _lblError, btnLogin, lblNote]);
 
-        // Bo cuc panel phai
-        void LayoutRight()
-        {
-            var x = 380;
-            lblTitle.Location = new Point(x, 90);
-            lblSub.Location = new Point(x, 128);
-            lblUser.Location = new Point(x, 180);
-            _txtUser.Location = new Point(x, 208);
-            lblPass.Location = new Point(x, 258);
-            _txtPass.Location = new Point(x, 286);
-            _lblError.Location = new Point(x, 320);
-            btnLogin.Location = new Point(x, 350);
-            lblNote.Location = new Point(x, 420);
-        }
-        LayoutRight();
-        Resize += (s, e) => LayoutRight();
+        // Bo cuc panel phai (form FixedDialog nen toa do tinh mot lan la du)
+        var x = 380;
+        lblTitle.Location = new Point(x, 90);
+        lblSub.Location = new Point(x, 128);
+        lblUser.Location = new Point(x, 180);
+        _txtUser.Location = new Point(x, 208);
+        lblPass.Location = new Point(x, 258);
+        _txtPass.Location = new Point(x, 286);
+        _lblError.Location = new Point(x, 320);
+        btnLogin.Location = new Point(x, 350);
+        lblNote.Location = new Point(x, 420);
     }
 
     private void DangNhap()
