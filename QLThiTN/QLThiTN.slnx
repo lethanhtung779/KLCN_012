@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="QLThiTN.Web/QLThiTN.Web.csproj" />
   <Project Path="QLThiTN.API/QLThiTN.API.csproj" />
+  <Project Path="QLThiTN.WinForms/QLThiTN.WinForms.csproj" />
 </Solution>
