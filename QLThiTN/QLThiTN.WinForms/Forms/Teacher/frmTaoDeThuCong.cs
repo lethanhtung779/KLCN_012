@@ -107,8 +107,11 @@ public class frmTaoDeThuCong : Form
             ("CauHoiID", "ID"), ("NoiDung", "Nội dung"), ("LoaiCauHoi", "Loại"),
             ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TenChuDe", "Chủ đề"));
         Ui.HideColumns(_grid, "CauHoiID");
-        _grid.Columns["Chon"].Width = 50;
-        _grid.Columns["Chon"].HeaderText = "Chọn";
+        // Dat AutoSizeMode=None truoc Width: dat Width tren cot Fill khi grid chua co handle bi NullReferenceException.
+        var colChon = _grid.Columns["Chon"]!;
+        colChon.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+        colChon.Width = 50;
+        colChon.HeaderText = "Chọn";
         _grid.Columns["NoiDung"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
         _dangTaiDuLieu = false;
         CapNhatDem();

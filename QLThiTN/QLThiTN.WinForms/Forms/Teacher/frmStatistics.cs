@@ -141,7 +141,10 @@ public class frmStatistics : Form
         Ui.HideColumns(_gridCauHoi, "CauHoiID", "NoiDung");
         if (_gridCauHoi.Columns.Contains("TiLeDung"))
         {
-            _gridCauHoi.Columns["TiLeDung"].Width = 70;
+            // Dat AutoSizeMode=None truoc Width: dat Width tren cot Fill khi grid chua co handle bi NullReferenceException.
+            var colTiLe = _gridCauHoi.Columns["TiLeDung"]!;
+            colTiLe.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            colTiLe.Width = 70;
             foreach (DataGridViewRow row in _gridCauHoi.Rows)
             {
                 var tile = Convert.ToDouble(row.Cells["TiLeDung"].Value);
