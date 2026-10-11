@@ -71,15 +71,11 @@ public class frmMain : Form
             BackColor = Ui.Navy
         };
 
-        // Giao vu = GiaoVien: quan ly khoa/lop, xep hoc vien, phan cong giang day
-        if (Session.CanQuanLyDaoTao)
-        {
-            flow.Controls.Add(NavButton("📖  Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp (Giáo vụ)", () => new Forms.Admin.frmDaoTao())));
-        }
-
+        // Phân hệ Quản trị viên (Admin / Phòng Đào tạo)
         if (Session.IsQuanTriVien)
         {
             flow.Controls.Add(NavButton("👥  Quản lý tài khoản", () => MoManHinh("Quản lý tài khoản", () => new Forms.Admin.frmAccounts())));
+            flow.Controls.Add(NavButton("📖  Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp học", () => new Forms.Admin.frmDaoTao())));
             flow.Controls.Add(NavButton("🗄️  Backup & Restore", () => MoManHinh("Sao lưu & phục hồi dữ liệu", () => new Forms.Admin.frmBackupRestore())));
         }
 
