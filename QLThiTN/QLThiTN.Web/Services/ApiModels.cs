@@ -302,3 +302,43 @@ public class ApiMonHoc
     public string MoTa { get; set; } = string.Empty;
     public string HinhAnh { get; set; } = string.Empty;
 }
+
+public class ApiThoiKhoaBieu
+{
+    public List<ApiLopHocSummary> LopHocs { get; set; } = new();
+    public List<ApiLichHocItem> BuoiHoc { get; set; } = new();
+    public List<ApiPhanCongGiangDay> PhanCongGiangDay { get; set; } = new();
+}
+
+public class ApiPhanCongGiangDay
+{
+    public int LopHocID { get; set; }
+    public int MonHocID { get; set; }
+    public string TenMon { get; set; } = string.Empty;
+    public string TenGiaoVien { get; set; } = string.Empty;
+}
+
+public class ApiLopHocSummary
+{
+    public int LopHocID { get; set; }
+    public string TenLop { get; set; } = string.Empty;
+    public string TenKhoaHoc { get; set; } = string.Empty;
+    public string TenMon { get; set; } = string.Empty;
+    public string TrangThai { get; set; } = string.Empty;
+    public string TrangThaiText { get; set; } = string.Empty;
+}
+
+public class ApiLichHocItem
+{
+    public int LichHocID { get; set; }
+    public int LopHocID { get; set; }
+    public string TenLop { get; set; } = string.Empty;
+    public string TenKhoaHoc { get; set; } = string.Empty;
+    public string TenMon { get; set; } = string.Empty;
+    public string? NoiDung { get; set; }
+    public DateTime ThoiGianBatDau { get; set; }
+    public DateTime ThoiGianKetThuc { get; set; }
+    public string? DiaDiem { get; set; }
+    public string? TenGiaoVien { get; set; }
+    public string? PhanCongTomTat { get; set; }
+}

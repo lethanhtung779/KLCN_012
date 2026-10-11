@@ -42,7 +42,7 @@ public class frmMain : Form
 
         var lblRole = new Label
         {
-            Text = "QUẢN TRỊ & GIÁO VIÊN",
+            Text = Session.IsQuanTriVien ? "QUẢN TRỊ VIÊN" : Session.IsGiaoVien ? "GIÁO VIÊN · GIÁO VỤ" : "QUẢN TRỊ & GIÁO VIÊN",
             Font = Ui.Small,
             ForeColor = Color.FromArgb(120, 140, 180),
             AutoSize = false,
@@ -65,11 +65,17 @@ public class frmMain : Form
         var flow = new FlowLayoutPanel
         {
             Location = new Point(0, 116),
-            Size = new Size(232, 340),
+            Size = new Size(232, 400),
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             BackColor = Ui.Navy
         };
+
+        // Giao vu = GiaoVien: quan ly khoa/lop, xep hoc vien, phan cong giang day
+        if (Session.CanQuanLyDaoTao)
+        {
+            flow.Controls.Add(NavButton("📖  Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp (Giáo vụ)", () => new Forms.Admin.frmDaoTao())));
+        }
 
         if (Session.IsQuanTriVien)
         {

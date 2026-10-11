@@ -26,7 +26,6 @@ public class frmAccountEdit : Form
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
-        ClientSize = new Size(440, id == 0 ? 400 : 310);
         BackColor = Color.White;
 
         var lblTen = Ui.Label("Tên đăng nhập *", Ui.H2, Ui.Navy);
@@ -42,7 +41,16 @@ public class frmAccountEdit : Form
         var lblVaiTro = Ui.Label("Vai trò", Ui.H2, Ui.Navy);
         _cboVaiTro.Items.AddRange(["HocVien", "GiaoVien", "QuanTriVien"]);
         _cboVaiTro.SelectedItem = vaiTro;
-        _cboVaiTro.Enabled = id == 0;
+        Label? lblVaiTroCoDinh = null;
+        if (id == 0)
+        {
+            _cboVaiTro.Enabled = true;
+        }
+        else
+        {
+            _cboVaiTro.Visible = false;
+            lblVaiTroCoDinh = Ui.Label($"Vai trò: {TenVaiTro(vaiTro)} (không đổi khi sửa)", Ui.Body, Ui.TextMuted);
+        }
 
         var lblMatKhau = Ui.Label(id == 0 ? "Mật khẩu * (tối thiểu 6 ký tự)" : "Đặt lại mật khẩu (để trống = giữ nguyên)", Ui.H2, Ui.Navy);
         _txtMatKhau.UseSystemPasswordChar = true;
@@ -53,7 +61,16 @@ public class frmAccountEdit : Form
         var btnHuy = Ui.ButtonOutline("Hủy", 100, 40);
         btnHuy.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-        Controls.AddRange([lblTen, _txtTen, lblEmail, _txtEmail, lblHoTen, _txtHoTen, lblVaiTro, _cboVaiTro, lblMatKhau, _txtMatKhau, _lblError, btnLuu, btnHuy]);
+        var controls = new List<Control>
+        {
+            lblTen, _txtTen, lblEmail, _txtEmail, lblHoTen, _txtHoTen,
+            lblMatKhau, _txtMatKhau, _lblError, btnLuu, btnHuy
+        };
+        if (id == 0)
+            controls.InsertRange(6, [lblVaiTro, _cboVaiTro]);
+        else if (lblVaiTroCoDinh != null)
+            controls.Insert(6, lblVaiTroCoDinh);
+        Controls.AddRange(controls.ToArray());
 
         var y = 20;
         lblTen.Location = new Point(30, y); _txtTen.Location = new Point(30, y + 26); y += 66;
@@ -63,12 +80,27 @@ public class frmAccountEdit : Form
         {
             lblVaiTro.Location = new Point(30, y); _cboVaiTro.Location = new Point(30, y + 26); y += 66;
         }
+        else if (lblVaiTroCoDinh != null)
+        {
+            lblVaiTroCoDinh.Location = new Point(30, y); y += 36;
+        }
         lblMatKhau.Location = new Point(30, y);
         _txtMatKhau.Location = new Point(30, y + 26);
         _lblError.Location = new Point(30, y + 56);
         btnLuu.Location = new Point(30, y + 78);
         btnHuy.Location = new Point(210, y + 78);
+
+        // Chieu cao form theo noi dung (tranh cat mat nut Luu / Huy khi sua tai khoan)
+        ClientSize = new Size(440, Math.Max(btnLuu.Bottom, btnHuy.Bottom) + 24);
     }
+
+    private static string TenVaiTro(string code) => code switch
+    {
+        "GiaoVien" => "Giáo viên",
+        "QuanTriVien" => "Quản trị viên",
+        "HocVien" => "Học viên",
+        _ => code
+    };
 
     private void Luu()
     {

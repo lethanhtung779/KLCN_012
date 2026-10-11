@@ -22,6 +22,64 @@ public class MonHoc
     public string TenMon { get; set; } = "";
 }
 
+/// <summary>Khoa hoc (chuong trinh theo mon).</summary>
+public class KhoaHoc
+{
+    public int KhoaHocID { get; set; }
+    public string TenKhoaHoc { get; set; } = "";
+    public int MonHocID { get; set; }
+    public string TenMon { get; set; } = "";
+    public DateTime? NgayBatDau { get; set; }
+    public DateTime? NgayKetThuc { get; set; }
+    public string TrangThai { get; set; } = "HoatDong";
+}
+
+/// <summary>Lop hoc thuoc mot khoa hoc.</summary>
+public class LopHoc
+{
+    public int LopHocID { get; set; }
+    public string TenLop { get; set; } = "";
+    public int KhoaHocID { get; set; }
+    public string TenKhoaHoc { get; set; } = "";
+    public string TenMon { get; set; } = "";
+}
+
+/// <summary>Trang thai khoa hoc (khop CHECK KhoaHoc.TrangThai).</summary>
+public static class TrangThaiKhoaHoc
+{
+    public const string HoatDong = "HoatDong";
+    public const string TamDung = "TamDung";
+    public const string DaKetThuc = "DaKetThuc";
+
+    public static readonly (string Code, string Display)[] All =
+    [
+        (HoatDong, "Hoạt động"),
+        (TamDung, "Tạm dừng"),
+        (DaKetThuc, "Đã kết thúc")
+    ];
+
+    public static string Display(string code) =>
+        All.FirstOrDefault(x => x.Code == code).Display ?? code;
+}
+
+/// <summary>Trang thai hoc vien trong lop (khop CHECK HocVien_Lop.TrangThai).</summary>
+public static class TrangThaiHocVienLop
+{
+    public const string DangHoc = "DangHoc";
+    public const string DaKetThuc = "DaKetThuc";
+    public const string ThoiHoc = "ThoiHoc";
+
+    public static readonly (string Code, string Display)[] All =
+    [
+        (DangHoc, "Đang học"),
+        (DaKetThuc, "Đã kết thúc"),
+        (ThoiHoc, "Thôi học")
+    ];
+
+    public static string Display(string code) =>
+        All.FirstOrDefault(x => x.Code == code).Display ?? code;
+}
+
 /// <summary>Chu de thuoc mon hoc.</summary>
 public class ChuDe
 {

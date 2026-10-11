@@ -1,0 +1,58 @@
+@model List<LearningSessionViewModel>
+
+<div class="card border-0 rounded-4 shadow-sm overflow-hidden mb-3">
+    <ul class="list-group list-group-flush">
+        @foreach (var s in Model)
+        {
+            <li class="list-group-item py-3 px-4 border-bottom @(s.IsOngoing ? "bg-success bg-opacity-10 border-start border-4 border-success" : "")">
+                <div class="d-flex flex-column flex-md-row align-items-md-center gap-3">
+                    <div class="text-center text-md-start" style="min-width: 120px;">
+                        <div class="fw-bold fs-6 text-primary">@s.ThoiGianBatDau.ToString("dd/MM/yyyy")</div>
+                        <span class="badge bg-light text-muted border px-2 py-1 small">
+                            <i class="bi bi-clock me-1"></i>@s.ThoiGianBatDau.ToString("HH:mm") – @s.ThoiGianKetThuc.ToString("HH:mm")
+                        </span>
+                    </div>
+                    <span class="stat-icon d-none d-md-flex" style="background: var(--gradient); width: 44px; height: 44px; font-size: 1.1rem; flex-shrink: 0;">
+                        <i class="bi bi-easel2"></i>
+                    </span>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold text-dark fs-6">@s.Title</div>
+                        <div class="small text-muted mt-1">
+                            <span class="badge bg-primary bg-opacity-10 text-primary me-2"><i class="bi bi-people me-1"></i>@s.TenLop</span>
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary me-2"><i class="bi bi-book me-1"></i>@s.TenMon</span>
+                            @if (!string.IsNullOrWhiteSpace(s.DiaDiem))
+                            {
+                                <span><i class="bi bi-geo-alt me-1 text-danger"></i>@s.DiaDiem</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(s.PhanCongTomTat))
+                        {
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-person-video3 me-1 text-primary"></i><strong>Giáo viên:</strong> @s.PhanCongTomTat
+                            </div>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(s.TenGiaoVien))
+                        {
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-person-video3 me-1 text-primary"></i>@s.TenGiaoVien
+                            </div>
+                        }
+                    </div>
+                    @if (s.IsOngoing)
+                    {
+                        <span class="badge bg-success rounded-pill px-3 py-2 text-white shadow-sm d-inline-flex align-items-center gap-1">
+                            <span class="spinner-grow spinner-grow-sm" role="status" aria-hidden="true" style="width: 8px; height: 8px;"></span>
+                            Đang diễn ra
+                        </span>
+                    }
+                    else if (s.IsUpcoming && s.ThoiGianBatDau.Subtract(DateTime.Now).TotalHours <= 24)
+                    {
+                        <span class="badge bg-warning text-dark rounded-pill px-3 py-2 shadow-sm">
+                            <i class="bi bi-bell-fill me-1"></i>Sắp tới (trong 24h)
+                        </span>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+</div>

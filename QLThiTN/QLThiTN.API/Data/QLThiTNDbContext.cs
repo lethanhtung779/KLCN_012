@@ -52,6 +52,21 @@ public class QLThiTNDbContext : DbContext
             e.HasOne(x => x.LopHoc).WithMany().HasForeignKey(x => x.LopHocID);
         });
 
+        modelBuilder.Entity<LopHoc>(e =>
+        {
+            e.HasOne(x => x.KhoaHoc).WithMany().HasForeignKey(x => x.KhoaHocID);
+        });
+
+        modelBuilder.Entity<KhoaHoc>(e =>
+        {
+            e.HasOne(x => x.MonHoc).WithMany().HasForeignKey(x => x.MonHocID);
+        });
+
+        modelBuilder.Entity<LichHoc>(e =>
+        {
+            e.HasOne(x => x.LopHoc).WithMany().HasForeignKey(x => x.LopHocID);
+        });
+
         modelBuilder.Entity<PhanCongGiangDay>(e =>
         {
             e.HasKey(x => new { x.LopHocID, x.MonHocID });

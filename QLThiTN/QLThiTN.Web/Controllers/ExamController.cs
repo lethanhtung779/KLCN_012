@@ -409,30 +409,51 @@ public class ExamController : Controller
 
     [HttpGet]
     [RequireLogin]
-    public async Task<IActionResult> LearningSchedule()
+    public async Task<IActionResult> LearningSchedule(int? lop, DateTime? tu, DateTime? den)
     {
-        var exams = await _api.GetDeThisAsync();
+        var hocVienId = HocVienId;
+        if (!hocVienId.HasValue)
+        {
+            ViewBag.RequireLogin = true;
+            return View(new LearningScheduleViewModel());
+        }
+
+        var (tkb, error) = await _api.GetThoiKhoaBieuAsync(hocVienId.Value, lop, tu, den);
+        tkb ??= new ApiThoiKhoaBieu();
+
         var model = new LearningScheduleViewModel
         {
-            Items = exams
-                .OrderBy(e => e.ThoiGianMoCong)
-                .Select((e, i) => new LearningItemViewModel
-                {
-                    Id = i + 1,
-                    Title = e.TenDe,
-                    SubjectName = e.TenMon,
-                    Type = ExamMapping.ToExamKind(e.LoaiDe).ToDisplayName(),
-                    Description = e.LoaiDeText,
-                    DueTime = e.ThoiGianDongCong,
-                    ExamId = e.DeThiID,
-                    IsDone = e.TrangThai == "DaDong",
-                    StatusText = e.TrangThai switch
-                    {
-                        "DangMo" => "Đang mở",
-                        "SapMo" => "Sắp đến hạn",
-                        _ => "Đã hoàn thành"
-                    }
-                }).ToList()
+            LocLopHocId = lop,
+            LocTuNgay = tu,
+            LocDenNgay = den,
+            ApiError = error,
+            MyClasses = tkb.LopHocs.Select(l => new MyClassViewModel
+            {
+                LopHocId = l.LopHocID,
+                TenLop = l.TenLop,
+                TenKhoaHoc = l.TenKhoaHoc,
+                TenMon = l.TenMon,
+                TrangThaiText = string.IsNullOrWhiteSpace(l.TrangThaiText) ? l.TrangThai : l.TrangThaiText
+            }).ToList(),
+            Sessions = tkb.BuoiHoc.Select(b => new LearningSessionViewModel
+            {
+                LichHocId = b.LichHocID,
+                TenLop = b.TenLop,
+                TenKhoaHoc = b.TenKhoaHoc,
+                TenMon = b.TenMon,
+                Title = string.IsNullOrWhiteSpace(b.NoiDung) ? "Buổi học" : b.NoiDung!,
+                DiaDiem = b.DiaDiem,
+                TenGiaoVien = b.TenGiaoVien,
+                PhanCongTomTat = b.PhanCongTomTat,
+                ThoiGianBatDau = b.ThoiGianBatDau,
+                ThoiGianKetThuc = b.ThoiGianKetThuc
+            }).ToList(),
+            PhanCongGiangDay = tkb.PhanCongGiangDay.Select(p => new PhanCongGiangDayViewModel
+            {
+                LopHocId = p.LopHocID,
+                TenMon = p.TenMon,
+                TenGiaoVien = p.TenGiaoVien
+            }).ToList()
         };
         return View(model);
     }

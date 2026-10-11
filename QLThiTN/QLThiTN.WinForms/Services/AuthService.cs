@@ -13,6 +13,9 @@ public static class Session
     public static bool IsQuanTriVien => Current?.VaiTro == "QuanTriVien";
     public static bool IsGiaoVien => Current?.VaiTro == "GiaoVien";
 
+    /// <summary>Giao vu trong he thong = tai khoan GiaoVien; QuanTriVien cung mo duoc man hinh dao tao.</summary>
+    public static bool CanQuanLyDaoTao => IsGiaoVien || IsQuanTriVien;
+
     /// <summary>GiaoVienID cua nguoi dang nhap (dung khi tao cau hoi / de thi).</summary>
     public static int GiaoVienID => Current?.ProfileID ?? 0;
 

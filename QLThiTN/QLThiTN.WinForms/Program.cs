@@ -11,6 +11,12 @@ internal static class Program
         ApplicationConfiguration.Initialize();
         Database.LoadConfig(AppContext.BaseDirectory);
 
+        if (args is ["--hash", var plain, ..])
+        {
+            Console.WriteLine(PasswordHelper.Hash(plain));
+            return;
+        }
+
         // Che do kiem tra nhanh: --autologin dang nhap bang tai khoan admin mac dinh
         if (args.Contains("--autologin"))
         {

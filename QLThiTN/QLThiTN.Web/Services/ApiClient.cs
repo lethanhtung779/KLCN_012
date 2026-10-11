@@ -197,6 +197,28 @@ namespace QLThiTN.Web.Services;
     {
         return await _http.GetFromJsonAsync<ApiStudentStats>($"/api/bailam/stats/{hocVienId}", JsonOptions);
     }
+
+    /// <summary>Thoi khoa bieu hoc vien theo lop da dang ky (LichHoc).</summary>
+    public async Task<(ApiThoiKhoaBieu? Data, string? Error)> GetThoiKhoaBieuAsync(
+        int hocVienId,
+        int? lopHocId = null,
+        DateTime? tuNgay = null,
+        DateTime? denNgay = null)
+    {
+        var q = new List<string>();
+        if (lopHocId.HasValue) q.Add($"lopHocId={lopHocId.Value}");
+        if (tuNgay.HasValue) q.Add($"tuNgay={tuNgay.Value:yyyy-MM-dd}");
+        if (denNgay.HasValue) q.Add($"denNgay={denNgay.Value:yyyy-MM-dd}");
+        var url = $"/api/lichhoc/hocvien/{hocVienId}";
+        if (q.Count > 0) url += "?" + string.Join("&", q);
+
+        var response = await _http.GetAsync(url);
+        if (response.IsSuccessStatusCode)
+            return (await response.Content.ReadFromJsonAsync<ApiThoiKhoaBieu>(JsonOptions), null);
+
+        var err = await ReadErrorMessageAsync(response);
+        return (null, err ?? "Không tải được thời khóa biểu.");
+    }
 }
 
 public class ApiMessage

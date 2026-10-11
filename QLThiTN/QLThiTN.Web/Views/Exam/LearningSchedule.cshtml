@@ -1,100 +1,136 @@
 @model LearningScheduleViewModel
 @{
     ViewData["Title"] = "Lịch trình học tập";
-    var upcoming = Model.Items.Where(i => !i.IsDone && i.DueTime >= DateTime.Now).OrderBy(i => i.DueTime).ToList();
-    var overdue = Model.Items.Where(i => !i.IsDone && i.DueTime < DateTime.Now).OrderBy(i => i.DueTime).ToList();
-    var done = Model.Items.Where(i => i.IsDone).OrderByDescending(i => i.DueTime).ToList();
+    var now = DateTime.Now;
+    var ongoing = Model.Sessions.Where(s => s.IsOngoing).OrderBy(s => s.ThoiGianBatDau).ToList();
+    var upcoming = Model.Sessions.Where(s => s.IsUpcoming).OrderBy(s => s.ThoiGianBatDau).ToList();
+    var past = Model.Sessions.Where(s => s.IsPast).OrderByDescending(s => s.ThoiGianBatDau).ToList();
 }
 
 <section class="py-5">
     <div class="container">
         <div class="mb-4">
             <h1 class="section-title mb-2"><i class="bi bi-calendar2-week me-2"></i>Lịch trình học tập</h1>
-            <p class="section-subtitle mb-0">Các bài tập, bài kiểm tra 15 phút và kỳ thi được trung tâm phân công cho bạn</p>
+            <p class="section-subtitle mb-0">Thời khóa biểu theo các lớp bạn đã đăng ký tại trung tâm</p>
         </div>
 
-        @if (!Model.Items.Any())
+        @if (!string.IsNullOrEmpty(Model.ApiError))
+        {
+            <div class="alert alert-warning rounded-4">@Model.ApiError</div>
+        }
+
+        @if (Model.MyClasses.Any())
+        {
+            <form method="get" asp-action="LearningSchedule" class="card border-0 rounded-4 shadow-sm mb-4">
+                <div class="card-body row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold text-muted">Lớp</label>
+                        <select name="lop" class="form-select rounded-3">
+                            <option value="">Tất cả lớp đã đăng ký</option>
+                            @foreach (var l in Model.MyClasses)
+                            {
+                                if (Model.LocLopHocId == l.LopHocId)
+                                {
+                                    <option value="@l.LopHocId" selected="selected">@l.TenLop — @l.TenMon</option>
+                                }
+                                else
+                                {
+                                    <option value="@l.LopHocId">@l.TenLop — @l.TenMon</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-muted">Từ ngày</label>
+                        <input type="date" name="tu" class="form-control rounded-3" value="@(Model.LocTuNgay?.ToString("yyyy-MM-dd"))" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold text-muted">Đến ngày</label>
+                        <input type="date" name="den" class="form-control rounded-3" value="@(Model.LocDenNgay?.ToString("yyyy-MM-dd"))" />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary-custom w-100 rounded-pill">Lọc</button>
+                    </div>
+                </div>
+            </form>
+        }
+
+        @if (Model.MyClasses.Any())
+        {
+            <h5 class="fw-bold text-uppercase small text-muted mb-3"><i class="bi bi-mortarboard me-1"></i>Lớp của tôi</h5>
+            <div class="row g-3 mb-4">
+                @foreach (var lop in Model.MyClasses)
+                {
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-0 rounded-4 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="fw-bold fs-5 text-dark">@lop.TenLop</div>
+                                <div class="text-muted small mt-1"><i class="bi bi-journal-bookmark me-1"></i>@lop.TenKhoaHoc</div>
+                                <span class="badge rounded-pill mt-2" style="background: var(--gradient);">@lop.TenMon</span>
+                                @if (!string.IsNullOrWhiteSpace(lop.TrangThaiText))
+                                {
+                                    <span class="badge bg-light text-muted border ms-1 mt-2">@lop.TrangThaiText</span>
+                                }
+                                @{
+                                    var pcLop = Model.PhanCongGiangDay.Where(p => p.LopHocId == lop.LopHocId).ToList();
+                                }
+                                @if (pcLop.Any())
+                                {
+                                    <div class="mt-3 pt-2 border-top">
+                                        <div class="small fw-semibold text-muted mb-1"><i class="bi bi-person-video3 me-1"></i>Phân công giảng dạy</div>
+                                        <ul class="list-unstyled small mb-0">
+                                            @foreach (var pc in pcLop)
+                                            {
+                                                <li><span class="text-muted">@pc.TenMon:</span> @pc.TenGiaoVien</li>
+                                            }
+                                        </ul>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+
+        @if (!Model.MyClasses.Any() && !Model.Sessions.Any())
         {
             <div class="text-center py-5">
                 <i class="bi bi-calendar-x" style="font-size: 4rem; color: #c3cbe0;"></i>
-                <h5 class="mt-3 fw-bold text-muted">Chưa có nhiệm vụ nào được phân công</h5>
+                <h5 class="mt-3 fw-bold text-muted">Chưa có lịch học</h5>
+                <p class="text-muted mb-0">Bạn chưa được xếp vào lớp hoặc lớp chưa có buổi học trên hệ thống. Liên hệ giáo vụ nếu cần hỗ trợ.</p>
+            </div>
+        }
+        else if (!Model.Sessions.Any())
+        {
+            <div class="alert alert-light border rounded-4 shadow-sm">
+                <i class="bi bi-info-circle me-2"></i>Bạn đã có lớp nhưng chưa có buổi học nào được lên lịch.
             </div>
         }
         else
         {
-            @if (overdue.Any())
+            @if (ongoing.Any())
             {
-                <h5 class="fw-bold text-uppercase small mb-3" style="color: var(--danger);"><i class="bi bi-exclamation-triangle me-1"></i>Quá hạn</h5>
-                <div class="card border-0 rounded-4 shadow-sm overflow-hidden mb-4" style="border-left: 4px solid var(--danger) !important;">
-                    <ul class="list-group list-group-flush">
-                        @foreach (var item in overdue)
-                        {
-                            <li class="list-group-item d-flex align-items-center gap-3 py-3">
-                                <span class="badge-status bg-danger text-white">Quá hạn</span>
-                                <div class="flex-grow-1">
-                                    <div class="fw-semibold">@item.Title</div>
-                                    <small class="text-muted"><i class="bi bi-book me-1"></i>@item.SubjectName • @item.Type • Hạn: @(item.DueTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</small>
-                                </div>
-                                @if (item.ExamId.HasValue)
-                                {
-                                    <a asp-controller="Exam" asp-action="Detail" asp-route-id="@item.ExamId" class="btn btn-sm btn-outline-primary rounded-pill">Làm ngay</a>
-                                }
-                            </li>
-                        }
-                    </ul>
-                </div>
+                <h5 class="fw-bold text-uppercase small mb-3" style="color: var(--success);"><i class="bi bi-broadcast me-1"></i>Đang diễn ra</h5>
+                @await Html.PartialAsync("_LearningSessionList", ongoing)
             }
 
             @if (upcoming.Any())
             {
-                <h5 class="fw-bold text-uppercase small mb-3" style="color: var(--accent);"><i class="bi bi-hourglass-split me-1"></i>Sắp đến hạn</h5>
-                <div class="card border-0 rounded-4 shadow-sm overflow-hidden mb-4" style="border-left: 4px solid var(--accent) !important;">
-                    <ul class="list-group list-group-flush">
-                        @foreach (var item in upcoming)
-                        {
-                            var isSoon = item.DueTime.HasValue && item.DueTime.Value.Subtract(DateTime.Now).TotalHours <= 24;
-                            <li class="list-group-item d-flex align-items-center gap-3 py-3">
-                                <span class="stat-icon" style="background: var(--gradient); width: 44px; height: 44px; font-size: 1.1rem;"><i class="bi @(item.Type.Contains("15 phút") ? "bi-stopwatch" : item.Type.Contains("Thi thử") ? "bi-trophy" : "bi-journal-text")"></i></span>
-                                <div class="flex-grow-1">
-                                    <div class="fw-semibold">@item.Title</div>
-                                    <small class="text-muted"><i class="bi bi-book me-1"></i>@item.SubjectName • @item.Type • Hạn: @(item.DueTime?.ToString("dd/MM/yyyy HH:mm") ?? "—")</small>
-                                </div>
-                                @if (isSoon)
-                                {
-                                    <span class="badge-status badge-status-warn">Sắp tới</span>
-                                }
-                                @if (item.ExamId.HasValue)
-                                {
-                                    <a asp-controller="Exam" asp-action="Detail" asp-route-id="@item.ExamId" class="btn btn-sm btn-primary-custom">Làm bài</a>
-                                }
-                            </li>
-                        }
-                    </ul>
-                </div>
+                <h5 class="fw-bold text-uppercase small mb-3 mt-4" style="color: var(--accent);"><i class="bi bi-hourglass-split me-1"></i>Sắp tới</h5>
+                @await Html.PartialAsync("_LearningSessionList", upcoming)
             }
 
-            @if (done.Any())
+            @if (past.Any())
             {
-                <h5 class="fw-bold text-uppercase small text-muted mb-3"><i class="bi bi-check2-circle me-1"></i>Đã hoàn thành</h5>
-                <div class="card border-0 rounded-4 shadow-sm overflow-hidden">
-                    <ul class="list-group list-group-flush">
-                        @foreach (var item in done)
-                        {
-                            <li class="list-group-item d-flex align-items-center gap-3 py-3">
-                                <i class="bi bi-check-circle-fill text-success fs-5"></i>
-                                <div class="flex-grow-1">
-                                    <div class="fw-semibold">@item.Title</div>
-                                    <small class="text-muted"><i class="bi bi-book me-1"></i>@item.SubjectName • @item.Type • Hoàn thành: @(item.DueTime?.ToString("dd/MM/yyyy") ?? "—")</small>
-                                </div>
-                                @if (item.ExamId.HasValue)
-                                {
-                                    <a asp-controller="Exam" asp-action="Result" asp-route-id="@item.ExamId" class="btn btn-sm btn-outline-secondary rounded-pill">Xem kết quả</a>
-                                }
-                            </li>
-                        }
-                    </ul>
-                </div>
+                <h5 class="fw-bold text-uppercase small text-muted mb-3 mt-4"><i class="bi bi-clock-history me-1"></i>Đã qua</h5>
+                @await Html.PartialAsync("_LearningSessionList", past)
             }
         }
+
+        <p class="text-muted small mt-4 mb-0">
+            <i class="bi bi-calendar-event me-1"></i>Lịch thi và bài kiểm tra trực tuyến xem tại
+            <a asp-controller="Exam" asp-action="Schedule">Lịch thi</a>.
+        </p>
     </div>
 </section>

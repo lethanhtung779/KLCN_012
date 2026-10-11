@@ -160,15 +160,38 @@
 
                 @* Grid de thi *@
                 <div class="col-lg-9">
+                    <!-- Search & Sort bar -->
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4 p-3 bg-white rounded-4 shadow-sm border">
+                        <div class="input-group" style="max-width: 380px;">
+                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                            <input type="text" id="khoDeSearchInput" class="form-control border-start-0 ps-0" placeholder="Tìm kiếm đề thi..." />
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="small text-muted text-nowrap"><i class="bi bi-arrow-down-up me-1"></i>Sắp xếp:</span>
+                            <select id="khoDeSortSelect" class="form-select form-select-sm rounded-pill" style="width: 170px;">
+                                <option value="default">Mặc định</option>
+                                <option value="views">Lượt thi nhiều nhất</option>
+                                <option value="questions">Số câu hỏi</option>
+                            </select>
+                        </div>
+                    </div>
+
                     @if (Model.DeThis.Any())
                     {
-                        <div class="row g-4">
+                        <div class="row g-4" id="examCardsGrid">
                             @foreach (var exam in Model.DeThis)
                             {
-                                <div class="col-md-6 col-xl-4">
+                                <div class="col-md-6 col-xl-4 exam-card-wrapper" data-exam-title="@exam.Title" data-exam-views="@exam.SoLuotThi" data-exam-qcount="@exam.QuestionCount">
                                     <partial name="_ExamCoverCard" model="exam" />
                                 </div>
                             }
+                        </div>
+                        <div class="card border-0 rounded-4 shadow-sm d-none mt-4" id="noMatchMessage">
+                            <div class="card-body p-5 text-center text-muted">
+                                <i class="bi bi-search fs-1 d-block mb-3 text-secondary"></i>
+                                <b>Không tìm thấy đề thi phù hợp</b>
+                                <div class="small">Hãy thử tìm với từ khóa khác hoặc xóa bộ lọc.</div>
+                            </div>
                         </div>
                     }
                     else
@@ -198,16 +221,51 @@
             function apDungBoLoc() {
                 var loai = $('.filter-check:checked').map(function () { return this.value; }).get();
                 var trang = $('.status-check:checked').map(function () { return this.value; }).get();
+                var keyword = ($('#khoDeSearchInput').val() || '').toLowerCase().trim();
                 var hien = 0;
-                $('.exam-item').each(function () {
-                    var $el = $(this);
-                    var ok = loai.indexOf($el.data('loaide')) >= 0 && trang.indexOf($el.data('trangthai')) >= 0;
-                    $el.parent().toggleClass('d-none', !ok);
+
+                $('.exam-card-wrapper').each(function () {
+                    var $wrapper = $(this);
+                    var $item = $wrapper.find('.exam-item');
+                    var itemLoai = $item.data('loaide');
+                    var itemTrang = $item.data('trangthai');
+                    var itemTitle = ($wrapper.data('exam-title') || '').toLowerCase();
+
+                    var matchCheckboxes = loai.indexOf(itemLoai) >= 0 && trang.indexOf(itemTrang) >= 0;
+                    var matchSearch = !keyword || itemTitle.indexOf(keyword) >= 0;
+
+                    var ok = matchCheckboxes && matchSearch;
+                    $wrapper.toggleClass('d-none', !ok);
                     if (ok) hien++;
                 });
-                $('#filterCount').text('Hiển thị ' + hien + '/' + $('.exam-item').length + ' đề');
+
+                $('#filterCount').text('Hiển thị ' + hien + '/' + $('.exam-card-wrapper').length + ' đề');
+                $('#noMatchMessage').toggleClass('d-none', hien > 0 || $('.exam-card-wrapper').length === 0);
             }
+
             $('.filter-check, .status-check').on('change', apDungBoLoc);
+            $('#khoDeSearchInput').on('input', apDungBoLoc);
+
+            // Sắp xếp
+            $('#khoDeSortSelect').on('change', function () {
+                var mode = $(this).val();
+                var $grid = $('#examCardsGrid');
+                var $items = $grid.children('.exam-card-wrapper').get();
+
+                if (mode === 'views') {
+                    $items.sort(function (a, b) {
+                        return parseInt($(b).data('exam-views') || 0, 10) - parseInt($(a).data('exam-views') || 0, 10);
+                    });
+                } else if (mode === 'questions') {
+                    $items.sort(function (a, b) {
+                        return parseInt($(b).data('exam-qcount') || 0, 10) - parseInt($(a).data('exam-qcount') || 0, 10);
+                    });
+                }
+                $.each($items, function (idx, itm) {
+                    $grid.append(itm);
+                });
+            });
+
             apDungBoLoc();
         });
     </script>
