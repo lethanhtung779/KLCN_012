@@ -175,4 +175,419 @@ public class ExamService
                 p.AddWithValue("@m", monHocId);
                 p.AddWithValue("@muc", mucDo ?? "");
             });
+
+    // ------------------------------------------------------------------ TRỘN ĐỀ THI CHUẨN THPT QUỐC GIA
+    public (bool CoBaiLam, int SoBaiLam) KiemTraBaiLamCuaDe(int deThiId)
+    {
+        var soBai = Database.ExecuteScalarInt(@"
+            SELECT COUNT(1) FROM BaiLam bl
+            JOIN DotThi dt ON dt.DotThiID = bl.DotThiID
+            WHERE dt.DeThiID = @id",
+            p => p.AddWithValue("@id", deThiId));
+        return (soBai > 0, soBai);
+    }
+
+    public DataTable LayDanhSachMaDe(int deThiId)
+    {
+        return Database.Query(@"
+            SELECT m.MaDeID, m.TenMaDe,
+                   COUNT(DISTINCT mc.CauHoiID) AS SoCauHoi,
+                   (SELECT COUNT(1) FROM BaiLam bl WHERE bl.MaDeID = m.MaDeID) AS SoBaiLam
+            FROM MaDeThi m
+            LEFT JOIN MaDe_CauHoi mc ON mc.MaDeID = m.MaDeID
+            WHERE m.DeThiID = @id
+            GROUP BY m.MaDeID, m.TenMaDe
+            ORDER BY m.TenMaDe",
+            p => p.AddWithValue("@id", deThiId));
+    }
+
+    public (int TongCau, int SoTracNghiem, int SoDungSai, int SoTraLoiNgan) LayThongKePhanCauHoi(int deThiId)
+    {
+        var dt = Database.Query(@"
+            SELECT c.LoaiCauHoi, COUNT(1) AS SoLuong
+            FROM DeThi_CauHoi dc
+            JOIN CauHoi c ON c.CauHoiID = dc.CauHoiID
+            WHERE dc.DeThiID = @id
+            GROUP BY c.LoaiCauHoi",
+            p => p.AddWithValue("@id", deThiId));
+
+        int tn = 0, ds = 0, tln = 0;
+        foreach (DataRow r in dt.Rows)
+        {
+            var loai = r["LoaiCauHoi"]?.ToString() ?? "";
+            var sl = Convert.ToInt32(r["SoLuong"]);
+            if (loai == "TracNghiem") tn += sl;
+            else if (loai == "DungSai") ds += sl;
+            else if (loai == "TraLoiNgan") tln += sl;
+            else tn += sl;
+        }
+        return (tn + ds + tln, tn, ds, tln);
+    }
+
+    public (bool Success, string Message, List<int> MaDeIds) TronDeThi(
+        int deThiId,
+        int soLuongMaDe,
+        int maDeBatDau = 101,
+        bool xoaCu = true)
+    {
+        if (soLuongMaDe < 1 || soLuongMaDe > 50)
+            return (false, "Số lượng mã đề phải từ 1 đến 50.", new());
+
+        var (coBai, soBai) = KiemTraBaiLamCuaDe(deThiId);
+        if (coBai && xoaCu)
+            return (false, $"Đề thi đã có {soBai} bài làm của thí sinh, không thể xóa mã đề cũ để trộn lại. Hãy tạo đề thi mới nếu muốn trộn bộ đề khác.", new());
+
+        // Lấy danh sách câu hỏi gốc của đề
+        var dtCauHoi = Database.Query(@"
+            SELECT dc.CauHoiID, dc.ThuTu AS ThuTuGoc, c.LoaiCauHoi, c.NoiDung, c.Diem
+            FROM DeThi_CauHoi dc
+            JOIN CauHoi c ON c.CauHoiID = dc.CauHoiID
+            WHERE dc.DeThiID = @id
+            ORDER BY dc.ThuTu",
+            p => p.AddWithValue("@id", deThiId));
+
+        if (dtCauHoi.Rows.Count == 0)
+            return (false, "Đề thi chưa có câu hỏi nào để trộn.", new());
+
+        // Lấy danh sách đáp án gốc
+        var dtDapAn = Database.Query(@"
+            SELECT d.DapAnID, d.CauHoiID, d.ThuTu, d.NoiDung, d.LaDapAnDung, d.GiaiThich
+            FROM DapAn d
+            JOIN DeThi_CauHoi dc ON dc.CauHoiID = d.CauHoiID
+            WHERE dc.DeThiID = @id
+            ORDER BY d.CauHoiID, d.ThuTu",
+            p => p.AddWithValue("@id", deThiId));
+
+        var dapAnByCauHoi = new Dictionary<int, List<DapAnItem>>();
+        foreach (DataRow r in dtDapAn.Rows)
+        {
+            var chId = Convert.ToInt32(r["CauHoiID"]);
+            if (!dapAnByCauHoi.TryGetValue(chId, out var list))
+            {
+                list = new List<DapAnItem>();
+                dapAnByCauHoi[chId] = list;
+            }
+            list.Add(new DapAnItem
+            {
+                DapAnID = Convert.ToInt32(r["DapAnID"]),
+                CauHoiID = chId,
+                ThuTuGoc = Convert.ToInt32(r["ThuTu"]),
+                NoiDung = r["NoiDung"]?.ToString() ?? "",
+                LaDapAnDung = Convert.ToBoolean(r["LaDapAnDung"]),
+                GiaiThich = r["GiaiThich"]?.ToString()
+            });
+        }
+
+        // Tách câu hỏi thành 3 nhóm chuẩn đề thi THPT QG
+        var phan1 = new List<CauHoiItem>(); // Phần I: Trắc nghiệm 4 lựa chọn A-D
+        var phan2 = new List<CauHoiItem>(); // Phần II: Trắc nghiệm Đúng / Sai 4 ý a-d
+        var phan3 = new List<CauHoiItem>(); // Phần III: Trắc nghiệm Trả lời ngắn
+
+        foreach (DataRow r in dtCauHoi.Rows)
+        {
+            var chId = Convert.ToInt32(r["CauHoiID"]);
+            var item = new CauHoiItem
+            {
+                CauHoiID = chId,
+                ThuTuGoc = Convert.ToInt32(r["ThuTuGoc"]),
+                LoaiCauHoi = r["LoaiCauHoi"]?.ToString() ?? "TracNghiem",
+                NoiDung = r["NoiDung"]?.ToString() ?? "",
+                Diem = Convert.ToDecimal(r["Diem"]),
+                DapAns = dapAnByCauHoi.GetValueOrDefault(chId, new())
+            };
+
+            if (item.LoaiCauHoi == "TracNghiem")
+                phan1.Add(item);
+            else if (item.LoaiCauHoi == "DungSai")
+                phan2.Add(item);
+            else
+                phan3.Add(item);
+        }
+
+        var maDeIds = new List<int>();
+
+        using var conn = Database.Open();
+        using var tran = conn.BeginTransaction();
+        try
+        {
+            if (xoaCu)
+            {
+                using var cmdXoa = conn.CreateCommand();
+                cmdXoa.Transaction = tran;
+                cmdXoa.CommandText = @"
+                    DELETE FROM MaDe_DapAn WHERE MaDeID IN (SELECT MaDeID FROM MaDeThi WHERE DeThiID = @id);
+                    DELETE FROM MaDe_CauHoi WHERE MaDeID IN (SELECT MaDeID FROM MaDeThi WHERE DeThiID = @id);
+                    DELETE FROM MaDeThi WHERE DeThiID = @id;";
+                cmdXoa.Parameters.AddWithValue("@id", deThiId);
+                cmdXoa.ExecuteNonQuery();
+            }
+
+            for (int k = 0; k < soLuongMaDe; k++)
+            {
+                var tenMaDe = (maDeBatDau + k).ToString();
+
+                // Kiểm tra nếu tên mã đề đã tồn tại trong đề này (trường hợp không xóa cũ)
+                using var cmdCheck = conn.CreateCommand();
+                cmdCheck.Transaction = tran;
+                cmdCheck.CommandText = "SELECT MaDeID FROM MaDeThi WHERE DeThiID = @de AND TenMaDe = @ten";
+                cmdCheck.Parameters.AddWithValue("@de", deThiId);
+                cmdCheck.Parameters.AddWithValue("@ten", tenMaDe);
+                var existingId = cmdCheck.ExecuteScalar();
+
+                int maDeId;
+                if (existingId != null && existingId != DBNull.Value)
+                {
+                    maDeId = Convert.ToInt32(existingId);
+                    using var cmdDel = conn.CreateCommand();
+                    cmdDel.Transaction = tran;
+                    cmdDel.CommandText = @"
+                        DELETE FROM MaDe_DapAn WHERE MaDeID = @m;
+                        DELETE FROM MaDe_CauHoi WHERE MaDeID = @m;";
+                    cmdDel.Parameters.AddWithValue("@m", maDeId);
+                    cmdDel.ExecuteNonQuery();
+                }
+                else
+                {
+                    using var cmdIns = conn.CreateCommand();
+                    cmdIns.Transaction = tran;
+                    cmdIns.CommandText = @"
+                        INSERT INTO MaDeThi (DeThiID, TenMaDe) VALUES (@de, @ten);
+                        SELECT CAST(SCOPE_IDENTITY() AS INT);";
+                    cmdIns.Parameters.AddWithValue("@de", deThiId);
+                    cmdIns.Parameters.AddWithValue("@ten", tenMaDe);
+                    maDeId = Convert.ToInt32(cmdIns.ExecuteScalar());
+                }
+
+                maDeIds.Add(maDeId);
+
+                // Dùng seed ngẫu nhiên độc lập cho từng mã đề
+                var rng = new Random(deThiId * 7919 + (maDeBatDau + k) * 31 + k * 17);
+
+                // Shuffle các câu hỏi trong từng phần độc lập (bảo toàn cấu trúc Phần I -> Phần II -> Phần III)
+                var p1Shuffled = phan1.OrderBy(_ => rng.Next()).ToList();
+                var p2Shuffled = phan2.OrderBy(_ => rng.Next()).ToList();
+                var p3Shuffled = phan3.OrderBy(_ => rng.Next()).ToList();
+
+                var allQuestions = new List<CauHoiItem>();
+                allQuestions.AddRange(p1Shuffled);
+                allQuestions.AddRange(p2Shuffled);
+                allQuestions.AddRange(p3Shuffled);
+
+                // Đánh số thứ tự câu hỏi tăng dần từ 1..N
+                int orderIndex = 1;
+                foreach (var q in allQuestions)
+                {
+                    using var cmdQ = conn.CreateCommand();
+                    cmdQ.Transaction = tran;
+                    cmdQ.CommandText = "INSERT INTO MaDe_CauHoi (MaDeID, CauHoiID, ThuTu) VALUES (@m, @c, @t)";
+                    cmdQ.Parameters.AddWithValue("@m", maDeId);
+                    cmdQ.Parameters.AddWithValue("@c", q.CauHoiID);
+                    cmdQ.Parameters.AddWithValue("@t", orderIndex);
+                    cmdQ.ExecuteNonQuery();
+
+                    // Xử lý đảo đáp án theo loại câu hỏi
+                    if (q.LoaiCauHoi == "TracNghiem")
+                    {
+                        // Hoán vị 4 phương án A, B, C, D
+                        var daShuffled = q.DapAns.OrderBy(_ => rng.Next()).ToList();
+                        for (int dIdx = 0; dIdx < daShuffled.Count; dIdx++)
+                        {
+                            using var cmdD = conn.CreateCommand();
+                            cmdD.Transaction = tran;
+                            cmdD.CommandText = "INSERT INTO MaDe_DapAn (MaDeID, CauHoiID, DapAnID, ThuTu) VALUES (@m, @c, @d, @t)";
+                            cmdD.Parameters.AddWithValue("@m", maDeId);
+                            cmdD.Parameters.AddWithValue("@c", q.CauHoiID);
+                            cmdD.Parameters.AddWithValue("@d", daShuffled[dIdx].DapAnID);
+                            cmdD.Parameters.AddWithValue("@t", dIdx);
+                            cmdD.ExecuteNonQuery();
+                        }
+                    }
+                    else if (q.LoaiCauHoi == "DungSai")
+                    {
+                        // Hoán vị 4 ý con a, b, c, d
+                        var daShuffled = q.DapAns.OrderBy(_ => rng.Next()).ToList();
+                        for (int dIdx = 0; dIdx < daShuffled.Count; dIdx++)
+                        {
+                            using var cmdD = conn.CreateCommand();
+                            cmdD.Transaction = tran;
+                            cmdD.CommandText = "INSERT INTO MaDe_DapAn (MaDeID, CauHoiID, DapAnID, ThuTu) VALUES (@m, @c, @d, @t)";
+                            cmdD.Parameters.AddWithValue("@m", maDeId);
+                            cmdD.Parameters.AddWithValue("@c", q.CauHoiID);
+                            cmdD.Parameters.AddWithValue("@d", daShuffled[dIdx].DapAnID);
+                            cmdD.Parameters.AddWithValue("@t", dIdx);
+                            cmdD.ExecuteNonQuery();
+                        }
+                    }
+                    else
+                    {
+                        // Trả lời ngắn: giữ nguyên thứ tự đáp án
+                        for (int dIdx = 0; dIdx < q.DapAns.Count; dIdx++)
+                        {
+                            using var cmdD = conn.CreateCommand();
+                            cmdD.Transaction = tran;
+                            cmdD.CommandText = "INSERT INTO MaDe_DapAn (MaDeID, CauHoiID, DapAnID, ThuTu) VALUES (@m, @c, @d, @t)";
+                            cmdD.Parameters.AddWithValue("@m", maDeId);
+                            cmdD.Parameters.AddWithValue("@c", q.CauHoiID);
+                            cmdD.Parameters.AddWithValue("@d", q.DapAns[dIdx].DapAnID);
+                            cmdD.Parameters.AddWithValue("@t", dIdx);
+                            cmdD.ExecuteNonQuery();
+                        }
+                    }
+
+                    orderIndex++;
+                }
+            }
+
+            tran.Commit();
+            return (true, $"Đã trộn và sinh thành công {soLuongMaDe} mã đề (từ {maDeBatDau} đến {maDeBatDau + soLuongMaDe - 1}) theo chuẩn đề thi THPT Quốc gia.", maDeIds);
+        }
+        catch (Exception ex)
+        {
+            tran.Rollback();
+            return (false, "Lỗi khi trộn đề: " + ex.Message, new());
+        }
+    }
+
+    public DataTable LayMaTranDapAn(int deThiId)
+    {
+        var dtMaDe = LayDanhSachMaDe(deThiId);
+        var table = new DataTable();
+        table.Columns.Add("ThuTu", typeof(int));
+        table.Columns.Add("LoaiCauHoi", typeof(string));
+
+        var maDes = new List<(int MaDeID, string TenMaDe)>();
+        foreach (DataRow r in dtMaDe.Rows)
+        {
+            var id = Convert.ToInt32(r["MaDeID"]);
+            var ten = r["TenMaDe"]?.ToString() ?? "";
+            maDes.Add((id, ten));
+            table.Columns.Add(ten, typeof(string));
+        }
+
+        if (maDes.Count == 0) return table;
+
+        var sql = @"
+            SELECT mc.MaDeID, mc.ThuTu AS ThuTuCau, mc.CauHoiID, c.LoaiCauHoi,
+                   md.DapAnID, md.ThuTu AS ThuTuDapAn, d.LaDapAnDung, d.NoiDung
+            FROM MaDe_CauHoi mc
+            JOIN CauHoi c ON c.CauHoiID = mc.CauHoiID
+            JOIN MaDeThi m ON m.MaDeID = mc.MaDeID
+            LEFT JOIN MaDe_DapAn md ON md.MaDeID = mc.MaDeID AND md.CauHoiID = mc.CauHoiID
+            LEFT JOIN DapAn d ON d.DapAnID = md.DapAnID
+            WHERE m.DeThiID = @id
+            ORDER BY mc.MaDeID, mc.ThuTu, md.ThuTu";
+
+        var raw = Database.Query(sql, p => p.AddWithValue("@id", deThiId));
+
+        var matrix = new Dictionary<(int MaDeID, int ThuTuCau), (string Loai, string Answer)>();
+        var totalQuestions = 0;
+
+        var grouped = raw.AsEnumerable().GroupBy(r => new
+        {
+            MaDeID = Convert.ToInt32(r["MaDeID"]),
+            ThuTuCau = Convert.ToInt32(r["ThuTuCau"]),
+            Loai = r["LoaiCauHoi"]?.ToString() ?? "TracNghiem"
+        });
+
+        foreach (var g in grouped)
+        {
+            if (g.Key.ThuTuCau > totalQuestions) totalQuestions = g.Key.ThuTuCau;
+
+            string ans = "";
+            if (g.Key.Loai == "TracNghiem")
+            {
+                var right = g.FirstOrDefault(x => x["LaDapAnDung"] != DBNull.Value && Convert.ToBoolean(x["LaDapAnDung"]));
+                if (right != null && right["ThuTuDapAn"] != DBNull.Value)
+                {
+                    var idx = Convert.ToInt32(right["ThuTuDapAn"]);
+                    ans = ((char)('A' + idx)).ToString();
+                }
+            }
+            else if (g.Key.Loai == "DungSai")
+            {
+                var parts = new List<string>();
+                foreach (var y in g.OrderBy(x => Convert.ToInt32(x["ThuTuDapAn"])))
+                {
+                    if (y["ThuTuDapAn"] != DBNull.Value && y["LaDapAnDung"] != DBNull.Value)
+                    {
+                        var idx = Convert.ToInt32(y["ThuTuDapAn"]);
+                        var label = ((char)('a' + idx)).ToString();
+                        var dung = Convert.ToBoolean(y["LaDapAnDung"]) ? "Đ" : "S";
+                        parts.Add($"{label}:{dung}");
+                    }
+                }
+                ans = string.Join(" ", parts);
+            }
+            else
+            {
+                var right = g.FirstOrDefault(x => x["LaDapAnDung"] != DBNull.Value && Convert.ToBoolean(x["LaDapAnDung"]));
+                ans = right?["NoiDung"]?.ToString() ?? "";
+            }
+
+            matrix[(g.Key.MaDeID, g.Key.ThuTuCau)] = (g.Key.Loai, ans);
+        }
+
+        for (int q = 1; q <= totalQuestions; q++)
+        {
+            var row = table.NewRow();
+            row["ThuTu"] = q;
+
+            string loaiDisplay = "";
+            foreach (var md in maDes)
+            {
+                if (matrix.TryGetValue((md.MaDeID, q), out var val))
+                {
+                    row[md.TenMaDe] = val.Answer;
+                    if (string.IsNullOrEmpty(loaiDisplay))
+                    {
+                        loaiDisplay = val.Loai switch
+                        {
+                            "TracNghiem" => "Phần I (TN)",
+                            "DungSai" => "Phần II (Đ/S)",
+                            "TraLoiNgan" => "Phần III (TLN)",
+                            _ => val.Loai
+                        };
+                    }
+                }
+            }
+            row["LoaiCauHoi"] = loaiDisplay;
+            table.Rows.Add(row);
+        }
+
+        return table;
+    }
+
+    public DataTable LayChiTietMaDe(int maDeId)
+    {
+        return Database.Query(@"
+            SELECT mc.ThuTu AS CauSo, c.LoaiCauHoi, c.NoiDung AS NoiDungCau,
+                   md.ThuTu AS ThuTuDapAn, d.NoiDung AS NoiDungDapAn, d.LaDapAnDung
+            FROM MaDe_CauHoi mc
+            JOIN CauHoi c ON c.CauHoiID = mc.CauHoiID
+            JOIN MaDe_DapAn md ON md.MaDeID = mc.MaDeID AND md.CauHoiID = mc.CauHoiID
+            JOIN DapAn d ON d.DapAnID = md.DapAnID
+            WHERE mc.MaDeID = @m
+            ORDER BY mc.ThuTu, md.ThuTu",
+            p => p.AddWithValue("@m", maDeId));
+    }
+
+    private class CauHoiItem
+    {
+        public int CauHoiID { get; set; }
+        public int ThuTuGoc { get; set; }
+        public string LoaiCauHoi { get; set; } = "TracNghiem";
+        public string NoiDung { get; set; } = "";
+        public decimal Diem { get; set; }
+        public List<DapAnItem> DapAns { get; set; } = new();
+    }
+
+    private class DapAnItem
+    {
+        public int DapAnID { get; set; }
+        public int CauHoiID { get; set; }
+        public int ThuTuGoc { get; set; }
+        public string NoiDung { get; set; } = "";
+        public bool LaDapAnDung { get; set; }
+        public string? GiaiThich { get; set; }
+    }
 }

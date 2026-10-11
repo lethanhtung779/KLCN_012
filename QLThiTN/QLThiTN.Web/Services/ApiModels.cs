@@ -106,6 +106,8 @@ public class ApiBatDauResult
     public DateTime ThoiGianBatDau { get; set; }
     public DateTime ThoiGianDongCong { get; set; }
     public int ThoiLuongLamBai { get; set; }
+    public int MaDeID { get; set; }
+    public string TenMaDe { get; set; } = string.Empty;
     public List<ApiSavedAnswer> SavedAnswers { get; set; } = new();
 }
 

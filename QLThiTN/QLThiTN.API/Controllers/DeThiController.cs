@@ -149,8 +149,66 @@ public class DeThiController : ControllerBase
     }
 
     [HttpGet("{id:int}/cauhoi")]
-    public async Task<IActionResult> GetQuestions(int id)
+    public async Task<IActionResult> GetQuestions(int id, [FromQuery] int? maDeId)
     {
+        // Neu co maDeId va ma de co cau hoi duoc tron theo chuan THPT QG
+        if (maDeId.HasValue)
+        {
+            var maDeCauHois = await _db.MaDe_CauHois
+                .Where(x => x.MaDeID == maDeId.Value)
+                .OrderBy(x => x.ThuTu)
+                .Include(x => x.CauHoi)
+                    .ThenInclude(c => c!.DapAns)
+                        .ThenInclude(d => d.HinhAnhs)
+                .Include(x => x.CauHoi)
+                    .ThenInclude(c => c!.HinhAnhs)
+                .ToListAsync();
+
+            if (maDeCauHois.Count > 0)
+            {
+                var maDeDapAns = await _db.MaDe_DapAns
+                    .Where(x => x.MaDeID == maDeId.Value)
+                    .ToListAsync();
+                var daMap = maDeDapAns.ToDictionary(x => (x.CauHoiID, x.DapAnID), x => x.ThuTu);
+
+                return Ok(maDeCauHois.Select(q =>
+                {
+                    var cau = q.CauHoi!;
+                    var options = cau.LoaiCauHoi == "TraLoiNgan"
+                        ? new List<OptionForDoingDto>()
+                        : cau.DapAns
+                            .Select(d =>
+                            {
+                                var tt = daMap.TryGetValue((q.CauHoiID, d.DapAnID), out var val) ? val : d.ThuTu;
+                                return new { DapAn = d, ThuTu = tt };
+                            })
+                            .OrderBy(x => x.ThuTu)
+                            .Select(x => new OptionForDoingDto
+                            {
+                                DapAnID = x.DapAn.DapAnID,
+                                ThuTu = x.ThuTu,
+                                NoiDung = x.DapAn.NoiDung,
+                                Label = cau.LoaiCauHoi == "DungSai"
+                                    ? ((char)('a' + x.ThuTu)).ToString()
+                                    : LabelOf(x.ThuTu),
+                                HinhAnh = ToHinhAnhDto(x.DapAn.HinhAnhs)
+                            }).ToList();
+
+                    return new QuestionForDoingDto
+                    {
+                        CauHoiID = q.CauHoiID,
+                        OrderIndex = q.ThuTu,
+                        NoiDung = cau.NoiDung,
+                        LoaiCauHoi = cau.LoaiCauHoi,
+                        LoaiCauHoiText = LoaiDeTextHelper.LoaiCauHoiText(cau.LoaiCauHoi),
+                        HinhAnh = ToHinhAnhDto(cau.HinhAnhs),
+                        Options = options
+                    };
+                }));
+            }
+        }
+
+        // Fallback: lay theo thu tu goc cua de thi
         var qs = await _db.DeThi_CauHois
             .Where(x => x.DeThiID == id)
             .OrderBy(x => x.ThuTu)
@@ -187,6 +245,23 @@ public class DeThiController : ControllerBase
                         HinhAnh = ToHinhAnhDto(d.HinhAnhs)
                     }).ToList()
         }));
+    }
+
+    [HttpGet("{id:int}/mades")]
+    public async Task<IActionResult> GetMaDes(int id)
+    {
+        var list = await _db.MaDeThis
+            .Where(m => m.DeThiID == id)
+            .OrderBy(m => m.TenMaDe)
+            .Select(m => new MaDeDto
+            {
+                MaDeID = m.MaDeID,
+                DeThiID = m.DeThiID,
+                TenMaDe = m.TenMaDe,
+                SoCauHoi = m.MaDe_CauHois.Count
+            })
+            .ToListAsync();
+        return Ok(list);
     }
 
     /// <summary>Bat dau (hoac phuc hoi) bai thi: kiem tra cua so thoi gian, so lan thi,
@@ -247,19 +322,27 @@ public class DeThiController : ControllerBase
 
         BaiLam baiLam;
         bool isResume;
+        MaDeThi maDe;
         if (dangLam is not null)
         {
             baiLam = dangLam;
             isResume = true;
+            maDe = await _db.MaDeThis.FirstOrDefaultAsync(m => m.MaDeID == baiLam.MaDeID)
+                   ?? new MaDeThi { MaDeID = baiLam.MaDeID, TenMaDe = "101" };
         }
         else
         {
-            var maDe = await _db.MaDeThis.FirstOrDefaultAsync(m => m.DeThiID == id);
-            if (maDe == null)
+            var dsMaDe = await _db.MaDeThis.Where(m => m.DeThiID == id).ToListAsync();
+            if (dsMaDe.Count == 0)
             {
                 maDe = new MaDeThi { DeThiID = id, TenMaDe = "101" };
                 _db.MaDeThis.Add(maDe);
                 await _db.SaveChangesAsync();
+            }
+            else
+            {
+                // Phân phối ngẫu nhiên 1 mã đề trong danh sách các mã đề của đề thi
+                maDe = dsMaDe[Random.Shared.Next(dsMaDe.Count)];
             }
 
             var maxLanThi = await _db.BaiLams
@@ -326,6 +409,8 @@ public class DeThiController : ControllerBase
             BaiLamID = baiLam.BaiLamID,
             DotThiID = dot.DotThiID,
             LanThi = baiLam.LanThi,
+            MaDeID = maDe.MaDeID,
+            TenMaDe = maDe.TenMaDe,
             IsResume = isResume,
             RemainingSeconds = remainingSeconds,
             ThoiGianBatDau = baiLam.ThoiGianBatDau,

@@ -245,7 +245,7 @@ public class ExamController : Controller
             return RedirectToAction(nameof(Detail), new { id });
         }
 
-        var questions = await _api.GetCauHoiAsync(id);
+        var questions = await _api.GetCauHoiAsync(id, batDau.MaDeID);
         var model = new TakingExamViewModel
         {
             ExamId = exam.DeThiID,
@@ -253,6 +253,8 @@ public class ExamController : Controller
             Duration = batDau.ThoiLuongLamBai,
             StartTime = DateTime.Now,
             BaiLamID = batDau.BaiLamID,
+            MaDeID = batDau.MaDeID,
+            TenMaDe = batDau.TenMaDe,
             RemainingSeconds = batDau.RemainingSeconds,
             IsResume = batDau.IsResume,
             SavedAnswers = batDau.SavedAnswers,

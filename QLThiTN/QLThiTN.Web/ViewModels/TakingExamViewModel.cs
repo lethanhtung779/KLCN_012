@@ -10,6 +10,10 @@ public class TakingExamViewModel
     /// <summary>Bai lam DangLam da tao/phuc hoi tren server.</summary>
     public int BaiLamID { get; set; }
 
+    /// <summary>Mã đề thi được phân phối cho thí sinh.</summary>
+    public int MaDeID { get; set; }
+    public string TenMaDe { get; set; } = string.Empty;
+
     /// <summary>So giay con lai tinh theo dong ho server.</summary>
     public int RemainingSeconds { get; set; }
 

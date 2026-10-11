@@ -116,10 +116,28 @@ public class BaiLamController : ControllerBase
         var de = baiLam.DotThi?.DeThi;
         var deThiId = de?.DeThiID ?? baiLam.DotThi?.DeThiID ?? 0;
 
-        // Lấy thứ tự câu hỏi trong đề
-        var dtchMap = await _db.DeThi_CauHois
-            .Where(x => x.DeThiID == deThiId)
-            .ToDictionaryAsync(x => x.CauHoiID, x => x.ThuTu);
+        // Lấy thứ tự câu hỏi và phương án trong đề (ưu tiên theo mã đề nếu có)
+        Dictionary<int, int> dtchMap;
+        Dictionary<(int CauHoiID, int DapAnID), int>? daMap = null;
+
+        var maDeCauHois = await _db.MaDe_CauHois
+            .Where(x => x.MaDeID == baiLam.MaDeID)
+            .ToListAsync();
+
+        if (maDeCauHois.Count > 0)
+        {
+            dtchMap = maDeCauHois.ToDictionary(x => x.CauHoiID, x => x.ThuTu);
+            var maDeDapAns = await _db.MaDe_DapAns
+                .Where(x => x.MaDeID == baiLam.MaDeID)
+                .ToListAsync();
+            daMap = maDeDapAns.ToDictionary(x => (x.CauHoiID, x.DapAnID), x => x.ThuTu);
+        }
+        else
+        {
+            dtchMap = await _db.DeThi_CauHois
+                .Where(x => x.DeThiID == deThiId)
+                .ToDictionaryAsync(x => x.CauHoiID, x => x.ThuTu);
+        }
 
         var results = new List<QuestionResultDto>();
         int correctCount = 0;
@@ -160,7 +178,16 @@ public class BaiLamController : ControllerBase
             }
             else if (cau.LoaiCauHoi == "DungSai")
             {
-                var yRows = cau.DapAns.OrderBy(d => d.ThuTu).ToList();
+                var yRows = cau.DapAns
+                    .Select(d =>
+                    {
+                        var tt = (daMap != null && daMap.TryGetValue((cau.CauHoiID, d.DapAnID), out var val)) ? val : d.ThuTu;
+                        return new { DapAn = d, ThuTu = tt };
+                    })
+                    .OrderBy(x => x.ThuTu)
+                    .Select(x => x.DapAn)
+                    .ToList();
+
                 var chonMap = ct.LuaChonBaiLams
                     .Where(l => l.DapAnID.HasValue)
                     .ToDictionary(l => l.DapAnID!.Value, l => l.NoiDungTraLoi == "Dung");
@@ -168,8 +195,9 @@ public class BaiLamController : ControllerBase
                 var yResults = new List<YResultDto>();
                 int soYDung = 0;
 
-                foreach (var y in yRows)
+                for (int yIdx = 0; yIdx < yRows.Count; yIdx++)
                 {
+                    var y = yRows[yIdx];
                     var hasChoice = chonMap.ContainsKey(y.DapAnID);
                     bool? clientLaDung = hasChoice ? chonMap[y.DapAnID] : null;
                     var yDung = clientLaDung.HasValue && clientLaDung.Value == y.LaDapAnDung;
@@ -178,8 +206,8 @@ public class BaiLamController : ControllerBase
                     yResults.Add(new YResultDto
                     {
                         DapAnID = y.DapAnID,
-                        ThuTu = y.ThuTu,
-                        Label = ((char)('a' + y.ThuTu)).ToString(),
+                        ThuTu = yIdx,
+                        Label = ((char)('a' + yIdx)).ToString(),
                         NoiDung = y.NoiDung,
                         DapAnDung = y.LaDapAnDung,
                         ClientLaDung = clientLaDung,
@@ -213,6 +241,24 @@ public class BaiLamController : ControllerBase
                 bool isCorrect = selectedDapAnId.HasValue && correctDa != null && selectedDapAnId.Value == correctDa.DapAnID;
                 if (isCorrect) correctCount++;
 
+                var options = cau.DapAns
+                    .Select(d =>
+                    {
+                        var tt = (daMap != null && daMap.TryGetValue((cau.CauHoiID, d.DapAnID), out var val)) ? val : d.ThuTu;
+                        return new { DapAn = d, ThuTu = tt };
+                    })
+                    .OrderBy(x => x.ThuTu)
+                    .Select(x => new OptionResultApiDto
+                    {
+                        DapAnID = x.DapAn.DapAnID,
+                        ThuTu = x.ThuTu,
+                        NoiDung = x.DapAn.NoiDung,
+                        Label = LabelOf(x.ThuTu),
+                        IsCorrect = x.DapAn.LaDapAnDung,
+                        IsSelected = selectedDapAnId.HasValue && selectedDapAnId.Value == x.DapAn.DapAnID,
+                        HinhAnh = ToHinhAnhDto(x.DapAn.HinhAnhs)
+                    }).ToList();
+
                 results.Add(new QuestionResultDto
                 {
                     OrderIndex = orderIndex,
@@ -225,18 +271,7 @@ public class BaiLamController : ControllerBase
                     HinhAnh = ToHinhAnhDto(cau.HinhAnhs),
                     DiemDat = diemDat,
                     DiemToiDa = diemToiDa,
-                    Options = cau.DapAns
-                        .OrderBy(d => d.ThuTu)
-                        .Select(d => new OptionResultApiDto
-                        {
-                            DapAnID = d.DapAnID,
-                            ThuTu = d.ThuTu,
-                            NoiDung = d.NoiDung,
-                            Label = LabelOf(d.ThuTu),
-                            IsCorrect = d.LaDapAnDung,
-                            IsSelected = selectedDapAnId.HasValue && selectedDapAnId.Value == d.DapAnID,
-                            HinhAnh = ToHinhAnhDto(d.HinhAnhs)
-                        }).ToList()
+                    Options = options
                 });
             }
         }

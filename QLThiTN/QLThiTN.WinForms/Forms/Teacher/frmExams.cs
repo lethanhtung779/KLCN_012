@@ -30,10 +30,12 @@ public class frmExams : Form
         btnThuCong.Click += (s, e) => { using var f = new frmTaoDeThuCong(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
         var btnDotThi = Ui.ButtonPrimary("📅 Tạo đợt thi", 160);
         btnDotThi.Click += (s, e) => TaoDotThi();
+        var btnTronDe = Ui.ButtonAccent("🔀 Trộn mã đề", 160);
+        btnTronDe.Click += (s, e) => MoManHinhTronDe();
         var btnXoaDe = Ui.ButtonDanger("🗑 Xóa đề", 110);
         btnXoaDe.Click += (s, e) => XoaDe();
 
-        foreach (var c in new Control[] { btnTuDong, btnThuCong, btnDotThi, btnXoaDe })
+        foreach (var c in new Control[] { btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnXoaDe })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);
@@ -150,6 +152,16 @@ public class frmExams : Form
         if (MessageBox.Show($"Xóa đề '{ten}' cùng toàn bộ đợt thi, đăng ký và bài làm liên quan?\nHành động này KHÔNG THỂ hoàn tác!",
                 "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
         _service.XoaDe(id);
+        TaiLai();
+    }
+
+    private void MoManHinhTronDe()
+    {
+        var deId = DeIdDangChon();
+        if (deId == 0) { MessageBox.Show("Hãy chọn một đề thi phía trên để thực hiện trộn đề.", "Thông báo"); return; }
+        var tenDe = _gridDe.CurrentRow!.Cells["TenDe"].Value?.ToString() ?? "";
+        using var f = new frmTronDe(deId, tenDe);
+        f.ShowDialog(FindForm());
         TaiLai();
     }
 }

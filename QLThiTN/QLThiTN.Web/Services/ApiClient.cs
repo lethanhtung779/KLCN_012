@@ -54,9 +54,10 @@ namespace QLThiTN.Web.Services;
         return await _http.GetFromJsonAsync<ApiDeThi>($"/api/dethi/{id}", JsonOptions);
     }
 
-    public async Task<List<ApiCauHoi>> GetCauHoiAsync(int deThiId)
+    public async Task<List<ApiCauHoi>> GetCauHoiAsync(int deThiId, int? maDeId = null)
     {
-        return await _http.GetFromJsonAsync<List<ApiCauHoi>>($"/api/dethi/{deThiId}/cauhoi", JsonOptions) ?? new();
+        var url = maDeId.HasValue ? $"/api/dethi/{deThiId}/cauhoi?maDeId={maDeId.Value}" : $"/api/dethi/{deThiId}/cauhoi";
+        return await _http.GetFromJsonAsync<List<ApiCauHoi>>(url, JsonOptions) ?? new();
     }
 
     public async Task<ApiKetQua> NopBaiAsync(ApiNopBaiRequest request)

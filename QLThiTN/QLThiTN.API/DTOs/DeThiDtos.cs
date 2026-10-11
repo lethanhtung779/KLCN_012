@@ -158,7 +158,19 @@ public class BatDauResponseDto
     /// <summary>Thoi luong lam bai cua dot thi (phut).</summary>
     public int ThoiLuongLamBai { get; set; }
 
+    /// <summary>Mã đề thi được phân phối cho thí sinh (chuẩn THPT QG).</summary>
+    public int MaDeID { get; set; }
+    public string TenMaDe { get; set; } = string.Empty;
+
     public List<SavedAnswerDto> SavedAnswers { get; set; } = new();
+}
+
+public class MaDeDto
+{
+    public int MaDeID { get; set; }
+    public int DeThiID { get; set; }
+    public string TenMaDe { get; set; } = string.Empty;
+    public int SoCauHoi { get; set; }
 }
 
 public class LuuTamRequestDto
