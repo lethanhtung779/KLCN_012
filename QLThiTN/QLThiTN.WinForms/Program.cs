@@ -17,14 +17,33 @@ internal static class Program
             return;
         }
 
+        bool loggedIn = false;
         // Che do kiem tra nhanh: --autologin dang nhap bang tai khoan admin mac dinh
         if (args.Contains("--autologin"))
         {
             new AuthService().Login("admin", "admin123");
-            Application.Run(new Forms.Common.frmMain());
-            return;
+            loggedIn = true;
         }
 
-        Application.Run(new frmLogin());
+        while (true)
+        {
+            if (!loggedIn)
+            {
+                using var login = new frmLogin();
+                if (login.ShowDialog() != DialogResult.OK)
+                {
+                    break;
+                }
+            }
+            loggedIn = false;
+
+            using var main = new Forms.Common.frmMain();
+            Application.Run(main);
+
+            if (!main.IsLogout)
+            {
+                break;
+            }
+        }
     }
 }

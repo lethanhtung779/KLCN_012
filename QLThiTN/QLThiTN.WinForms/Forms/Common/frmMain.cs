@@ -5,6 +5,8 @@ namespace QLThiTN.WinForms.Forms.Common;
 /// <summary>Man hinh chinh: sidebar dieu huong theo vai tro + vung noi dung.</summary>
 public class frmMain : Form
 {
+    public bool IsLogout { get; private set; }
+
     private readonly Panel _content = new() { Dock = DockStyle.Fill, BackColor = Ui.BgSoft };
     private readonly StatisticsService _stats = new();
 
@@ -95,6 +97,7 @@ public class frmMain : Form
         var btnLogout = NavButton("⏻  Đăng xuất", () =>
         {
             Session.Clear();
+            IsLogout = true;
             Close();
         });
         btnLogout.ForeColor = Color.FromArgb(255, 150, 150);

@@ -92,9 +92,7 @@ public class frmLogin : Form
             return;
         }
 
-        Hide();
-        var main = new Forms.Common.frmMain();
-        main.FormClosed += (s, e) => Close();
-        main.Show();
+        DialogResult = DialogResult.OK;
+        Close();
     }
 }
