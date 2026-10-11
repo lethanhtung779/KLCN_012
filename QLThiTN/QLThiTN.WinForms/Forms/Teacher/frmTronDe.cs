@@ -181,6 +181,9 @@ public class frmTronDe : Form
         Load += (s, e) => KhoiTaoDuLieu();
     }
 
+    private readonly RadioButton _radSinhThem = new() { Text = "Sinh thêm mã đề mới (giữ bài làm cũ)", AutoSize = true, Font = Ui.Body, Checked = true };
+    private readonly RadioButton _radLamMoi = new() { Text = "Làm mới từ đầu (xóa bài làm thử cũ)", AutoSize = true, Font = Ui.Body };
+
     private void KhoiTaoDuLieu()
     {
         var (tong, tn, ds, tln) = _service.LayThongKePhanCauHoi(_deThiId);
@@ -189,9 +192,17 @@ public class frmTronDe : Form
         var (coBai, soBai) = _service.KiemTraBaiLamCuaDe(_deThiId);
         if (coBai)
         {
-            _lblCanhBao.Text = $"⚠ Lưu ý: Đề thi này đã có {soBai} bài làm của thí sinh. Bạn không nên xóa mã đề cũ để đảm bảo toàn vẹn kết quả thi.";
-            _chkXoaCu.Checked = false;
-            _chkXoaCu.Enabled = false;
+            _lblCanhBao.Text = $"⚠ Lưu ý: Đề thi đã có {soBai} bài làm. Bạn có thể chọn sinh thêm mã đề mới hoặc làm mới hoàn toàn.";
+            _chkXoaCu.Visible = false;
+
+            // Tính mã đề bắt đầu chưa có để không bị trùng
+            var dtMaDe = _service.LayDanhSachMaDe(_deThiId);
+            var maxMa = 100;
+            foreach (DataRow r in dtMaDe.Rows)
+            {
+                if (int.TryParse(r["TenMaDe"]?.ToString(), out var m) && m > maxMa) maxMa = m;
+            }
+            _numMaBatDau.Value = Math.Max(101, maxMa + 1);
         }
         else
         {
@@ -322,11 +333,20 @@ public class frmTronDe : Form
             ("DapAnDung", "Đáp án đúng"));
 
         if (_gridChiTiet.Columns.Contains("CauSo"))
+        {
+            _gridChiTiet.Columns["CauSo"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             _gridChiTiet.Columns["CauSo"]!.Width = 60;
+        }
         if (_gridChiTiet.Columns.Contains("LoaiCauHoi"))
+        {
+            _gridChiTiet.Columns["LoaiCauHoi"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             _gridChiTiet.Columns["LoaiCauHoi"]!.Width = 110;
+        }
         if (_gridChiTiet.Columns.Contains("DapAnDung"))
+        {
+            _gridChiTiet.Columns["DapAnDung"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             _gridChiTiet.Columns["DapAnDung"]!.Width = 130;
+        }
     }
 
     private void TaiMaTranDapAn()
@@ -338,18 +358,50 @@ public class frmTronDe : Form
             ("LoaiCauHoi", "Phần thi"));
 
         if (_gridMaTran.Columns.Contains("ThuTu"))
+        {
+            _gridMaTran.Columns["ThuTu"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             _gridMaTran.Columns["ThuTu"]!.Width = 60;
+        }
         if (_gridMaTran.Columns.Contains("LoaiCauHoi"))
+        {
+            _gridMaTran.Columns["LoaiCauHoi"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             _gridMaTran.Columns["LoaiCauHoi"]!.Width = 120;
+        }
     }
 
     private void ThucHienTron()
     {
         var soLuong = (int)_numSoLuong.Value;
         var maBatDau = (int)_numMaBatDau.Value;
-        var xoaCu = _chkXoaCu.Checked;
 
-        if (xoaCu)
+        var (coBai, soBai) = _service.KiemTraBaiLamCuaDe(_deThiId);
+        bool xoaCu = _chkXoaCu.Visible ? _chkXoaCu.Checked : false;
+        bool xoaBaiLamCu = false;
+
+        if (coBai)
+        {
+            var chon = MessageBox.Show(
+                $"Đề thi này hiện đã có {soBai} bài làm của thí sinh.\n\n" +
+                "• Bấm [YES] để SINH THÊM MÃ ĐỀ MỚI (giữ nguyên các bài thi và mã đề cũ).\n" +
+                "• Bấm [NO] để LÀM MỚI TỪ ĐẦU (xóa toàn bộ bài làm thử cũ và trộn mới hoàn toàn).\n" +
+                "• Bấm [CANCEL] để hủy bỏ.",
+                "Tùy chọn trộn mã đề",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question);
+
+            if (chon == DialogResult.Cancel) return;
+            if (chon == DialogResult.No)
+            {
+                xoaCu = true;
+                xoaBaiLamCu = true;
+            }
+            else
+            {
+                xoaCu = false;
+                xoaBaiLamCu = false;
+            }
+        }
+        else if (xoaCu)
         {
             var confirm = MessageBox.Show(
                 $"Bạn có chắc chắn muốn làm mới và sinh {soLuong} mã đề (từ {maBatDau} đến {maBatDau + soLuong - 1}) theo chuẩn THPT Quốc gia không?",
@@ -365,7 +417,7 @@ public class frmTronDe : Form
 
         try
         {
-            var (success, msg, _) = _service.TronDeThi(_deThiId, soLuong, maBatDau, xoaCu);
+            var (success, msg, _) = _service.TronDeThi(_deThiId, soLuong, maBatDau, xoaCu, xoaBaiLamCu);
             if (success)
             {
                 MessageBox.Show(msg, "Trộn đề thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);

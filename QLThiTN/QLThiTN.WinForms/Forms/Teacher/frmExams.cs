@@ -24,18 +24,20 @@ public class frmExams : Form
             BackColor = Color.White,
             WrapContents = false
         };
-        var btnTuDong = Ui.ButtonAccent("⚡ Tạo đề tự động", 180);
+        var btnTHPTQG = Ui.ButtonAccent("🎓 Tạo đề chuẩn THPTQG", 220);
+        btnTHPTQG.Click += (s, e) => { using var f = new frmTaoDeTHPTQG(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
+        var btnTuDong = Ui.ButtonPrimary("⚡ Tạo đề tự động", 180);
         btnTuDong.Click += (s, e) => { using var f = new frmTaoDeTuDong(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
         var btnThuCong = Ui.ButtonPrimary("✎ Tạo đề thủ công", 190);
         btnThuCong.Click += (s, e) => { using var f = new frmTaoDeThuCong(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
         var btnDotThi = Ui.ButtonPrimary("📅 Tạo đợt thi", 160);
         btnDotThi.Click += (s, e) => TaoDotThi();
-        var btnTronDe = Ui.ButtonAccent("🔀 Trộn mã đề", 160);
+        var btnTronDe = Ui.ButtonPrimary("🔀 Trộn mã đề", 160);
         btnTronDe.Click += (s, e) => MoManHinhTronDe();
         var btnXoaDe = Ui.ButtonDanger("🗑 Xóa đề", 110);
         btnXoaDe.Click += (s, e) => XoaDe();
 
-        foreach (var c in new Control[] { btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnXoaDe })
+        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnXoaDe })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);
