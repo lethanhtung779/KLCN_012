@@ -1,11 +1,30 @@
-using System.Data;
+﻿using System.Data;
 using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
 
 /// <summary>Quan ly de thi: tao tu dong / thu cong tu ngan hang cau hoi, quan ly dot thi.</summary>
-public class ExamService
+public class ExamService(int? giaoVienPhuTrachId = null)
 {
+    public static void YeuCauQuanTriVien()
+    {
+        if (!Session.IsQuanTriVien)
+            throw new UnauthorizedAccessException("Chỉ Admin được quản lý đề thi và kỳ thi.");
+    }
+
+    private int GiaoVienPhuTrach()
+    {
+        YeuCauQuanTriVien();
+        if (giaoVienPhuTrachId is not > 0)
+            throw new InvalidOperationException("Hãy chọn giáo viên phụ trách đề thi.");
+        var exists = Database.ExecuteScalarInt(@"SELECT COUNT(*) FROM GiaoVien gv
+            JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
+            WHERE gv.GiaoVienID = @id AND tk.TrangThai = N'HoatDong' AND tk.VaiTro = N'GiaoVien'",
+            p => p.AddWithValue("@id", giaoVienPhuTrachId.Value));
+        if (exists == 0) throw new InvalidOperationException("Giáo viên phụ trách không tồn tại hoặc tài khoản đã bị khóa.");
+        return giaoVienPhuTrachId.Value;
+    }
+
     public DataTable LayDanhSachDe()
     {
         return Database.Query(@"
@@ -28,6 +47,7 @@ public class ExamService
     /// tu cac cau HoatDong. Tra ve DeThiID moi.</summary>
     public (int DeThiID, string Error) TaoDeTuDong(string tenDe, int monHocId, int soCau, string? mucDo, string loaiDe)
     {
+        YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(tenDe)) return (0, "Chưa nhập tên đề.");
         if (soCau < 1) return (0, "Số câu phải >= 1.");
 
@@ -55,6 +75,7 @@ public class ExamService
     /// <summary>Tao de thu cong tu danh sach cau hoi nguoi dung chon (giu dung thu tu).</summary>
     public (int DeThiID, string Error) TaoDeThuCong(string tenDe, int monHocId, string loaiDe, List<int> cauHoiIds)
     {
+        YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(tenDe)) return (0, "Chưa nhập tên đề.");
         if (cauHoiIds.Count == 0) return (0, "Chưa chọn câu hỏi nào cho đề.");
         var id = TaoDeCore(tenDe, monHocId, loaiDe, "ThuCong", cauHoiIds);
@@ -69,7 +90,7 @@ public class ExamService
             SELECT CAST(SCOPE_IDENTITY() AS INT);",
             p =>
             {
-                var gvId = Session.GiaoVienID > 0 ? Session.GiaoVienID : 1;
+                var gvId = GiaoVienPhuTrach();
                 p.AddWithValue("@m", monHocId);
                 p.AddWithValue("@gv", gvId);
                 p.AddWithValue("@t", tenDe.Trim());
@@ -94,6 +115,7 @@ public class ExamService
 
     public void XoaDe(int deThiId)
     {
+        YeuCauQuanTriVien();
         Database.Execute(@"
             DELETE FROM LuaChonBaiLam WHERE ChiTietID IN (
                 SELECT ct.ChiTietID FROM ChiTietBaiLam ct
@@ -127,6 +149,7 @@ public class ExamService
     /// <summary>Tao dot thi moi. Trang thai duoc tinh tu thoi gian hien tai.</summary>
     public int TaoDotThi(DotThi d)
     {
+        YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(d.TenDotThi)) d.TenDotThi = "Đợt thi - " + d.TenDe;
         if (d.ThoiGianDongCong <= d.ThoiGianMoCong) throw new Exception("Giờ đóng công phải sau giờ mở công.");
         if (d.ThoiLuongLamBai <= 0) throw new Exception("Thời lượng làm bài phải > 0.");
@@ -154,13 +177,19 @@ public class ExamService
             });
     }
 
-    public void CapNhatTrangThaiDot(int dotThiId, string trangThai) =>
+    public void CapNhatTrangThaiDot(int dotThiId, string trangThai)
+    {
+        YeuCauQuanTriVien();
         Database.Execute("UPDATE DotThi SET TrangThai = @t WHERE DotThiID = @id",
             p => { p.AddWithValue("@t", trangThai); p.AddWithValue("@id", dotThiId); });
+    }
 
     /// <summary>Dong cac dot thi da qua han (chay khi mo man hinh de thi).</summary>
-    public void DongDotThiQuaHan() =>
+    public void DongDotThiQuaHan()
+    {
+        YeuCauQuanTriVien();
         Database.Execute("UPDATE DotThi SET TrangThai = N'DaDong' WHERE ThoiGianDongCong < SYSDATETIME() AND TrangThai <> N'DaDong'");
+    }
 
     // ------------------------------------------------------------------ pool cau hoi cho tao de thu cong
     public DataTable LayCauHoiPool(int monHocId, string? mucDo) =>
@@ -232,6 +261,7 @@ public class ExamService
         bool xoaCu = true,
         bool xoaBaiLamCu = false)
     {
+        YeuCauQuanTriVien();
         if (soLuongMaDe < 1 || soLuongMaDe > 50)
             return (false, "Số lượng mã đề phải từ 1 đến 50.", new());
 
@@ -586,6 +616,7 @@ public class ExamService
 
     public void XoaBaiLamCuaDe(int deThiId)
     {
+        YeuCauQuanTriVien();
         Database.Execute(@"
             DELETE FROM LuaChonBaiLam WHERE ChiTietID IN (
                 SELECT ct.ChiTietID FROM ChiTietBaiLam ct
@@ -624,6 +655,7 @@ public class ExamService
         bool tuDongTronMaDe = true,
         int soLuongMaDe = 4)
     {
+        YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(tenDe))
             return (0, "Chưa nhập tên đề thi.");
 
@@ -700,7 +732,7 @@ public class ExamService
             SELECT CAST(SCOPE_IDENTITY() AS INT);",
             p =>
             {
-                var gvId = Session.GiaoVienID > 0 ? Session.GiaoVienID : 1;
+                var gvId = GiaoVienPhuTrach();
                 p.AddWithValue("@m", monHocId);
                 p.AddWithValue("@gv", gvId);
                 p.AddWithValue("@t", tenDe.Trim());

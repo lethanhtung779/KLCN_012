@@ -1,4 +1,4 @@
--- Seed du lieu mau cho KhoaHoc, LopHoc, PhanCongGiangDay, HocVien_Lop va LichHoc
+﻿-- Seed du lieu mau cho KhoaHoc, LopHoc, PhanCongGiangDay, HocVien_Lop va LichHoc
 USE ThiTracNghiem;
 GO
 
@@ -7,7 +7,7 @@ BEGIN
     DECLARE @KhoaHocID INT, @LopHocID INT, @GiaoVienID INT, @MonHocID INT;
 
     -- 1. Lay MonHocID Toan
-    SELECT TOP 1 @MonHocID = MonHocID FROM MonHoc WHERE TenMon LIKE N'%Toan%';
+    SELECT TOP 1 @MonHocID = MonHocID FROM MonHoc WHERE (TenMon LIKE N'%Toan%' OR TenMon LIKE N'%Toán%');
     IF @MonHocID IS NULL SET @MonHocID = 1;
 
     -- 2. Lay GiaoVienID

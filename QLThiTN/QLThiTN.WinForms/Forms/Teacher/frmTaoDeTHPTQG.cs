@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using QLThiTN.WinForms.Models;
 using QLThiTN.WinForms.Services;
 
@@ -11,7 +11,7 @@ namespace QLThiTN.WinForms.Forms.Teacher;
 public class frmTaoDeTHPTQG : Form
 {
     private readonly QuestionService _questionService = new();
-    private readonly ExamService _examService = new();
+    private readonly ExamService _examService;
 
     // Controls thông tin đề
     private readonly ComboBox _cboMon = Ui.Combo(240);
@@ -30,8 +30,9 @@ public class frmTaoDeTHPTQG : Form
 
     public int DeThiIdMoi { get; private set; }
 
-    public frmTaoDeTHPTQG()
+    public frmTaoDeTHPTQG(int? giaoVienId = null)
     {
+        _examService = new ExamService(giaoVienId);
         Text = "Tạo đề thi chuẩn cấu trúc THPT Quốc gia (Ma trận Chủ đề)";
         StartPosition = FormStartPosition.CenterParent;
         Size = new Size(1020, 720);
@@ -247,21 +248,21 @@ public class frmTaoDeTHPTQG : Form
         int chuanDS = 4;
         int chuanTLN = 6;
 
-        if (tenMon.Contains("Toan", StringComparison.OrdinalIgnoreCase))
+        if (tenMon.Contains("Toan", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Toán", StringComparison.OrdinalIgnoreCase))
         {
             chuanTN = 12;
             chuanDS = 4;
             chuanTLN = 6;
             _lblGoiYChuan.Text = "Chuẩn Bộ GD&ĐT môn Toán: 12 câu Phần I, 4 câu Phần II, 6 câu Phần III (Tổng 22 câu / 90 phút).";
         }
-        else if (tenMon.Contains("Tieng Anh", StringComparison.OrdinalIgnoreCase))
+        else if (tenMon.Contains("Tieng Anh", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Tiếng Anh", StringComparison.OrdinalIgnoreCase))
         {
             chuanTN = 40;
             chuanDS = 0;
             chuanTLN = 0;
             _lblGoiYChuan.Text = "Chuẩn Bộ GD&ĐT môn Tiếng Anh: 40 câu trắc nghiệm 4 lựa chọn (Tổng 40 câu / 50 phút).";
         }
-        else if (tenMon.Contains("Lich Su", StringComparison.OrdinalIgnoreCase))
+        else if (tenMon.Contains("Lich Su", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Lịch sử", StringComparison.OrdinalIgnoreCase))
         {
             chuanTN = 18;
             chuanDS = 4;

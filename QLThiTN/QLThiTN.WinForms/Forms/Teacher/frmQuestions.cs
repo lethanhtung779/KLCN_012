@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using QLThiTN.WinForms.Models;
 using QLThiTN.WinForms.Services;
 
@@ -41,18 +41,21 @@ public class frmQuestions : Form
         btnAn.Click += (s, e) => AnHien();
         var btnXoa = Ui.ButtonDanger("🗑 Xóa", 100);
         btnXoa.Click += (s, e) => Xoa();
-        var btnImport = Ui.ButtonOutline("📥 Import (Excel/.txt)", 190);
+        var btnImport = Ui.ButtonOutline("📥 Import Excel/TXT/ZIP", 220);
         btnImport.Click += (s, e) => ImportFile();
         var btnMau = Ui.ButtonOutline("📄 Tạo file mẫu", 150);
         btnMau.Click += (s, e) => TaoFileMau();
 
-        var toolbar = new FlowLayoutPanel
+        var toolbar = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 96,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 1,
+            RowCount = 2,
             BackColor = Color.White,
-            WrapContents = false
         };
+        toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         var row1 = new FlowLayoutPanel { Width = 2000, Height = 44, Padding = new Padding(16, 10, 0, 0), WrapContents = false, BackColor = Color.Transparent };
         foreach (Control c in new Control[] { lblMon, _cboMon, lblChuDe, _cboChuDe, lblLoai, _cboLoai, lblMuc, _cboMuc, _txtTuKhoa })
@@ -66,8 +69,16 @@ public class frmQuestions : Form
             c.Margin = new Padding(0, 3, 10, 0);
             row2.Controls.Add(c);
         }
-        toolbar.Controls.Add(row1);
-        toolbar.Controls.Add(row2);
+        foreach (var row in new[] { row1, row2 })
+        {
+            row.Dock = DockStyle.Fill;
+            row.AutoSize = true;
+            row.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            row.WrapContents = true;
+            row.Margin = Padding.Empty;
+        }
+        toolbar.Controls.Add(row1, 0, 0);
+        toolbar.Controls.Add(row2, 0, 1);
 
         var panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 32, BackColor = Color.White };
         _lblCount.Location = new Point(16, 7);
@@ -75,7 +86,7 @@ public class frmQuestions : Form
 
         Ui.StyleGrid(_grid);
         _grid.Dock = DockStyle.Fill;
-        _grid.CellDoubleClick += (s, e) => Sua();
+        _grid.CellDoubleClick += (s, e) => { if (e.RowIndex >= 0) Sua(); };
 
         Controls.Add(_grid);
         Controls.Add(panelBottom);
@@ -178,117 +189,70 @@ public class frmQuestions : Form
         if (MessageBox.Show("Bạn chắc chắn muốn XÓA câu hỏi này khỏi ngân hàng?",
                 "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
 
-        var (ok, error) = _service.Xoa(id);
-        if (!ok) { MessageBox.Show(error, "Không thể xóa", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
-        TaiLai();
-    }
-
-    // ------------------------------------------------------------------ import
-    private void ImportFile()
-    {
-        using var dlg = new OpenFileDialog
-        {
-            Filter = "File câu hỏi (*.xlsx;*.csv;*.txt)|*.xlsx;*.csv;*.txt",
-            Title = "Chọn file câu hỏi import"
-        };
-        if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
-
         try
         {
-            var rows = File.Exists(dlg.FileName) && dlg.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
-                ? DocExcel(dlg.FileName)
-                : DocText(dlg.FileName);
-
-            if (rows.Count == 0) { MessageBox.Show("File không có dữ liệu (hoặc thiếu dòng header).", "Thông báo"); return; }
-
-            var (them, loi, chiTiet) = _service.Import(rows);
-            var msg = $"Import hoàn tất: thêm {them} câu hỏi, lỗi {loi} dòng.";
-            if (chiTiet.Count > 0)
-                msg += "\n\nChi tiết lỗi:\n" + string.Join("\n", chiTiet.Take(15)) + (chiTiet.Count > 15 ? "\n..." : "");
-            MessageBox.Show(msg, "Kết quả import", MessageBoxButtons.OK,
-                chiTiet.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            var (ok, error) = _service.Xoa(id);
+            if (!ok) { MessageBox.Show(error, "Không thể xóa", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
             TaiLai();
         }
         catch (Exception ex)
         {
-            MessageBox.Show("Không đọc được file:\n" + ex.Message, "Lỗi import", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Không xóa được câu hỏi:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
-    private static List<(string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string)> DocExcel(string file)
+    // ------------------------------------------------------------------ import
+    private async void ImportFile()
     {
-        var list = new List<(string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string)>();
-        using var wb = new ClosedXML.Excel.XLWorkbook(file);
-        var ws = wb.Worksheets.First();
-        var used = ws.RangeUsed();
-        if (used == null) return list;
-
-        for (var r = 2; r <= used.LastRow().RowNumber(); r++) // bo qua header
+        using var dlg = new OpenFileDialog
         {
-            string Get(int col) => used.Cell(r, col).GetString().Trim();
-            list.Add((Get(1), Get(2), Get(3), Get(4), Get(5), Get(6), Get(7), Get(8), Get(9),
-                Get(10), Get(11), Get(12), Get(13), Get(14), Get(15), Get(16)));
-        }
-        return list;
-    }
-
-    private static List<(string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string)> DocText(string file)
-    {
-        var list = new List<(string, string, string, string, string, string, string, string, string, string, string, string, string, string, string, string)>();
-        foreach (var line in File.ReadAllLines(file, System.Text.Encoding.UTF8))
+            Filter = "File câu hỏi (*.xlsx;*.txt;*.csv;*.zip)|*.xlsx;*.txt;*.csv;*.zip",
+            Title = "Chọn file câu hỏi hoặc ZIP kèm ảnh"
+        };
+        if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
+        try
         {
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#")) continue;
-            var parts = line.Split('|');
-            if (parts.Length < 16 || parts[1].Trim() == "NoiDung") continue; // bo header
-            var g = (int i) => i < parts.Length ? parts[i].Trim() : "";
-            list.Add((g(0), g(1), g(2), g(3), g(4), g(5), g(6), g(7), g(8), g(9), g(10), g(11), g(12), g(13), g(14), g(15)));
+            UseWaitCursor = true; Enabled = false;
+            var importer = new QuestionImportService(_service.LayChuDe(), _service.LayMonHoc());
+            var rows = await Task.Run(() => importer.Read(dlg.FileName));
+            if (IsDisposed) return;
+            Enabled = true; UseWaitCursor = false;
+            if (rows.Count == 0) { MessageBox.Show("File không có dòng câu hỏi.", "Thông báo"); return; }
+            using var preview = new frmQuestionImport(rows);
+            preview.ShowDialog(FindForm());
+            if (preview.ImportedCount > 0) TaiLai();
         }
-        return list;
+        catch (Exception ex)
+        {
+            if (!IsDisposed) MessageBox.Show("Không đọc được file:\n" + ex.Message, "Lỗi import", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally { if (!IsDisposed) { Enabled = true; UseWaitCursor = false; } }
     }
 
     private void TaoFileMau()
     {
+        using var save = new SaveFileDialog
+        {
+            Filter = "Gói ZIP có ảnh mẫu (*.zip)|*.zip|Excel (*.xlsx)|*.xlsx|Văn bản TAB (*.txt)|*.txt",
+            FileName = "mau_import_cau_hoi", Title = "Lưu mẫu import", AddExtension = true
+        };
+        if (save.ShowDialog(FindForm()) != DialogResult.OK) return;
         try
         {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "mau_import_cau_hoi.xlsx");
-            using var wb = new ClosedXML.Excel.XLWorkbook();
-            var ws = wb.Worksheets.Add("CauHoi");
-            for (var i = 0; i < QuestionService.HeaderImport.Length; i++)
-                ws.Cell(1, i + 1).Value = QuestionService.HeaderImport[i];
-            ws.Row(1).Style.Font.Bold = true;
-            ws.Row(1).Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.FromHtml("#1B2A4E");
-            ws.Row(1).Style.Font.FontColor = ClosedXML.Excel.XLColor.White;
-
-            // Vi du minh hoa
-            ws.Cell(2, 1).Value = "Ham so va Dao ham";
-            ws.Cell(2, 2).Value = "Tiệm cận ngang của hàm số y = (2x+1)/(x-3) là?";
-            ws.Cell(2, 3).Value = "TracNghiem";
-            ws.Cell(2, 4).Value = "NhanBiet";
-            ws.Cell(2, 5).Value = "0.25";
-            ws.Cell(2, 6).Value = "y = 2";
-            ws.Cell(2, 7).Value = "y = 3";
-            ws.Cell(2, 8).Value = "y = -2";
-            ws.Cell(2, 9).Value = "y = -3";
-            ws.Cell(2, 10).Value = "A";
-            ws.Cell(2, 16).Value = "Ví dụ trắc nghiệm";
-            ws.Cell(3, 1).Value = "Ham so va Dao ham";
-            ws.Cell(3, 2).Value = "Nhận định sau đúng hay sai: Hàm số y = x^3 đồng biến trên R.";
-            ws.Cell(3, 3).Value = "DungSai";
-            ws.Cell(3, 6).Value = "Hàm đồng biến trên R";
-            ws.Cell(3, 11).Value = "D";
-            ws.Cell(4, 1).Value = "Ham so va Dao ham";
-            ws.Cell(4, 2).Value = "Cho hàm f(x) = x^2. Tính f(3).";
-            ws.Cell(4, 3).Value = "TraLoiNgan";
-            ws.Cell(4, 15).Value = "9";
-
-            ws.Columns().AdjustToContents();
-            wb.SaveAs(path);
-            MessageBox.Show($"Đã tạo file mẫu tại:\n{path}\n\nChủ đề phải trùng tên chủ đề đã có trong hệ thống (tab Câu hỏi -> cột Chủ đề).",
-                "Tạo file mẫu", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var topics = _service.LayChuDe(MonId > 0 ? MonId : null);
+            var topic = topics.FirstOrDefault(t => t.ChuDeID == ChuDeId) ?? topics.FirstOrDefault(t => t.TenChuDe == "Hàm số và Đạo hàm") ?? topics.FirstOrDefault();
+            if (topic == null) { MessageBox.Show("Chưa có chủ đề để tạo mẫu."); return; }
+            var subject = _service.LayMonHoc().First(m => m.MonHocID == topic.MonHocID);
+            // Tạo ở file tạm cùng thư mục; chỉ thay file người dùng chọn sau khi tạo thành công.
+            var temp = Path.Combine(Path.GetDirectoryName(save.FileName)!, Guid.NewGuid().ToString("N") + Path.GetExtension(save.FileName));
+            try
+            {
+                QuestionImportTemplate.Create(temp, topic.TenChuDe, subject.TenMon);
+                File.Move(temp, save.FileName, overwrite: true);
+            }
+            finally { if (File.Exists(temp)) File.Delete(temp); }
+            MessageBox.Show($"Đã tạo mẫu tại:\n{save.FileName}\n\nThay các câu ví dụ trước khi nhập. ZIP có ảnh mẫu; Excel có sheet HuongDan.", "Tạo file mẫu");
         }
-        catch (Exception ex)
-        {
-            MessageBox.Show("Không tạo được file mẫu: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
+        catch (Exception ex) { MessageBox.Show("Không tạo được mẫu: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error); }
     }
 }

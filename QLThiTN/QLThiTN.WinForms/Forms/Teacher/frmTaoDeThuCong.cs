@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using QLThiTN.WinForms.Models;
 using QLThiTN.WinForms.Services;
 
@@ -8,7 +8,7 @@ namespace QLThiTN.WinForms.Forms.Teacher;
 public class frmTaoDeThuCong : Form
 {
     private readonly QuestionService _questionService = new();
-    private readonly ExamService _examService = new();
+    private readonly ExamService _examService;
     private readonly ComboBox _cboMon = Ui.Combo(280);
     private readonly ComboBox _cboMuc = Ui.Combo(200);
     private readonly TextBox _txtTenDe = Ui.Input(280);
@@ -18,8 +18,9 @@ public class frmTaoDeThuCong : Form
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
     private bool _dangTaiDuLieu;
 
-    public frmTaoDeThuCong()
+    public frmTaoDeThuCong(int? giaoVienId = null)
     {
+        _examService = new ExamService(giaoVienId);
         Text = "Tạo đề thi thủ công — chọn câu hỏi từ ngân hàng";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;

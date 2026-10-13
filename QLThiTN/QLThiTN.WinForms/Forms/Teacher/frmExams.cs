@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using QLThiTN.WinForms.Services;
 
 namespace QLThiTN.WinForms.Forms.Teacher;
@@ -13,23 +13,25 @@ public class frmExams : Form
 
     public frmExams()
     {
+        ExamService.YeuCauQuanTriVien();
         Text = "Đề thi & Kỳ thi";
         Font = Ui.Body;
 
         var toolbar = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 56,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Padding = new Padding(16, 10, 0, 0),
             BackColor = Color.White,
-            WrapContents = false
+            WrapContents = true
         };
         var btnTHPTQG = Ui.ButtonAccent("🎓 Tạo đề chuẩn THPTQG", 220);
-        btnTHPTQG.Click += (s, e) => { using var f = new frmTaoDeTHPTQG(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
+        btnTHPTQG.Click += (s, e) => TaoDe(giaoVienId => new frmTaoDeTHPTQG(giaoVienId));
         var btnTuDong = Ui.ButtonPrimary("⚡ Tạo đề tự động", 180);
-        btnTuDong.Click += (s, e) => { using var f = new frmTaoDeTuDong(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
+        btnTuDong.Click += (s, e) => TaoDe(giaoVienId => new frmTaoDeTuDong(giaoVienId));
         var btnThuCong = Ui.ButtonPrimary("✎ Tạo đề thủ công", 190);
-        btnThuCong.Click += (s, e) => { using var f = new frmTaoDeThuCong(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
+        btnThuCong.Click += (s, e) => TaoDe(giaoVienId => new frmTaoDeThuCong(giaoVienId));
         var btnDotThi = Ui.ButtonPrimary("📅 Tạo đợt thi", 160);
         btnDotThi.Click += (s, e) => TaoDotThi();
         var btnTronDe = Ui.ButtonPrimary("🔀 Trộn mã đề", 160);
@@ -82,6 +84,32 @@ public class frmExams : Form
         Controls.Add(toolbar);
 
         Load += (s, e) => { try { _service.DongDotThiQuaHan(); } catch { } TaiLai(); };
+    }
+
+    private void TaoDe(Func<int, Form> createForm)
+    {
+        using var chooser = new Form
+        {
+            Text = "Giáo viên phụ trách đề thi", ClientSize = new Size(510, 180),
+            StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false, MinimizeBox = false, Font = Ui.Body
+        };
+        var teachers = Database.Query(@"SELECT gv.GiaoVienID, gv.HoTen + N' (' + tk.TenDangNhap + N')' AS Ten
+            FROM GiaoVien gv JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
+            WHERE tk.TrangThai = N'HoatDong' AND tk.VaiTro = N'GiaoVien' ORDER BY gv.HoTen");
+        if (teachers.Rows.Count == 0) { MessageBox.Show("Chưa có giáo viên đang hoạt động để phụ trách đề thi."); return; }
+        var label = Ui.Label("Chọn giáo viên phụ trách đề thi:", Ui.Body, Ui.Navy);
+        label.Location = new Point(20, 20);
+        var combo = Ui.Combo(460); combo.Location = new Point(20, 50);
+        combo.DisplayMember = "Ten"; combo.ValueMember = "GiaoVienID"; combo.DataSource = teachers; combo.SelectedIndex = -1;
+        var next = Ui.ButtonAccent("Tiếp tục", 130); next.Location = new Point(20, 108); next.Enabled = false;
+        combo.SelectedIndexChanged += (_, _) => next.Enabled = combo.SelectedIndex >= 0;
+        next.DialogResult = DialogResult.OK;
+        var cancel = Ui.ButtonOutline("Hủy", 100); cancel.Location = new Point(165, 108); cancel.DialogResult = DialogResult.Cancel;
+        chooser.Controls.AddRange([label, combo, next, cancel]); chooser.AcceptButton = next; chooser.CancelButton = cancel;
+        if (chooser.ShowDialog(FindForm()) != DialogResult.OK || combo.SelectedValue == null) return;
+        using var form = createForm(Convert.ToInt32(combo.SelectedValue));
+        if (form.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
     }
 
     private void TaiLai()

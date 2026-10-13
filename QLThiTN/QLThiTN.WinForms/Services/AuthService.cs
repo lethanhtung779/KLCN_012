@@ -1,4 +1,4 @@
-using QLThiTN.WinForms.Models;
+﻿using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
 
@@ -17,7 +17,7 @@ public static class Session
     public static bool CanQuanLyDaoTao => IsQuanTriVien;
 
     /// <summary>GiaoVienID cua nguoi dang nhap (dung khi tao cau hoi / de thi).</summary>
-    public static int GiaoVienID => Current?.ProfileID ?? 0;
+    public static int GiaoVienID => IsGiaoVien ? Current?.ProfileID ?? 0 : 0;
 
     public static string HoTen => Current?.HoTen ?? Current?.TenDangNhap ?? "";
 }

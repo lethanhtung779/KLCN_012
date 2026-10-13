@@ -1,4 +1,5 @@
-using System.Data;
+﻿using System.Data;
+using Microsoft.Data.SqlClient;
 using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
@@ -81,93 +82,181 @@ public class QuestionService
                 LaDapAnDung = r.GetBoolean(4)
             },
             p => p.AddWithValue("@id", cauHoiId));
+        var images = Database.ReadList(@"
+            SELECT HinhAnhID, DapAnID, DuongDan, MoTa FROM HinhAnh
+            WHERE CauHoiID = @id OR DapAnID IN (SELECT DapAnID FROM DapAn WHERE CauHoiID = @id)
+            ORDER BY ThuTu, HinhAnhID",
+            r => (AnswerId: r.IsDBNull(1) ? (int?)null : r.GetInt32(1), Image: new QuestionImage
+            {
+                HinhAnhID = r.GetInt32(0), DuongDan = r.GetString(2),
+                MoTa = r.IsDBNull(3) ? null : r.GetString(3)
+            }), p => p.AddWithValue("@id", cauHoiId));
+        cau.HinhAnhs = images.Where(x => x.AnswerId == null).Select(x => x.Image).ToList();
+        foreach (var answer in cau.DapAns)
+            answer.HinhAnhs = images.Where(x => x.AnswerId == answer.DapAnID).Select(x => x.Image).ToList();
         return cau;
     }
 
     // ------------------------------------------------------------------ CRUD
-    /// <summary>Them moi cau hoi + dap an. GiaoVienID lay tu nguoi dang nhap.</summary>
-    public int Them(CauHoi c)
+    public int Them(CauHoi c) => Luu(c, themMoi: true);
+
+    public void Sua(CauHoi c) => Luu(c, themMoi: false);
+
+    public static void KiemTraHopLe(CauHoi c)
     {
-        c.GiaoVienID = Session.GiaoVienID;
-        var id = Database.ExecuteScalarInt(@"
+        if ((string.IsNullOrWhiteSpace(c.NoiDung) && c.HinhAnhs?.Count is not > 0) || c.ChuDeID <= 0 || c.Diem <= 0)
+            throw new InvalidOperationException("Hãy nhập chủ đề, nội dung và điểm hợp lệ.");
+        var hopLe = c.LoaiCauHoi switch
+        {
+            LoaiCauHoi.TracNghiem => c.DapAns.Count == 4 && c.DapAns.Count(d => d.LaDapAnDung) == 1,
+            LoaiCauHoi.DungSai => c.DapAns.Count == 4,
+            LoaiCauHoi.TraLoiNgan => c.DapAns.Count == 1 && c.DapAns[0].LaDapAnDung,
+            _ => false
+        };
+        if (!hopLe || c.DapAns.Any(d => string.IsNullOrWhiteSpace(d.NoiDung) && (c.LoaiCauHoi == LoaiCauHoi.TraLoiNgan || d.HinhAnhs?.Count is not > 0)))
+            throw new InvalidOperationException("Đáp án chưa đầy đủ hoặc không hợp lệ.");
+
+    }
+
+    private static int Luu(CauHoi c, bool themMoi)
+    {
+        KiemTraHopLe(c);
+        using var files = new QuestionImageStore.Batch();
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction(IsolationLevel.Serializable);
+        if (!themMoi) KiemTraChoPhepThayDoi(conn, tx, c.CauHoiID);
+        using var cmd = new SqlCommand(themMoi ? @"
             INSERT INTO CauHoi (ChuDeID, GiaoVienID, NoiDung, LoaiCauHoi, MucDoKho, Diem, TrangThai, NgayTao, GiaiThichDapAn)
             VALUES (@cd, @gv, @nd, @loai, @muc, @diem, N'HoatDong', SYSDATETIME(), @gt);
-            SELECT CAST(SCOPE_IDENTITY() AS INT);",
-            p =>
-            {
-                p.AddWithValue("@cd", c.ChuDeID);
-                p.AddWithValue("@gv", c.GiaoVienID);
-                p.AddWithValue("@nd", c.NoiDung);
-                p.AddWithValue("@loai", c.LoaiCauHoi);
-                p.AddWithValue("@muc", c.MucDoKho);
-                p.AddWithValue("@diem", c.Diem);
-                p.AddWithValue("@gt", (object?)c.GiaiThichDapAn ?? DBNull.Value);
-            });
-        LuuDapAn(id, c);
+            SELECT CAST(SCOPE_IDENTITY() AS INT);" : @"
+            UPDATE CauHoi SET ChuDeID = @cd, NoiDung = @nd, LoaiCauHoi = @loai,
+                MucDoKho = @muc, Diem = @diem, GiaiThichDapAn = @gt WHERE CauHoiID = @id;
+            SELECT @id;", conn, tx);
+        cmd.Parameters.AddWithValue("@cd", c.ChuDeID);
+        cmd.Parameters.AddWithValue("@gv", Session.GiaoVienID);
+        cmd.Parameters.AddWithValue("@nd", c.NoiDung.Trim());
+        cmd.Parameters.AddWithValue("@loai", c.LoaiCauHoi);
+        cmd.Parameters.AddWithValue("@muc", c.MucDoKho);
+        cmd.Parameters.AddWithValue("@diem", c.Diem);
+        cmd.Parameters.AddWithValue("@gt", (object?)c.GiaiThichDapAn ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@id", c.CauHoiID);
+        var id = Convert.ToInt32(cmd.ExecuteScalar());
+        LuuHinhAnh(conn, tx, files, id, null, c.HinhAnhs);
+
+        // Giu ID dap an va hinh anh khi sua noi dung; khong xoa du lieu bai lam.
+        var ids = new List<int>();
+        using (var read = new SqlCommand("SELECT DapAnID FROM DapAn WHERE CauHoiID = @id ORDER BY ThuTu, DapAnID", conn, tx))
+        {
+            read.Parameters.AddWithValue("@id", id);
+            using var reader = read.ExecuteReader();
+            while (reader.Read()) ids.Add(reader.GetInt32(0));
+        }
+        for (var i = 0; i < c.DapAns.Count; i++)
+        {
+            using var answer = new SqlCommand(i < ids.Count ?
+                "UPDATE DapAn SET ThuTu = @t, NoiDung = @nd, LaDapAnDung = @dung WHERE DapAnID = @da; SELECT @da;" :
+                "INSERT INTO DapAn (CauHoiID, ThuTu, NoiDung, LaDapAnDung) VALUES (@id, @t, @nd, @dung); SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, tx);
+            answer.Parameters.AddWithValue("@id", id);
+            answer.Parameters.AddWithValue("@da", i < ids.Count ? ids[i] : 0);
+            answer.Parameters.AddWithValue("@t", i);
+            answer.Parameters.AddWithValue("@nd", c.DapAns[i].NoiDung.Trim());
+            answer.Parameters.AddWithValue("@dung", c.DapAns[i].LaDapAnDung);
+            var answerId = Convert.ToInt32(answer.ExecuteScalar());
+            LuuHinhAnh(conn, tx, files, id, answerId, c.DapAns[i].HinhAnhs);
+        }
+        foreach (var answerId in ids.Skip(c.DapAns.Count))
+        {
+            if (c.HinhAnhs != null)
+                LuuHinhAnh(conn, tx, files, id, answerId, []);
+            using var remove = new SqlCommand(@"
+                IF EXISTS (SELECT 1 FROM HinhAnh WHERE DapAnID = @da)
+                    THROW 50001, N'Đáp án có hình ảnh. Không thể bỏ đáp án này khi đổi loại câu hỏi.', 1;
+                DELETE FROM DapAn WHERE DapAnID = @da;", conn, tx);
+            remove.Parameters.AddWithValue("@da", answerId);
+            remove.ExecuteNonQuery();
+        }
+        tx.Commit();
+        files.Committed = true;
         return id;
     }
 
-    public void Sua(CauHoi c)
+    private static void LuuHinhAnh(SqlConnection conn, SqlTransaction tx, QuestionImageStore.Batch files,
+        int questionId, int? answerId, List<QuestionImage>? images)
     {
-        Database.Execute(@"
-            UPDATE CauHoi
-            SET ChuDeID = @cd, NoiDung = @nd, LoaiCauHoi = @loai, MucDoKho = @muc,
-                Diem = @diem, GiaiThichDapAn = @gt
-            WHERE CauHoiID = @id",
-            p =>
-            {
-                p.AddWithValue("@cd", c.ChuDeID);
-                p.AddWithValue("@nd", c.NoiDung);
-                p.AddWithValue("@loai", c.LoaiCauHoi);
-                p.AddWithValue("@muc", c.MucDoKho);
-                p.AddWithValue("@diem", c.Diem);
-                p.AddWithValue("@gt", (object?)c.GiaiThichDapAn ?? DBNull.Value);
-                p.AddWithValue("@id", c.CauHoiID);
-            });
-        LuuDapAn(c.CauHoiID, c);
-    }
-
-    private void LuuDapAn(int cauHoiId, CauHoi c)
-    {
-        Database.Execute("DELETE FROM LuaChonBaiLam WHERE ChiTietID IN (SELECT ChiTietID FROM ChiTietBaiLam WHERE CauHoiID = @id);\n" +
-            "DELETE FROM ChiTietBaiLam WHERE CauHoiID = @id;\n" +
-            "DELETE FROM DapAn WHERE CauHoiID = @id;",
-            p => p.AddWithValue("@id", cauHoiId));
-
-        for (var i = 0; i < c.DapAns.Count; i++)
+        if (images == null) return; // Caller không chỉnh sửa ảnh: giữ nguyên.
+        var existing = new HashSet<int>();
+        var where = answerId.HasValue ? "DapAnID = @owner" : "CauHoiID = @owner AND DapAnID IS NULL";
+        using (var read = new SqlCommand($"SELECT HinhAnhID FROM HinhAnh WHERE {where}", conn, tx))
         {
-            var da = c.DapAns[i];
-            if (string.IsNullOrWhiteSpace(da.NoiDung)) continue;
-            Database.Execute(@"
-                INSERT INTO DapAn (CauHoiID, ThuTu, NoiDung, LaDapAnDung)
-                VALUES (@id, @t, @nd, @dung)",
-                p =>
-                {
-                    p.AddWithValue("@id", cauHoiId);
-                    p.AddWithValue("@t", i);
-                    p.AddWithValue("@nd", da.NoiDung);
-                    p.AddWithValue("@dung", da.LaDapAnDung);
-                });
+            read.Parameters.AddWithValue("@owner", answerId ?? questionId);
+            using var reader = read.ExecuteReader();
+            while (reader.Read()) existing.Add(reader.GetInt32(0));
+        }
+        if (images.Where(x => x.HinhAnhID != 0).Any(x => !existing.Contains(x.HinhAnhID)))
+            throw new InvalidOperationException("Ảnh không thuộc nội dung đang sửa. Hãy mở lại câu hỏi.");
+        foreach (var removed in existing.Except(images.Select(x => x.HinhAnhID)))
+        {
+            using var delete = new SqlCommand("DELETE FROM HinhAnh WHERE HinhAnhID = @id", conn, tx);
+            delete.Parameters.AddWithValue("@id", removed);
+            delete.ExecuteNonQuery();
+        }
+        for (var i = 0; i < images.Count; i++)
+        {
+            var image = images[i];
+            if (image.MoTa?.Length > 200) throw new InvalidOperationException("Chú thích ảnh tối đa 200 ký tự.");
+            if (image.HinhAnhID == 0 && image.PendingPng == null)
+                throw new InvalidOperationException("Ảnh mới chưa có dữ liệu.");
+            using var save = new SqlCommand(image.HinhAnhID == 0 ? @"
+                INSERT INTO HinhAnh (CauHoiID, DapAnID, DuongDan, MoTa, ThuTu)
+                VALUES (@q, @a, @path, @caption, @order);" : @"
+                UPDATE HinhAnh SET MoTa = @caption, ThuTu = @order WHERE HinhAnhID = @id;", conn, tx);
+            save.Parameters.AddWithValue("@q", answerId.HasValue ? DBNull.Value : questionId);
+            save.Parameters.AddWithValue("@a", (object?)answerId ?? DBNull.Value);
+            save.Parameters.AddWithValue("@path", image.HinhAnhID == 0 ? files.Save(image) : image.DuongDan);
+            save.Parameters.AddWithValue("@caption", (object?)image.MoTa ?? DBNull.Value);
+            save.Parameters.AddWithValue("@order", i);
+            save.Parameters.AddWithValue("@id", image.HinhAnhID);
+            save.ExecuteNonQuery();
         }
     }
 
-    /// <summary>Xoa cau hoi (chan xoa cau da co bai thi).</summary>
+    private static void KiemTraChoPhepThayDoi(SqlConnection conn, SqlTransaction tx, int id)
+    {
+        using var cmd = new SqlCommand(@"
+            SELECT CASE
+                WHEN NOT EXISTS (SELECT 1 FROM CauHoi WITH (UPDLOCK, HOLDLOCK) WHERE CauHoiID = @id) THEN -1
+                WHEN EXISTS (SELECT 1 FROM ChiTietBaiLam WHERE CauHoiID = @id)
+                  OR EXISTS (SELECT 1 FROM DeThi_CauHoi WHERE CauHoiID = @id)
+                  OR EXISTS (SELECT 1 FROM MaDe_CauHoi WHERE CauHoiID = @id)
+                  OR EXISTS (SELECT 1 FROM MaDe_DapAn WHERE CauHoiID = @id) THEN 1
+                ELSE 0 END", conn, tx);
+        cmd.Parameters.AddWithValue("@id", id);
+        var state = Convert.ToInt32(cmd.ExecuteScalar());
+        if (state == -1) throw new InvalidOperationException("Câu hỏi không còn tồn tại. Hãy tải lại danh sách.");
+        if (state == 1) throw new InvalidOperationException(
+            "Câu hỏi đã được dùng trong đề thi hoặc bài làm, không thể sửa/xóa. Bạn có thể ẩn câu hỏi và thêm câu hỏi mới.");
+    }
+
     public (bool Ok, string Error) Xoa(int cauHoiId)
     {
-        var soBaiThi = Database.ExecuteScalarInt(
-            "SELECT COUNT(1) FROM ChiTietBaiLam WHERE CauHoiID = @id",
-            p => p.AddWithValue("@id", cauHoiId));
-        if (soBaiThi > 0)
-            return (false, $"Câu hỏi đã được dùng trong {soBaiThi} bài thi. Chỉ có thể ẩn (đổi trạng thái thành 'An').");
-
-        Database.Execute(@"
-            DELETE FROM LuaChonBaiLam WHERE ChiTietID IN (SELECT ChiTietID FROM ChiTietBaiLam WHERE CauHoiID = @id);
-            DELETE FROM ChiTietBaiLam WHERE CauHoiID = @id;
-            DELETE FROM DapAn WHERE CauHoiID = @id;
-            DELETE FROM DeThi_CauHoi WHERE CauHoiID = @id;
-            DELETE FROM CauHoi WHERE CauHoiID = @id;",
-            p => p.AddWithValue("@id", cauHoiId));
-        return (true, "");
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction(IsolationLevel.Serializable);
+        try
+        {
+            KiemTraChoPhepThayDoi(conn, tx, cauHoiId);
+            using var cmd = new SqlCommand(@"
+                DELETE FROM HinhAnh WHERE CauHoiID = @id OR DapAnID IN (SELECT DapAnID FROM DapAn WHERE CauHoiID = @id);
+                DELETE FROM DapAn WHERE CauHoiID = @id;
+                DELETE FROM CauHoi WHERE CauHoiID = @id;", conn, tx);
+            cmd.Parameters.AddWithValue("@id", cauHoiId);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+            return (true, "");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return (false, ex.Message);
+        }
     }
 
     /// <summary>An / hien cau hoi (An = khong hien trong kho de web).</summary>
@@ -175,109 +264,4 @@ public class QuestionService
         Database.Execute("UPDATE CauHoi SET TrangThai = @t WHERE CauHoiID = @id",
             p => { p.AddWithValue("@t", an ? "An" : "HoatDong"); p.AddWithValue("@id", cauHoiId); });
 
-    // ------------------------------------------------------------------ import file
-    /// <summary>Tao file mau (.xlsx) voi header dinh dang de giao vien dien theo.</summary>
-    public static readonly string[] HeaderImport =
-    [
-        "ChuDe (ten chinh xac)", "NoiDung", "LoaiCauHoi (TracNghiem|DungSai|TraLoiNgan)",
-        "MucDoKho (NhanBiet|ThongHieu|VanDung|VanDungCao|ChuaXacDinh)", "Diem",
-        "DapAnA", "DapAnB", "DapAnC", "DapAnD", "DapAnDung (A|B|C|D)",
-        "Y_a_Dung (D|S)", "Y_b_Dung", "Y_c_Dung", "Y_d_Dung", "DapSo (TraLoiNgan)", "GiaiThich"
-    ];
-
-    public (int Them, int Loi, List<string> LoiChiTiet) Import(IEnumerable<(string ChuDe, string NoiDung, string Loai, string MucDo, string Diem,
-        string Da, string Db, string Dc, string Dd, string Dung, string Ya, string Yb, string Yc, string Yd, string DapSo, string GiaiThich)> rows)
-    {
-        var monHocs = LayMonHoc();
-        var chuDes = LayChuDe();
-        var demThem = 0;
-        var loi = new List<string>();
-
-        foreach (var r in rows.Select((row, i) => (row, i: i + 2)))
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(r.row.NoiDung)) { loi.Add($"Dòng {r.i}: thiếu nội dung."); continue; }
-
-                var cd = chuDes.FirstOrDefault(x => string.Equals(x.TenChuDe.Trim(), r.row.ChuDe.Trim(), StringComparison.OrdinalIgnoreCase));
-                if (cd == null) { loi.Add($"Dòng {r.i}: không tìm thấy chủ đề '{r.row.ChuDe.Trim()}'."); continue; }
-
-                var loai = r.row.Loai.Trim() switch
-                {
-                    "TracNghiem" or "Trắc nghiệm" or "TN" => LoaiCauHoi.TracNghiem,
-                    "DungSai" or "Đúng/Sai" or "Đúng sai" or "DS" => LoaiCauHoi.DungSai,
-                    "TraLoiNgan" or "Trả lời ngắn" or "TLN" => LoaiCauHoi.TraLoiNgan,
-                    _ => ""
-                };
-                if (loai == "") { loi.Add($"Dòng {r.i}: loại câu hỏi '{r.row.Loai}' không hợp lệ."); continue; }
-
-                var muc = r.row.MucDo.Trim() switch
-                {
-                    "NhanBiet" or "Nhận biết" => MucDoKho.NhanBiet,
-                    "ThongHieu" or "Thông hiểu" => MucDoKho.ThongHieu,
-                    "VanDung" or "Vận dụng" => MucDoKho.VanDung,
-                    "VanDungCao" or "Vận dụng cao" => MucDoKho.VanDungCao,
-                    _ => MucDoKho.ChuaXacDinh
-                };
-
-                var diem = decimal.TryParse(r.row.Diem, out var d) && d > 0 ? d : 0.25m;
-
-                var cau = new CauHoi
-                {
-                    ChuDeID = cd.ChuDeID,
-                    NoiDung = r.row.NoiDung.Trim(),
-                    LoaiCauHoi = loai,
-                    MucDoKho = muc,
-                    Diem = diem,
-                    GiaiThichDapAn = string.IsNullOrWhiteSpace(r.row.GiaiThich) ? null : r.row.GiaiThich.Trim()
-                };
-
-                if (loai == LoaiCauHoi.TracNghiem)
-                {
-                    var opts = new[] { r.row.Da, r.row.Db, r.row.Dc, r.row.Dd };
-                    var dung = r.row.Dung.Trim().ToUpperInvariant() switch
-                    {
-                        "A" => 0, "B" => 1, "C" => 2, "D" => 3, _ => -1
-                    };
-                    if (dung < 0 || opts.Any(string.IsNullOrWhiteSpace))
-                    {
-                        loi.Add($"Dòng {r.i}: câu trắc nghiệm cần đủ 4 đáp án và cột DapAnDung (A–D).");
-                        continue;
-                    }
-                    for (var i = 0; i < 4; i++)
-                        cau.DapAns.Add(new DapAn { ThuTu = i, NoiDung = opts[i].Trim(), LaDapAnDung = i == dung });
-                }
-                else if (loai == LoaiCauHoi.DungSai)
-                {
-                    // Cot DapAnA..D dung lam NOI DUNG y a-d, cot Y_a..Y_d la Dung/Sai
-                    var opts = new[] { r.row.Da, r.row.Db, r.row.Dc, r.row.Dd };
-                    var ys = new[] { r.row.Ya, r.row.Yb, r.row.Yc, r.row.Yd };
-                    for (var i = 0; i < 4; i++)
-                        cau.DapAns.Add(new DapAn
-                        {
-                            ThuTu = i,
-                            NoiDung = string.IsNullOrWhiteSpace(opts[i]) ? $"Ý {((char)('a' + i))}" : opts[i].Trim(),
-                            LaDapAnDung = string.Equals(ys[i].Trim(), "D", StringComparison.OrdinalIgnoreCase)
-                        });
-                }
-                else
-                {
-                    if (string.IsNullOrWhiteSpace(r.row.DapSo))
-                    {
-                        loi.Add($"Dòng {r.i}: câu trả lời ngắn cần cột DapSo.");
-                        continue;
-                    }
-                    cau.DapAns.Add(new DapAn { ThuTu = 0, NoiDung = r.row.DapSo.Trim(), LaDapAnDung = true });
-                }
-
-                Them(cau);
-                demThem++;
-            }
-            catch (Exception ex)
-            {
-                loi.Add($"Dòng {r.i}: {ex.Message}");
-            }
-        }
-        return (demThem, loi.Count, loi);
-    }
 }

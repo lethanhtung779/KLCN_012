@@ -65,9 +65,16 @@ public class frmLogin : Form
         Ui.GradientButton(btnLogin, Ui.Accent, Ui.Accent2);
         btnLogin.Click += (s, e) => DangNhap();
 
+        var lblQuickLogin = Ui.Label("Đăng nhập nhanh", Ui.Small, Ui.TextMuted);
+        var btnGiaoVien = Ui.ButtonOutline("Giáo viên", 135, 38);
+        btnGiaoVien.Click += (s, e) => DangNhapNhanh("giaovien1", "123456");
+        var btnAdmin = Ui.ButtonOutline("Admin", 135, 38);
+        btnAdmin.Click += (s, e) => DangNhapNhanh("admin", "admin123");
+
         var lblNote = Ui.Label("Thí sinh vui lòng đăng nhập trên website để làm bài thi.", Ui.Small, Ui.TextMuted);
 
-        Controls.AddRange([side, lblTitle, lblSub, lblUser, _txtUser, lblPass, _txtPass, _lblError, btnLogin, lblNote]);
+        Controls.AddRange([side, lblTitle, lblSub, lblUser, _txtUser, lblPass, _txtPass, _lblError,
+            btnLogin, lblQuickLogin, btnGiaoVien, btnAdmin, lblNote]);
 
         // Bo cuc panel phai (form FixedDialog nen toa do tinh mot lan la du)
         var x = 380;
@@ -79,7 +86,17 @@ public class frmLogin : Form
         _txtPass.Location = new Point(x, 286);
         _lblError.Location = new Point(x, 320);
         btnLogin.Location = new Point(x, 350);
-        lblNote.Location = new Point(x, 420);
+        lblQuickLogin.Location = new Point(x, 405);
+        btnGiaoVien.Location = new Point(x, 430);
+        btnAdmin.Location = new Point(x + 145, 430);
+        lblNote.Location = new Point(x, 486);
+    }
+
+    private void DangNhapNhanh(string username, string password)
+    {
+        _txtUser.Text = username;
+        _txtPass.Text = password;
+        DangNhap();
     }
 
     private void DangNhap()

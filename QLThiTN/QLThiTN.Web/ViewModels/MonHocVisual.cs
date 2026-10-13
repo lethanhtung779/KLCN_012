@@ -1,23 +1,22 @@
-namespace QLThiTN.Web.ViewModels;
+﻿namespace QLThiTN.Web.ViewModels;
 
 /// <summary>
-/// Icon Bootstrap Icons cho tung mon hoc (TenMon trong DB dang khong dau:
-/// Toan, Vat Ly, Hoa Hoc...) va palette pastel cho bia de tu sinh.
+/// Icon môn học, hỗ trợ cả tên có dấu và không dấu, và màu bìa đề tự sinh.
 /// </summary>
 public static class MonHocVisual
 {
     public static string ToIcon(string? tenMon) => (tenMon ?? "").Trim() switch
     {
-        "Toan" => "bi-calculator",
-        "Vat Ly" => "bi-lightning-charge",
-        "Hoa Hoc" => "bi-eyedropper",
-        "Sinh Hoc" => "bi-flower1",
-        "Lich Su" => "bi-hourglass-split",
-        "Dia Ly" => "bi-globe-asia-australia",
-        "Tin Hoc" => "bi-pc-display",
-        "Tieng Anh" => "bi-translate",
-        "Cong Nghe" => "bi-gear-wide-connected",
-        "Kinh Te Phap Luat" => "bi-bank",
+        "Toan" or "Toán" => "bi-calculator",
+        "Vat Ly" or "Vật lý" => "bi-lightning-charge",
+        "Hoa Hoc" or "Hóa học" => "bi-eyedropper",
+        "Sinh Hoc" or "Sinh học" => "bi-flower1",
+        "Lich Su" or "Lịch sử" => "bi-hourglass-split",
+        "Dia Ly" or "Địa lý" => "bi-globe-asia-australia",
+        "Tin Hoc" or "Tin học" => "bi-pc-display",
+        "Tieng Anh" or "Tiếng Anh" => "bi-translate",
+        "Cong Nghe" or "Công nghệ" => "bi-gear-wide-connected",
+        "Kinh Te Phap Luat" or "Kinh tế pháp luật" => "bi-bank",
         _ => "bi-book"
     };
 

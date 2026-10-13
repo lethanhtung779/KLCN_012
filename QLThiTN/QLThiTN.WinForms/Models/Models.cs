@@ -1,4 +1,4 @@
-namespace QLThiTN.WinForms.Models;
+﻿namespace QLThiTN.WinForms.Models;
 
 /// <summary>Tai khoan dang nhap trong bang TaiKhoan.</summary>
 public class TaiKhoan
@@ -146,10 +146,12 @@ public class CauHoi
     public string TenGiaoVien { get; set; } = "";
 
     public List<DapAn> DapAns { get; set; } = new();
+    public List<QuestionImage>? HinhAnhs { get; set; }
 }
 
 public class DapAn
 {
+    public List<QuestionImage>? HinhAnhs { get; set; }
     public int DapAnID { get; set; }
     public int CauHoiID { get; set; }
     public int ThuTu { get; set; }
@@ -227,4 +229,14 @@ public class ThongKeCauHoi
 
     public double TiLeDung => SoLanTraLoi > 0 ? Math.Round(SoLanDung * 100.0 / SoLanTraLoi, 1) : 0;
     public string NoiDungNgan => NoiDung.Length <= 60 ? NoiDung : NoiDung[..60] + "…";
+}
+
+/// <summary>Ảnh đã lưu hoặc ảnh mới đang chờ người dùng bấm Lưu.</summary>
+public class QuestionImage
+{
+    public int HinhAnhID { get; set; }
+    public string DuongDan { get; set; } = "";
+    public string? MoTa { get; set; }
+    public byte[]? PendingPng { get; set; }
+    public override string ToString() => string.IsNullOrWhiteSpace(MoTa) ? "Ảnh minh họa" : MoTa;
 }

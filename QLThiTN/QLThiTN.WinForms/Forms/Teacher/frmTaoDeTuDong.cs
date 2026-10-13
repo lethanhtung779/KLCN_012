@@ -1,4 +1,4 @@
-using QLThiTN.WinForms.Models;
+﻿using QLThiTN.WinForms.Models;
 using QLThiTN.WinForms.Services;
 
 namespace QLThiTN.WinForms.Forms.Teacher;
@@ -7,7 +7,7 @@ namespace QLThiTN.WinForms.Forms.Teacher;
 public class frmTaoDeTuDong : Form
 {
     private readonly QuestionService _questionService = new();
-    private readonly ExamService _examService = new();
+    private readonly ExamService _examService;
     private readonly ComboBox _cboMon = Ui.Combo(300);
     private readonly ComboBox _cboMuc = Ui.Combo(300);
     private readonly ComboBox _cboLoaiDe = Ui.Combo(300);
@@ -16,13 +16,14 @@ public class frmTaoDeTuDong : Form
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
     private readonly Label _lblPool = Ui.Label("", Ui.Small, Ui.TextMuted);
 
-    public frmTaoDeTuDong()
+    public frmTaoDeTuDong(int? giaoVienId = null)
     {
+        _examService = new ExamService(giaoVienId);
         Text = "Tạo đề thi tự động";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
-        ClientSize = new Size(440, 430);
+        ClientSize = new Size(440, 520);
         BackColor = Color.White;
 
         var lblMon = Ui.Label("Môn học *", Ui.H2, Ui.Navy);

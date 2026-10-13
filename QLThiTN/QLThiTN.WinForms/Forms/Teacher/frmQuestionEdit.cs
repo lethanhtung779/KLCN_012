@@ -3,281 +3,185 @@ using QLThiTN.WinForms.Services;
 
 namespace QLThiTN.WinForms.Forms.Teacher;
 
-/// <summary>Them moi / sua cau hoi — ho tro ca 3 loai: TracNghiem, DungSai, TraLoiNgan.</summary>
 public class frmQuestionEdit : Form
 {
     private readonly QuestionService _service = new();
-    private readonly int _id; // 0 = them moi
-
-    private readonly ComboBox _cboMon = Ui.Combo(300);
+    private readonly int _id;
+    private readonly ComboBox _cboMon = Ui.Combo(240);
     private readonly ComboBox _cboChuDe = Ui.Combo(300);
-    private readonly ComboBox _cboLoai = Ui.Combo(300);
-    private readonly ComboBox _cboMuc = Ui.Combo(300);
-    private readonly NumericUpDown _numDiem = new() { Width = 100, DecimalPlaces = 2, Increment = 0.25m, Minimum = 0.01m, Maximum = 10m, Value = 0.25m, Font = Ui.Body };
-    private readonly TextBox _txtNoiDung = new() { Width = 620, Height = 90, Multiline = true, Font = Ui.Body, BorderStyle = BorderStyle.FixedSingle };
-    private readonly TextBox _txtGiaiThich = new() { Width = 620, Height = 44, Multiline = true, Font = Ui.Body, BorderStyle = BorderStyle.FixedSingle };
-
-    // Cac truong dap an — hien/an theo loai cau hoi
-    private readonly TextBox[] _txtDapAn = [Ui.Input(470), Ui.Input(470), Ui.Input(470), Ui.Input(470)];
-    private readonly RadioButton[] _radDung = new RadioButton[4];
-    private readonly ComboBox[] _cboDungSai = [Ui.Combo(70), Ui.Combo(70), Ui.Combo(70), Ui.Combo(70)];
-    private readonly TextBox _txtDapSo = Ui.Input(300);
-    private readonly Panel _panelDapAn = new() { Location = new Point(30, 470), Size = new Size(680, 240), BackColor = Color.Transparent };
-
-    private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
+    private readonly ComboBox _cboLoai = Ui.Combo(240);
+    private readonly ComboBox _cboMuc = Ui.Combo(180);
+    private readonly NumericUpDown _numDiem = new() { Width = 80, DecimalPlaces = 2, Increment = 0.25m, Minimum = 0.01m, Maximum = 100m, Value = 0.25m };
+    private readonly QuestionContentEditor _question = new() { Height = 350 };
+    private readonly QuestionContentEditor[] _answers = Enumerable.Range(0, 4).Select(_ => new QuestionContentEditor()).ToArray();
+    private readonly TextBox _explanation = new() { Multiline = true, Height = 90, Dock = DockStyle.Top, Font = Ui.Body, ScrollBars = ScrollBars.Vertical };
+    private readonly ComboBox _correct = Ui.Combo(110);
+    private readonly ComboBox[] _trueFalse = Enumerable.Range(0, 4).Select(_ => Ui.Combo(100)).ToArray();
+    private readonly Panel[] _answerRows = new Panel[4];
+    private readonly Label[] _answerLabels = new Label[4];
+    private readonly Label _answerHint = new() { AutoSize = true, Font = Ui.Small };
+    private readonly TextBox _shortAnswer = Ui.Input(300);
+    private readonly Panel _shortPanel = new() { Dock = DockStyle.Top, Height = 105 };
+    private readonly FlowLayoutPanel _choiceTools = new() { Dock = DockStyle.Top, Height = 42, WrapContents = false };
+    private readonly TabControl _tabs = new() { Dock = DockStyle.Fill, Font = Ui.Body };
+    private readonly QuestionPreview _preview = new();
+    private readonly Label _error = new() { Dock = DockStyle.Fill, ForeColor = Ui.Danger, AutoEllipsis = true, Font = Ui.Small };
+    private readonly Button _save = Ui.ButtonAccent("Lưu câu hỏi", 160, 40);
+    private string _previousType = LoaiCauHoi.TracNghiem;
+    private bool _loading;
+    private string QuestionType => (_cboLoai.SelectedItem as ComboItem)?.Value as string ?? LoaiCauHoi.TracNghiem;
 
     public frmQuestionEdit(int id, int macDinhMon = 0)
     {
         _id = id;
         Text = id == 0 ? "Thêm câu hỏi mới" : $"Sửa câu hỏi #{id}";
         StartPosition = FormStartPosition.CenterParent;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = false; MinimizeBox = false;
-        ClientSize = new Size(760, 780);
-        BackColor = Color.White;
-        AutoScroll = true;
+        ClientSize = new Size(1050, 800); MinimumSize = new Size(860, 650);
+        BackColor = Color.White; Font = Ui.Body;
+        var metadata = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Padding = new Padding(12) };
+        AddField(metadata, "Môn học *", _cboMon);
+        AddField(metadata, "Chủ đề *", _cboChuDe);
+        AddField(metadata, "Loại câu hỏi *", _cboLoai);
+        AddField(metadata, "Độ khó", _cboMuc);
+        AddField(metadata, "Điểm", _numDiem);
+        var contentPage = new TabPage("Nội dung câu hỏi") { AutoScroll = true, Padding = new Padding(12), BackColor = Color.White };
+        var explanationTitle = new Label { Text = "Giải thích đáp án (có thể nhập công thức $...$)", Dock = DockStyle.Top, Height = 30 };
+        contentPage.Controls.Add(_explanation); contentPage.Controls.Add(explanationTitle); contentPage.Controls.Add(_question);
+        var answerPage = new TabPage("Đáp án") { AutoScroll = true, Padding = new Padding(12), BackColor = Color.White };
+        for (var i = 3; i >= 0; i--)
+        {
+            var row = new Panel { Dock = DockStyle.Top, Height = 315 };
+            var heading = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, WrapContents = false };
+            _answerLabels[i] = new Label { Text = $"Đáp án {(char)('A' + i)}", AutoSize = true, Font = Ui.H2, Padding = new Padding(0, 5, 12, 0) };
+            _trueFalse[i].Items.AddRange(["Đúng", "Sai"]); _trueFalse[i].SelectedIndex = 1;
+            heading.Controls.Add(_answerLabels[i]); heading.Controls.Add(_trueFalse[i]);
+            row.Controls.Add(_answers[i]); row.Controls.Add(heading);
+            _answerRows[i] = row; answerPage.Controls.Add(row);
+        }
+        var shortLabel = new Label { Text = "Đáp số dùng để chấm bài (bắt buộc nhập chữ hoặc số)", AutoSize = true, Location = new Point(0, 8) };
+        _shortAnswer.Location = new Point(0, 40);
+        _shortPanel.Controls.AddRange([shortLabel, _shortAnswer]);
+        _correct.Items.AddRange(["A", "B", "C", "D"]);
+        _choiceTools.Controls.Add(new Label { Text = "Đáp án đúng:", AutoSize = true, Padding = new Padding(0, 5, 8, 0) });
+        _choiceTools.Controls.Add(_correct); _choiceTools.Controls.Add(_answerHint);
+        answerPage.Controls.Add(_shortPanel); answerPage.Controls.Add(_choiceTools);
+        var previewPage = new TabPage("Xem trước") { BackColor = Color.White };
+        previewPage.Controls.Add(_preview);
+        _tabs.TabPages.AddRange([contentPage, answerPage, previewPage]);
+        _tabs.SelectedIndexChanged += async (_, _) => { if (_tabs.SelectedIndex == 2) await _preview.RenderAsync(ReadQuestion()); };
+        var footer = new Panel { Dock = DockStyle.Bottom, Height = 90, Padding = new Padding(12) };
+        var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 45 };
+        var cancel = Ui.ButtonOutline("Hủy", 100, 40); cancel.DialogResult = DialogResult.Cancel; CancelButton = cancel;
+        _save.Click += (_, _) => SaveQuestion();
+        actions.Controls.AddRange([_save, cancel]); footer.Controls.Add(_error); footer.Controls.Add(actions);
+        Controls.Add(_tabs); Controls.Add(footer); Controls.Add(metadata);
 
-        var lblMon = Ui.Label("Môn học *", Ui.H2, Ui.Navy);
         foreach (var m in _service.LayMonHoc()) _cboMon.Items.Add(new ComboItem(m.MonHocID, m.TenMon));
-        _cboMon.SelectedIndexChanged += (s, e) => { TaiChuDe(); };
-
-        var lblChuDe = Ui.Label("Chủ đề *", Ui.H2, Ui.Navy);
-        var lblLoai = Ui.Label("Loại câu hỏi *", Ui.H2, Ui.Navy);
-        _cboLoai.Items.Add(new ComboItem(LoaiCauHoi.TracNghiem, "Trắc nghiệm (4 đáp án A–D)"));
-        _cboLoai.Items.Add(new ComboItem(LoaiCauHoi.DungSai, "Đúng/Sai (4 ý a–d)"));
-        _cboLoai.Items.Add(new ComboItem(LoaiCauHoi.TraLoiNgan, "Trả lời ngắn (nhập đáp số)"));
-        _cboLoai.SelectedIndexChanged += (s, e) => { HienThiPanelDapAn(); };
-
-        var lblMuc = Ui.Label("Mức độ khó", Ui.H2, Ui.Navy);
+        _cboMon.SelectedIndexChanged += (_, _) => LoadTopics();
+        _cboLoai.Items.AddRange([new ComboItem(LoaiCauHoi.TracNghiem, "Trắc nghiệm"), new ComboItem(LoaiCauHoi.DungSai, "Đúng/Sai"), new ComboItem(LoaiCauHoi.TraLoiNgan, "Trả lời ngắn")]);
         foreach (var (code, display) in MucDoKho.All) _cboMuc.Items.Add(new ComboItem(code, display));
         _cboMuc.SelectedIndex = 0;
-
-        var lblDiem = Ui.Label("Điểm mỗi câu", Ui.H2, Ui.Navy);
-        var lblNoiDung = Ui.Label("Nội dung câu hỏi * (hỗ trợ LaTeX $...$ — website tự render)", Ui.H2, Ui.Navy);
-        var lblGiaiThich = Ui.Label("Giải thích đáp án (hiện khi xem lại bài)", Ui.H2, Ui.Navy);
-
-        // Panel dap an: tieu de + cac dong se duoc tao trong HienThiPanelDapAn
-        var lblDapAn = Ui.Label("Đáp án *", Ui.H2, Ui.Navy);
-        lblDapAn.Location = new Point(30, 430);
-
-        var btnLuu = Ui.ButtonAccent("Lưu câu hỏi", 160, 42);
-        Ui.GradientButton(btnLuu, Ui.Accent, Ui.Accent2);
-        btnLuu.Location = new Point(30, 724);
-        btnLuu.Click += (s, e) => Luu();
-        var btnHuy = Ui.ButtonOutline("Hủy", 100, 42);
-        btnHuy.Location = new Point(200, 724);
-        btnHuy.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
-
-        Controls.AddRange([lblMon, _cboMon, lblChuDe, _cboChuDe, lblLoai, _cboLoai, lblMuc, _cboMuc,
-            lblDiem, _numDiem, lblNoiDung, _txtNoiDung, lblGiaiThich, _txtGiaiThich, lblDapAn, _panelDapAn, _lblError, btnLuu, btnHuy]);
-
-        var y = 16;
-        lblMon.Location = new Point(30, y); _cboMon.Location = new Point(30, y + 24); y += 60;
-        lblChuDe.Location = new Point(30, y); _cboChuDe.Location = new Point(30, y + 24); y += 60;
-        lblLoai.Location = new Point(30, y); _cboLoai.Location = new Point(30, y + 24); y += 60;
-        lblMuc.Location = new Point(30, y); _cboMuc.Location = new Point(30, y + 24);
-        lblDiem.Location = new Point(380, y); _numDiem.Location = new Point(380, y + 24); y += 60;
-        lblNoiDung.Location = new Point(30, y); _txtNoiDung.Location = new Point(30, y + 24); y += 110;
-        lblGiaiThich.Location = new Point(30, y); _txtGiaiThich.Location = new Point(30, y + 24); y += 84;
-        lblDapAn.Location = new Point(30, y - 10);
-        _panelDapAn.Location = new Point(30, y + 18);
-        _lblError.Location = new Point(30, 706);
-        btnLuu.Location = new Point(30, 730);
-        btnHuy.Location = new Point(200, 730);
-
+        _cboLoai.SelectedIndexChanged += (_, _) => ChangeType();
         if (_cboMon.Items.Count > 0) _cboMon.SelectedIndex = 0;
-        if (macDinhMon > 0)
-            foreach (ComboItem item in _cboMon.Items)
-                if ((int)item.Value == macDinhMon) { _cboMon.SelectedItem = item; break; }
-
-        if (id > 0) TaiDuLieu(id);
+        Select(_cboMon, macDinhMon); _cboLoai.SelectedIndex = 0;
+        if (id > 0) LoadQuestion(id);
     }
 
-    private class ComboItem(object value, string text)
+    private sealed record ComboItem(object Value, string Text)
     {
-        public object Value { get; } = value;
-        public override string ToString() => text;
+        public override string ToString() => Text;
     }
 
-    private void TaiChuDe()
+    private static void AddField(FlowLayoutPanel parent, string title, Control input)
     {
-        var save = _cboChuDe.SelectedItem as ComboItem;
+        var field = new Panel { Width = input.Width + 15, Height = 62 };
+        field.Controls.Add(new Label { Text = title, AutoSize = true, Location = new Point(0, 0), Font = Ui.Small });
+        input.Location = new Point(0, 25); field.Controls.Add(input); parent.Controls.Add(field);
+    }
+
+    private static void Select(ComboBox combo, object value)
+    {
+        foreach (ComboItem item in combo.Items)
+            if (Equals(item.Value, value)) { combo.SelectedItem = item; return; }
+    }
+
+    private void LoadTopics()
+    {
         _cboChuDe.Items.Clear();
-        foreach (var cd in _service.LayChuDe((int)((ComboItem)_cboMon.SelectedItem!).Value))
-            _cboChuDe.Items.Add(new ComboItem(cd.ChuDeID, cd.TenChuDe));
-        if (_cboChuDe.Items.Count > 0)
-        {
-            _cboChuDe.SelectedIndex = 0;
-            if (save != null)
-                foreach (ComboItem item in _cboChuDe.Items)
-                    if ((int)item.Value == (int)save.Value) { _cboChuDe.SelectedItem = item; break; }
-        }
+        if (_cboMon.SelectedItem is not ComboItem mon) return;
+        foreach (var cd in _service.LayChuDe((int)mon.Value)) _cboChuDe.Items.Add(new ComboItem(cd.ChuDeID, cd.TenChuDe));
+        if (_cboChuDe.Items.Count > 0) _cboChuDe.SelectedIndex = 0;
     }
 
-    private void HienThiPanelDapAn()
+    private void ChangeType()
     {
-        var loai = (_cboLoai.SelectedItem as ComboItem)?.Value as string ?? LoaiCauHoi.TracNghiem;
-        _panelDapAn.Controls.Clear();
+        var shortType = QuestionType == LoaiCauHoi.TraLoiNgan;
+        if (!_loading && shortType && _answers.Any(a => a.Images.Count > 0))
+        {
+            Select(_cboLoai, _previousType);
+            MessageBox.Show(this, "Hãy xóa các ảnh đáp án trước khi chuyển sang trả lời ngắn. Ảnh câu hỏi vẫn được giữ lại.", "Đổi loại câu hỏi");
+            return;
+        }
+        _previousType = QuestionType;
+        for (var i = 0; i < 4; i++)
+        {
+            _answerRows[i].Visible = !shortType;
+            _trueFalse[i].Visible = QuestionType == LoaiCauHoi.DungSai;
+            _answerLabels[i].Text = QuestionType == LoaiCauHoi.DungSai ? $"Ý {(char)('a' + i)}" : $"Đáp án {(char)('A' + i)}";
+        }
+        _choiceTools.Visible = QuestionType == LoaiCauHoi.TracNghiem;
+        _shortPanel.Visible = shortType;
+        _answerHint.Text = "Chọn một đáp án đúng; mỗi đáp án có thể là chữ, công thức hoặc ảnh.";
+    }
 
-        if (loai == LoaiCauHoi.TracNghiem)
+    private void LoadQuestion(int id)
+    {
+        var q = _service.LayChiTiet(id) ?? throw new InvalidOperationException("Không tìm thấy câu hỏi.");
+        var topic = _service.LayChuDe().First(c => c.ChuDeID == q.ChuDeID);
+        _loading = true;
+        Select(_cboMon, topic.MonHocID); Select(_cboChuDe, q.ChuDeID);
+        Select(_cboLoai, q.LoaiCauHoi); Select(_cboMuc, q.MucDoKho);
+        _numDiem.Maximum = Math.Max(_numDiem.Maximum, q.Diem); _numDiem.Value = Math.Max(_numDiem.Minimum, q.Diem);
+        _question.Input.Text = q.NoiDung; _question.LoadImages(q.HinhAnhs);
+        _explanation.Text = q.GiaiThichDapAn ?? "";
+        for (var i = 0; i < Math.Min(4, q.DapAns.Count); i++)
         {
-            _panelDapAn.Height = 190;
-            
-            for (var i = 0; i < 4; i++)
-            {
-                var lbl = Ui.Label($"{(char)('A' + i)}.", Ui.Body, Ui.Accent2);
-                lbl.Location = new Point(0, 6 + i * 44);
-                _txtDapAn[i].Location = new Point(30, 2 + i * 44);
-                _radDung[i] = new RadioButton
-                {
-                    Text = "Đáp án đúng",
-                    Location = new Point(520, 4 + i * 44),
-                    AutoSize = true,
-                    Font = Ui.Body,
-                    ForeColor = Ui.Success
-                };
-                _panelDapAn.Controls.Add(lbl);
-                _panelDapAn.Controls.Add(_txtDapAn[i]);
-                _panelDapAn.Controls.Add(_radDung[i]);
-            }
+            _answers[i].Input.Text = q.DapAns[i].NoiDung; _answers[i].LoadImages(q.DapAns[i].HinhAnhs);
+            _trueFalse[i].SelectedIndex = q.DapAns[i].LaDapAnDung ? 0 : 1;
+            if (q.DapAns[i].LaDapAnDung) _correct.SelectedIndex = i;
         }
-        else if (loai == LoaiCauHoi.DungSai)
+        _shortAnswer.Text = q.DapAns.FirstOrDefault()?.NoiDung ?? "";
+        _loading = false;
+    }
+
+    private CauHoi ReadQuestion()
+    {
+        var q = new CauHoi
         {
-            _panelDapAn.Height = 190;
-            var labels = new[] { "Nội dung ý a:", "Nội dung ý b:", "Nội dung ý c:", "Nội dung ý d:" };
-            for (var i = 0; i < 4; i++)
-            {
-                var lbl = Ui.Label(labels[i], Ui.Body, Ui.Accent2);
-                lbl.Location = new Point(0, 6 + i * 44);
-                _txtDapAn[i].Location = new Point(110, 2 + i * 44);
-                _txtDapAn[i].Width = 330;
-                _cboDungSai[i].Items.AddRange(["Đúng", "Sai"]);
-                _cboDungSai[i].Location = new Point(460, 3 + i * 44);
-                _cboDungSai[i].SelectedIndex = 1;
-                _panelDapAn.Controls.Add(lbl);
-                _panelDapAn.Controls.Add(_txtDapAn[i]);
-                _panelDapAn.Controls.Add(_cboDungSai[i]);
-            }
-            var hint = Ui.Label("Nhập nội dung từng ý a–d và chọn Đúng/Sai cho mỗi ý.", Ui.Small, Ui.TextMuted);
-            hint.Location = new Point(110, 180);
-            _panelDapAn.Controls.Add(hint);
-        }
+            CauHoiID = _id, ChuDeID = (_cboChuDe.SelectedItem as ComboItem)?.Value as int? ?? 0,
+            NoiDung = _question.Input.Text.Trim(), HinhAnhs = _question.Images,
+            LoaiCauHoi = QuestionType, MucDoKho = (_cboMuc.SelectedItem as ComboItem)?.Value as string ?? MucDoKho.ChuaXacDinh,
+            Diem = _numDiem.Value, GiaiThichDapAn = _explanation.Text.Trim()
+        };
+        if (QuestionType == LoaiCauHoi.TraLoiNgan)
+            q.DapAns.Add(new DapAn { NoiDung = _shortAnswer.Text.Trim(), LaDapAnDung = true, HinhAnhs = _answers[0].Images });
         else
-        {
-            _panelDapAn.Height = 60;
-            var lbl = Ui.Label("Đáp số:", Ui.Body, Ui.Accent2);
-            lbl.Location = new Point(0, 8);
-            _txtDapSo.Location = new Point(80, 4);
-            var hint = Ui.Label("So sánh không phân biệt hoa/thường; số 663 = 663.0 = 663,0.", Ui.Small, Ui.TextMuted);
-            hint.Location = new Point(80, 34);
-            _panelDapAn.Controls.Add(lbl);
-            _panelDapAn.Controls.Add(_txtDapSo);
-            _panelDapAn.Controls.Add(hint);
-        }
+            for (var i = 0; i < 4; i++)
+                q.DapAns.Add(new DapAn { ThuTu = i, NoiDung = _answers[i].Input.Text.Trim(), HinhAnhs = _answers[i].Images,
+                    LaDapAnDung = QuestionType == LoaiCauHoi.TracNghiem ? _correct.SelectedIndex == i : _trueFalse[i].SelectedIndex == 0 });
+        return q;
     }
 
-    private void TaiDuLieu(int id)
+    private void SaveQuestion()
     {
-        var cau = _service.LayChiTiet(id);
-        if (cau == null) { MessageBox.Show("Không tìm thấy câu hỏi."); Close(); return; }
-
-        foreach (ComboItem item in _cboMon.Items)
-            if ((int)item.Value == cau.ChuDeID) { _cboMon.SelectedItem = item; break; }
-        TaiChuDe();
-
-        foreach (ComboItem item in _cboLoai.Items)
-            if ((string)item.Value == cau.LoaiCauHoi) { _cboLoai.SelectedItem = item; break; }
-        foreach (ComboItem item in _cboMuc.Items)
-            if ((string)item.Value == cau.MucDoKho) { _cboMuc.SelectedItem = item; break; }
-        _numDiem.Value = cau.Diem;
-        _txtNoiDung.Text = cau.NoiDung;
-        _txtGiaiThich.Text = cau.GiaiThichDapAn ?? "";
-
-        HienThiPanelDapAn();
-        if (cau.LoaiCauHoi == LoaiCauHoi.TracNghiem)
-        {
-            for (var i = 0; i < 4 && i < cau.DapAns.Count; i++)
-            {
-                _txtDapAn[i].Text = cau.DapAns[i].NoiDung;
-                _radDung[i].Checked = cau.DapAns[i].LaDapAnDung;
-            }
-        }
-        else if (cau.LoaiCauHoi == LoaiCauHoi.DungSai)
-        {
-            for (var i = 0; i < 4 && i < cau.DapAns.Count; i++)
-            {
-                _txtDapAn[i].Text = cau.DapAns[i].NoiDung;
-                _cboDungSai[i].SelectedIndex = cau.DapAns[i].LaDapAnDung ? 0 : 1;
-            }
-        }
-        else if (cau.DapAns.Count > 0)
-        {
-            _txtDapSo.Text = cau.DapAns[0].NoiDung;
-        }
-    }
-
-    private void Luu()
-    {
-        _lblError.Text = "";
+        _error.Text = ""; _save.Enabled = false;
         try
         {
-            if (_cboChuDe.SelectedItem == null) { _lblError.Text = "⚠ Hãy chọn chủ đề."; return; }
-            if (string.IsNullOrWhiteSpace(_txtNoiDung.Text)) { _lblError.Text = "⚠ Chưa nhập nội dung câu hỏi."; return; }
-
-            var loai = (_cboLoai.SelectedItem as ComboItem)?.Value as string ?? LoaiCauHoi.TracNghiem;
-            var cau = new CauHoi
-            {
-                CauHoiID = _id,
-                ChuDeID = (int)(_cboChuDe.SelectedItem as ComboItem)!.Value!,
-                NoiDung = _txtNoiDung.Text.Trim(),
-                LoaiCauHoi = loai,
-                MucDoKho = (_cboMuc.SelectedItem as ComboItem)?.Value as string ?? MucDoKho.ChuaXacDinh,
-                Diem = _numDiem.Value,
-                GiaiThichDapAn = string.IsNullOrWhiteSpace(_txtGiaiThich.Text) ? null : _txtGiaiThich.Text.Trim()
-            };
-
-            if (loai == LoaiCauHoi.TracNghiem)
-            {
-                var coDung = false;
-                for (var i = 0; i < 4; i++)
-                {
-                    if (string.IsNullOrWhiteSpace(_txtDapAn[i].Text))
-                    { _lblError.Text = $"⚠ Chưa nhập nội dung đáp án {(char)('A' + i)}."; return; }
-                    coDung |= _radDung[i].Checked;
-                    cau.DapAns.Add(new DapAn { ThuTu = i, NoiDung = _txtDapAn[i].Text.Trim(), LaDapAnDung = _radDung[i].Checked });
-                }
-                if (!coDung) { _lblError.Text = "⚠ Hãy chọn một đáp án đúng."; return; }
-            }
-            else if (loai == LoaiCauHoi.DungSai)
-            {
-                for (var i = 0; i < 4; i++)
-                {
-                    if (string.IsNullOrWhiteSpace(_txtDapAn[i].Text))
-                    { _lblError.Text = $"⚠ Chưa nhập nội dung ý {(char)('a' + i)}."; return; }
-                    cau.DapAns.Add(new DapAn
-                    {
-                        ThuTu = i,
-                        NoiDung = _txtDapAn[i].Text.Trim(),
-                        LaDapAnDung = _cboDungSai[i].SelectedIndex == 0
-                    });
-                }
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(_txtDapSo.Text))
-                { _lblError.Text = "⚠ Chưa nhập đáp số cho câu trả lời ngắn."; return; }
-                cau.DapAns.Add(new DapAn { ThuTu = 0, NoiDung = _txtDapSo.Text.Trim(), LaDapAnDung = true });
-            }
-
-            if (_id == 0) _service.Them(cau);
-            else _service.Sua(cau);
-
-            DialogResult = DialogResult.OK;
-            Close();
+            var q = ReadQuestion();
+            if (_id == 0) _service.Them(q); else _service.Sua(q);
+            DialogResult = DialogResult.OK; Close();
         }
-        catch (Exception ex)
-        {
-            _lblError.Text = "⚠ Lỗi: " + ex.Message;
-        }
+        catch (Exception ex) { _error.Text = ex.Message; }
+        finally { if (!IsDisposed) _save.Enabled = true; }
     }
 }

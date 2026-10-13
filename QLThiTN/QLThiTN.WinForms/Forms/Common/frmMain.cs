@@ -1,4 +1,4 @@
-using QLThiTN.WinForms.Services;
+﻿using QLThiTN.WinForms.Services;
 
 namespace QLThiTN.WinForms.Forms.Common;
 
@@ -78,13 +78,13 @@ public class frmMain : Form
         {
             flow.Controls.Add(NavButton("👥  Quản lý tài khoản", () => MoManHinh("Quản lý tài khoản", () => new Forms.Admin.frmAccounts())));
             flow.Controls.Add(NavButton("📖  Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp học", () => new Forms.Admin.frmDaoTao())));
+            flow.Controls.Add(NavButton("📝  Đề thi & Kỳ thi", () => MoManHinh("Đề thi & Kỳ thi", () => new Forms.Teacher.frmExams())));
             flow.Controls.Add(NavButton("🗄️  Backup & Restore", () => MoManHinh("Sao lưu & phục hồi dữ liệu", () => new Forms.Admin.frmBackupRestore())));
         }
 
         if (Session.IsGiaoVien)
         {
             flow.Controls.Add(NavButton("📚  Ngân hàng câu hỏi", () => MoManHinh("Ngân hàng câu hỏi", () => new Forms.Teacher.frmQuestions())));
-            flow.Controls.Add(NavButton("📝  Đề thi & Kỳ thi", () => MoManHinh("Đề thi & Kỳ thi", () => new Forms.Teacher.frmExams())));
             flow.Controls.Add(NavButton("📊  Thống kê kết quả", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));
         }
 
