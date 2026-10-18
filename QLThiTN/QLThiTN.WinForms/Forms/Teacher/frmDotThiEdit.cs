@@ -16,7 +16,7 @@ public class frmDotThiEdit : Form
     private readonly NumericUpDown _numGioiHan = new() { Width = 150, Minimum = 0, Maximum = 1000, Value = 0, Font = Ui.Body };
     private readonly NumericUpDown _numLanThi = new() { Width = 150, Minimum = 1, Maximum = 10, Value = 1, Font = Ui.Body };
     private readonly CheckBox _chkCongBo = new() { Text = "Công bố điểm ngay sau khi nộp (bỏ tick = chờ quản trị công bố)", AutoSize = true, Font = Ui.Body, Checked = true };
-    private readonly ComboBox _cboPhamVi = Ui.Combo(190);
+    private readonly ComboBox _cboPhamVi = Ui.Combo(240);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
 
     public frmDotThiEdit(int deThiId, string tenDe)
@@ -28,7 +28,7 @@ public class frmDotThiEdit : Form
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
-        ClientSize = new Size(560, 470);
+        ClientSize = new Size(580, 480);
         BackColor = Color.White;
 
         var lblInfo = Ui.Label($"Đề thi: {tenDe}", Ui.H2, Ui.Accent2);
@@ -42,14 +42,15 @@ public class frmDotThiEdit : Form
         _dtpDong.Value = DateTime.Now.AddDays(7);
 
         var lblLuong = Ui.Label("Thời lượng làm bài (phút) *", Ui.H2, Ui.Navy);
-        var lblHan = Ui.Label("Giới hạn số lượng (0 = không giới hạn)", Ui.H2, Ui.Navy);
+        var lblHan = Ui.Label("Số chỗ tối đa (0 = không giới hạn)", Ui.H2, Ui.Navy);
         var lblLan = Ui.Label("Số lần thi tối đa", Ui.H2, Ui.Navy);
         var lblPhamVi = Ui.Label("Phạm vi", Ui.H2, Ui.Navy);
+        _cboPhamVi.DropDownWidth = 340;
         _cboPhamVi.Items.Add(new ComboItem("ToanTruong", "Công khai — mọi học sinh tự do vào thi"));
         _cboPhamVi.Items.Add(new ComboItem("TheoLop", "Theo lớp — chỉ học viên được phân công"));
         _cboPhamVi.SelectedIndex = 0;
 
-        var btnTao = Ui.ButtonAccent("📅 Tạo đợt thi", 170, 42);
+        var btnTao = Ui.ButtonAccent("Tạo đợt thi", 170, 42);
         Ui.GradientButton(btnTao, Ui.Accent, Ui.Accent2);
         btnTao.Click += (s, e) => Tao();
         var btnHuy = Ui.ButtonOutline("Hủy", 100, 42);

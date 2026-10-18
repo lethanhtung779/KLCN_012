@@ -298,18 +298,54 @@ public class DeThiController : ControllerBase
             return StatusCode(403, new { message = GoiThi.ThongBao });
 
         var now = DateTime.Now;
-        var dot = de.DotThis.FirstOrDefault();
+        var dangLamSessionId = await _db.BaiLams
+            .Where(b => b.HocVienID == request.HocVienID && b.TrangThai == "DangLam" && de.DotThis.Select(dt => dt.DotThiID).Contains(b.DotThiID))
+            .Select(b => b.DotThiID)
+            .FirstOrDefaultAsync();
+
+        DotThi? dot = null;
+        if (dangLamSessionId > 0)
+        {
+            dot = de.DotThis.FirstOrDefault(d => d.DotThiID == dangLamSessionId);
+        }
+
+        if (dot is null)
+        {
+            dot = de.DotThis
+                .Where(d => d.TrangThai != "DaDong" && d.ThoiGianMoCong <= now && d.ThoiGianDongCong >= now)
+                .OrderByDescending(d => d.DotThiID)
+                .FirstOrDefault();
+        }
+
+        if (dot is null)
+        {
+            dot = de.DotThis.OrderByDescending(d => d.DotThiID).FirstOrDefault();
+        }
+
         if (dot is null)
         {
             dot = TaoDotThiFallback(de);
             await _db.SaveChangesAsync();
         }
 
+        if (dot.TrangThai == "DaDong")
+            return BadRequest(new { message = "Đợt thi đã đóng, không thể bắt đầu làm bài" });
+
         if (dot.ThoiGianMoCong > now)
             return BadRequest(new { message = "De thi chua mo cong, vui long quay lai dung han" });
         if (dot.ThoiGianDongCong < now && !await _db.BaiLams.AnyAsync(b => b.DotThiID == dot.DotThiID
             && b.HocVienID == User.StudentId() && b.TrangThai == "DangLam"))
-            return BadRequest(new { message = "De thi da dong cong, het han lam bai" });
+            return BadRequest(new { message = "De thi da dong cong, het han lam bài" });
+
+        // Dot thi co pham vi theo lop: bat buoc hoc vien phai thuoc lop duoc phan cong
+        if (dot.PhamVi == "TheoLop")
+        {
+            var thuocLop = await _db.DotThi_LopHocs
+                .AnyAsync(dtl => dtl.DotThiID == dot.DotThiID &&
+                    _db.HocVien_Lops.Any(hvl => hvl.LopHocID == dtl.LopHocID && hvl.HocVienID == request.HocVienID && hvl.TrangThai == "DangHoc"));
+            if (!thuocLop)
+                return StatusCode(403, new { message = "Đợt thi chỉ dành cho các lớp học được phân công. Bạn không thuộc danh sách dự thi." });
+        }
 
         // SoLanThiToiDa <= 0 = khong gioi han (du lieu cu co the de 0)
         if (dot.SoLanThiToiDa > 0)
@@ -321,8 +357,7 @@ public class DeThiController : ControllerBase
                 return Conflict(new { message = $"Ban da het luot thi toi da ({dot.SoLanThiToiDa} lan)" });
         }
 
-        // Dot thi co gioi han so luong = thi theo lop/hoc vien duoc phan cong,
-        // bat buoc dang ky truoc. Thi thu cong khai (khong gioi han) thi vao tu do.
+        // Dot thi co gioi han so luong = bat buoc dang ky truoc
         if (dot.GioiHanSoLuong.HasValue)
         {
             var daDangKy = await _db.DangKyDotThis
@@ -472,6 +507,8 @@ public class DeThiController : ControllerBase
         if (request.Answers.Select(a => a.CauHoiID).Distinct().Count() != request.Answers.Count)
             return BadRequest(new { message = "Câu trả lời bị trùng." });
         var items = await LoadExamItemsAsync(id);
+        var validationError = ValidateAnswers(items, request.Answers);
+        if (validationError is not null) return validationError;
         var soCau = await LuuDapAnTamAsync(baiLam, items, request.Answers);
 
         await transaction.CommitAsync();
@@ -517,6 +554,8 @@ public class DeThiController : ControllerBase
             return BadRequest(new { message = "Câu trả lời bị trùng." });
         var items = await LoadExamItemsAsync(id);
         if (items.Count == 0) return NotFound();
+        var validationError = ValidateAnswers(items, request.Answers);
+        if (validationError is not null) return validationError;
 
         var answerMap = request.Answers.ToDictionary(a => a.CauHoiID);
 
@@ -874,10 +913,32 @@ public class DeThiController : ControllerBase
         _ => ((char)('A' + thuTu)).ToString()
     };
 
+    private static IActionResult? ValidateAnswers(List<DeThi_CauHoi> items, List<SubmitAnswerDto> answers)
+    {
+        var itemMap = items.ToDictionary(x => x.CauHoiID, x => x.CauHoi!);
+        foreach (var ans in answers)
+        {
+            if (!itemMap.TryGetValue(ans.CauHoiID, out var cauHoi))
+                return new BadRequestObjectResult(new { message = $"Câu hỏi ID {ans.CauHoiID} không thuộc đề thi này." });
+            if (ans.DapAnID.HasValue && ans.DapAnID.Value > 0)
+            {
+                if (!cauHoi.DapAns.Any(d => d.DapAnID == ans.DapAnID.Value))
+                    return new BadRequestObjectResult(new { message = $"Đáp án ID {ans.DapAnID.Value} không thuộc câu hỏi ID {ans.CauHoiID}." });
+            }
+            foreach (var y in ans.YChoices)
+            {
+                if (y.DapAnID > 0 && !cauHoi.DapAns.Any(d => d.DapAnID == y.DapAnID))
+                    return new BadRequestObjectResult(new { message = $"Đáp án ý ID {y.DapAnID} không thuộc câu hỏi ID {ans.CauHoiID}." });
+            }
+        }
+        return null;
+    }
+
     private DeThiListItemDto ToListItemDto(DeThi d)
     {
         var dot = d.DotThis.FirstOrDefault();
         var trangThai = dot is null ? "DaDong"
+            : dot.TrangThai == "DaDong" ? "DaDong"
             : dot.ThoiGianMoCong > DateTime.Now ? "SapMo"
             : dot.ThoiGianDongCong < DateTime.Now ? "DaDong"
             : "DangMo";

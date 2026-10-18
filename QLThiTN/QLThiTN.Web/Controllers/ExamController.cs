@@ -141,7 +141,7 @@ public class ExamController : Controller
             var history = await _api.GetHistoryAsync(hocVienId.Value);
             var cuaMon = history.Where(h => string.Equals(h.TenMon, model.TenMon, StringComparison.OrdinalIgnoreCase)).ToList();
             model.LuotThiCuaBan = cuaMon.Count;
-            var diemCuaMon = cuaMon.Where(h => h.TongDiem > 0).Select(h => h.TongDiem).ToList();
+            var diemCuaMon = cuaMon.Where(h => h.ScorePublished && h.TrangThai != "DangLam").Select(h => h.TongDiem).ToList();
             model.DiemTBCuaBan = diemCuaMon.Count > 0 ? Math.Round(diemCuaMon.Average(), 2) : null;
         }
 

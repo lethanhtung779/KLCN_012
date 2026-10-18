@@ -9,9 +9,20 @@ const [base, output, examId] = process.argv.slice(2);
     const results = [], errors = [];
     page.on('pageerror', error => errors.push(error.message));
     page.on('dialog', dialog => dialog.accept());
+    async function screenshotSafe(targetPage, filePath) {
+        for (let attempt = 0; attempt < 5; attempt++) {
+            try {
+                await targetPage.screenshot({ path: filePath, fullPage: true });
+                return;
+            } catch (err) {
+                if (attempt === 4) throw err;
+                await new Promise(r => setTimeout(r, 250));
+            }
+        }
+    }
     async function capture(name, route) {
         const response = await page.goto(base + route, { waitUntil: 'networkidle' });
-        await page.screenshot({ path: path.join(output, name + '.png'), fullPage: true });
+        await screenshotSafe(page, path.join(output, name + '.png'));
         const details = await page.evaluate(() => ({
             overflow: document.documentElement.scrollWidth > innerWidth,
             unlabelled: [...document.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]),select,textarea')]
@@ -49,7 +60,7 @@ const [base, output, examId] = process.argv.slice(2);
             results.push({ test: 'Autosave recovery', text: await page.locator('#autosaveStatus').textContent() });
         }
         await page.setViewportSize({ width: 390, height: 844 });
-        await page.screenshot({ path: path.join(output, 'web-taking-mobile.png'), fullPage: true });
+        await screenshotSafe(page, path.join(output, 'web-taking-mobile.png'));
         results.push({ page: 'web-taking-mobile', overflow: await page.evaluate(() => document.documentElement.scrollWidth > innerWidth) });
         await capture('web-library-mobile', 'Exam/KhoDe');
         await capture('web-profile-mobile', 'Account/Profile');
@@ -64,7 +75,17 @@ const [base, output, examId] = process.argv.slice(2);
         results.push({ fatal: error.message });
         process.exitCode = 1;
     } finally {
-        fs.writeFileSync(path.join(output, 'browser-results.json'), JSON.stringify({ results, pageErrors: errors }, null, 2));
+        const outPath = path.join(output, 'browser-results.json');
+        try {
+            fs.writeFileSync(outPath, JSON.stringify({ results, pageErrors: errors }, null, 2));
+        } catch (e) {
+            try {
+                fs.writeFileSync(outPath + '.tmp', JSON.stringify({ results, pageErrors: errors }, null, 2));
+                fs.renameSync(outPath + '.tmp', outPath);
+            } catch (err2) {
+                console.error('Could not write browser-results.json:', err2.message);
+            }
+        }
         console.log(JSON.stringify({ results, pageErrors: errors }, null, 2));
         await browser.close();
     }

@@ -13,6 +13,7 @@ public class frmBackupRestore : Form
 
     public frmBackupRestore()
     {
+        Session.YeuCauQuanTriVien();
         Text = "Sao lưu & phục hồi dữ liệu";
         Font = Ui.Body;
         ClientSize = new Size(860, 520);

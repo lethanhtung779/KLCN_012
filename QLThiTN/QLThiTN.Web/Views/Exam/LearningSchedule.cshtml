@@ -24,8 +24,8 @@
             <form method="get" asp-action="LearningSchedule" class="card border-0 rounded-4 shadow-sm mb-4">
                 <div class="card-body row g-3 align-items-end">
                     <div class="col-md-4">
-                        <label class="form-label small fw-semibold text-muted">Lớp</label>
-                        <select name="lop" class="form-select rounded-3">
+                        <label for="lop" class="form-label small fw-semibold text-muted">Lớp</label>
+                        <select id="lop" name="lop" class="form-select rounded-3" aria-label="Chọn lớp học">
                             <option value="">Tất cả lớp đã đăng ký</option>
                             @foreach (var l in Model.MyClasses)
                             {
@@ -41,12 +41,12 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label small fw-semibold text-muted">Từ ngày</label>
-                        <input type="date" name="tu" class="form-control rounded-3" value="@(Model.LocTuNgay?.ToString("yyyy-MM-dd"))" />
+                        <label for="tu" class="form-label small fw-semibold text-muted">Từ ngày</label>
+                        <input type="date" id="tu" name="tu" class="form-control rounded-3" value="@(Model.LocTuNgay?.ToString("yyyy-MM-dd"))" aria-label="Từ ngày" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label small fw-semibold text-muted">Đến ngày</label>
-                        <input type="date" name="den" class="form-control rounded-3" value="@(Model.LocDenNgay?.ToString("yyyy-MM-dd"))" />
+                        <label for="den" class="form-label small fw-semibold text-muted">Đến ngày</label>
+                        <input type="date" id="den" name="den" class="form-control rounded-3" value="@(Model.LocDenNgay?.ToString("yyyy-MM-dd"))" aria-label="Đến ngày" />
                     </div>
                     <div class="col-md-2">
                         <button type="submit" class="btn btn-primary-custom w-100 rounded-pill">Lọc</button>

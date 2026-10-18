@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using QLThiTN.WinForms.Models;
 using QLThiTN.WinForms.Services;
 
@@ -16,6 +16,10 @@ public class frmQuestions : Form
     private readonly ComboBox _cboMuc = Ui.Combo(150);
     private readonly TextBox _txtTuKhoa = Ui.Input(170);
     private readonly Label _lblCount = Ui.Label("", Ui.Small, Ui.TextMuted);
+    private readonly Label _lblEmpty = Ui.Label("", Ui.Body, Ui.TextMuted);
+
+    private bool _dangKhoiTao = true;
+    private int _loadVersion;
 
     public frmQuestions()
     {
@@ -23,48 +27,63 @@ public class frmQuestions : Form
         Font = Ui.Body;
 
         var lblMon = Ui.Label("Môn:", Ui.Small, Ui.TextMuted);
-        _cboMon.SelectedIndexChanged += (s, e) => { TaiChuDe(); TaiLai(); };
+        _cboMon.SelectedIndexChanged += (s, e) =>
+        {
+            if (_dangKhoiTao) return;
+            _dangKhoiTao = true;
+            TaiChuDe();
+            _dangKhoiTao = false;
+            TaiLai();
+        };
         var lblChuDe = Ui.Label("Chủ đề:", Ui.Small, Ui.TextMuted);
-        _cboChuDe.SelectedIndexChanged += (s, e) => TaiLai();
+        _cboChuDe.SelectedIndexChanged += (s, e) => { if (!_dangKhoiTao) TaiLai(); };
         var lblLoai = Ui.Label("Loại:", Ui.Small, Ui.TextMuted);
-        _cboLoai.SelectedIndexChanged += (s, e) => TaiLai();
+        _cboLoai.SelectedIndexChanged += (s, e) => { if (!_dangKhoiTao) TaiLai(); };
         var lblMuc = Ui.Label("Độ khó:", Ui.Small, Ui.TextMuted);
-        _cboMuc.SelectedIndexChanged += (s, e) => TaiLai();
+        _cboMuc.SelectedIndexChanged += (s, e) => { if (!_dangKhoiTao) TaiLai(); };
         _txtTuKhoa.PlaceholderText = "Tìm trong nội dung...";
-        _txtTuKhoa.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) TaiLai(); };
+        _txtTuKhoa.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter && !_dangKhoiTao) TaiLai(); };
 
-        var btnThem = Ui.ButtonAccent("＋ Thêm câu hỏi", 160);
+        var btnThem = Ui.ButtonAccent("Thêm câu hỏi", 160);
         btnThem.Click += (s, e) => Them();
-        var btnSua = Ui.ButtonPrimary("✎ Sửa", 100);
+        var btnSua = Ui.ButtonPrimary("Sửa", 100);
         btnSua.Click += (s, e) => Sua();
-        var btnAn = Ui.ButtonOutline("👁 Ẩn / Hiện", 130);
+        var btnAn = Ui.ButtonOutline("Ẩn / Hiện", 130);
         btnAn.Click += (s, e) => AnHien();
-        var btnXoa = Ui.ButtonDanger("🗑 Xóa", 100);
+        var btnXoa = Ui.ButtonDanger("Xóa", 100);
         btnXoa.Click += (s, e) => Xoa();
-        var btnImport = Ui.ButtonOutline("📥 Import Excel/TXT/ZIP", 220);
+        var btnImport = Ui.ButtonOutline("Nhập Excel/TXT/ZIP", 220);
         btnImport.Click += (s, e) => ImportFile();
-        var btnMau = Ui.ButtonOutline("📄 Tạo file mẫu", 150);
+        var btnMau = Ui.ButtonOutline("Tạo file mẫu", 150);
         btnMau.Click += (s, e) => TaoFileMau();
+        var btnLamMoi = Ui.ButtonOutline("Làm mới", 100);
+        btnLamMoi.Click += (s, e) => TaiLai();
 
         var toolbar = new TableLayoutPanel
         {
             Dock = DockStyle.Top,
-            AutoSize = true,
-            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Height = 164,
             ColumnCount = 1,
             RowCount = 2,
             BackColor = Color.White,
         };
         toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        toolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
+        toolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 86));
+        Resize += (_, _) => UpdateToolbarLayout(toolbar);
 
-        var row1 = new FlowLayoutPanel { Width = 2000, Height = 44, Padding = new Padding(16, 10, 0, 0), WrapContents = false, BackColor = Color.Transparent };
-        foreach (Control c in new Control[] { lblMon, _cboMon, lblChuDe, _cboChuDe, lblLoai, _cboLoai, lblMuc, _cboMuc, _txtTuKhoa })
+        var row1 = new FlowLayoutPanel { Padding = new Padding(16, 10, 0, 0), WrapContents = true, BackColor = Color.Transparent };
+        foreach (Control c in new Control[]
+                 {
+                     FilterGroup(lblMon, _cboMon), FilterGroup(lblChuDe, _cboChuDe),
+                     FilterGroup(lblLoai, _cboLoai), FilterGroup(lblMuc, _cboMuc), _txtTuKhoa
+                 })
         {
-            c.Margin = new Padding(0, 4, 8, 0);
+            c.Margin = new Padding(0, 3, 8, 0);
             row1.Controls.Add(c);
         }
-        var row2 = new FlowLayoutPanel { Width = 2000, Height = 50, Padding = new Padding(16, 2, 0, 0), WrapContents = false, BackColor = Color.Transparent };
-        foreach (var c in new Control[] { btnThem, btnSua, btnAn, btnXoa, btnImport, btnMau })
+        var row2 = new FlowLayoutPanel { Padding = new Padding(16, 2, 0, 0), WrapContents = true, BackColor = Color.Transparent };
+        foreach (var c in new Control[] { btnThem, btnSua, btnAn, btnXoa, btnImport, btnMau, btnLamMoi })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             row2.Controls.Add(c);
@@ -72,9 +91,6 @@ public class frmQuestions : Form
         foreach (var row in new[] { row1, row2 })
         {
             row.Dock = DockStyle.Fill;
-            row.AutoSize = true;
-            row.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            row.WrapContents = true;
             row.Margin = Padding.Empty;
         }
         toolbar.Controls.Add(row1, 0, 0);
@@ -87,10 +103,18 @@ public class frmQuestions : Form
         Ui.StyleGrid(_grid);
         _grid.Dock = DockStyle.Fill;
         _grid.CellDoubleClick += (s, e) => { if (e.RowIndex >= 0) Sua(); };
+        _lblEmpty.AutoSize = false;
+        _lblEmpty.Size = new Size(560, 68);
+        _lblEmpty.TextAlign = ContentAlignment.MiddleCenter;
+        _lblEmpty.BackColor = Color.White;
+        _lblEmpty.Visible = false;
+        _grid.Controls.Add(_lblEmpty);
+        _grid.Resize += (_, _) => CenterEmptyMessage();
 
         Controls.Add(_grid);
         Controls.Add(panelBottom);
         Controls.Add(toolbar);
+        UpdateToolbarLayout(toolbar);
 
         // Danh muc
         _cboMon.Items.Add(new ComboItem(0, "Tất cả môn"));
@@ -107,6 +131,8 @@ public class frmQuestions : Form
         foreach (var (code, display) in MucDoKho.All) _cboMuc.Items.Add(new ComboItem(code, display));
         _cboMuc.SelectedIndex = 0;
 
+        _dangKhoiTao = false;
+        TaiChuDe();
         TaiLai();
     }
 
@@ -114,6 +140,30 @@ public class frmQuestions : Form
     {
         public object Value { get; } = value;
         public override string ToString() => text;
+    }
+
+    private static FlowLayoutPanel FilterGroup(Label label, ComboBox combo)
+    {
+        var group = new FlowLayoutPanel
+        {
+            Width = label.PreferredWidth + combo.Width + 12,
+            Height = 32,
+            WrapContents = false,
+            Margin = Padding.Empty,
+        };
+        label.Margin = new Padding(0, 6, 6, 0);
+        combo.Margin = Padding.Empty;
+        group.Controls.Add(label);
+        group.Controls.Add(combo);
+        return group;
+    }
+
+    private void UpdateToolbarLayout(TableLayoutPanel toolbar)
+    {
+        var wide = ClientSize.Width >= 1100;
+        toolbar.Height = wide ? 94 : 164;
+        toolbar.RowStyles[0].Height = wide ? 44 : 78;
+        toolbar.RowStyles[1].Height = wide ? 50 : 86;
     }
 
     private int MonId => (_cboMon.SelectedItem as ComboItem)?.Value as int? ?? 0;
@@ -130,28 +180,65 @@ public class frmQuestions : Form
         _cboChuDe.SelectedIndex = 0;
     }
 
-    private void TaiLai()
+    private async void TaiLai()
     {
-        var dt = _service.TraCuu(MonId, ChuDeId, Loai, Muc, _txtTuKhoa.Text);
-        _grid.DataSource = dt;
-        Ui.RenameColumns(_grid,
-            ("CauHoiID", "ID"), ("NoiDung", "Nội dung câu hỏi"), ("LoaiCauHoi", "Loại"),
-            ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TrangThai", "Trạng thái"),
-            ("TenChuDe", "Chủ đề"), ("TenMon", "Môn"), ("TenGiaoVien", "Người soạn"), ("NgayTao", "Ngày tạo"));
-        Ui.HideColumns(_grid, "CauHoiID", "ChuDeID", "GiaoVienID", "NgayTao");
-
-        // Hien thi loai / do kho / trang thai bang tieng Viet
-        foreach (DataGridViewRow row in _grid.Rows)
+        var version = ++_loadVersion;
+        try
         {
-            if (_grid.Columns.Contains("LoaiCauHoi"))
-                row.Cells["LoaiCauHoi"].Value = LoaiCauHoi.Display(row.Cells["LoaiCauHoi"].Value?.ToString());
-            if (_grid.Columns.Contains("MucDoKho"))
-                row.Cells["MucDoKho"].Value = MucDoKho.Display(row.Cells["MucDoKho"].Value?.ToString());
-            if (_grid.Columns.Contains("TrangThai"))
-                row.Cells["TrangThai"].Value = row.Cells["TrangThai"].Value?.ToString() == "HoatDong" ? "Hoạt động" : "Đã ẩn";
+            UseWaitCursor = true;
+            _lblCount.Text = "Đang tải dữ liệu câu hỏi...";
+            var monId = MonId;
+            var chuDeId = ChuDeId;
+            var loai = Loai;
+            var muc = Muc;
+            var tuKhoa = _txtTuKhoa.Text;
+
+            var dt = await Task.Run(() => _service.TraCuu(monId, chuDeId, loai, muc, tuKhoa));
+            if (IsDisposed || version != _loadVersion) return;
+
+            _grid.DataSource = dt;
+            Ui.RenameColumns(_grid,
+                ("CauHoiID", "ID"), ("NoiDung", "Nội dung câu hỏi"), ("LoaiCauHoi", "Loại"),
+                ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TrangThai", "Trạng thái"),
+                ("TenChuDe", "Chủ đề"), ("TenMon", "Môn"), ("TenGiaoVien", "Người soạn"), ("NgayTao", "Ngày tạo"));
+            Ui.HideColumns(_grid, "CauHoiID", "ChuDeID", "GiaoVienID", "NgayTao");
+
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            foreach (var (column, width) in new[]
+                     {
+                         ("NoiDung", 300), ("LoaiCauHoi", 120), ("MucDoKho", 110),
+                         ("Diem", 65), ("TrangThai", 110), ("TenChuDe", 130),
+                         ("TenMon", 110), ("TenGiaoVien", 140)
+                     })
+                if (_grid.Columns.Contains(column)) _grid.Columns[column]!.Width = width;
+
+            _lblCount.Text = $"Tổng cộng: {dt.Rows.Count:N0} câu hỏi";
+            _lblEmpty.Text = dt.Rows.Count == 0
+                ? Session.IsGiaoVien && _cboMon.Items.Count == 1
+                    ? "Bạn chưa được phân công môn học.\nLiên hệ quản trị viên để được phân công và sử dụng ngân hàng câu hỏi."
+                    : "Không tìm thấy câu hỏi phù hợp.\nHãy thử thay đổi bộ lọc hoặc thêm câu hỏi mới."
+                : "";
+            _lblEmpty.Visible = dt.Rows.Count == 0;
+            CenterEmptyMessage();
         }
-        _grid.Columns["NoiDung"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-        _lblCount.Text = $"Tổng cộng: {dt.Rows.Count} câu hỏi";
+        catch (Exception ex)
+        {
+            if (!IsDisposed && version == _loadVersion)
+            {
+                _lblCount.Text = "Lỗi khi tải dữ liệu.";
+                MessageBox.Show("Không thể tải danh sách câu hỏi:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        finally
+        {
+            if (!IsDisposed && version == _loadVersion) UseWaitCursor = false;
+        }
+    }
+
+    private void CenterEmptyMessage()
+    {
+        _lblEmpty.Left = Math.Max(0, (_grid.ClientSize.Width - _lblEmpty.Width) / 2);
+        _lblEmpty.Top = Math.Max(_grid.ColumnHeadersHeight + 24, (_grid.ClientSize.Height - _lblEmpty.Height) / 2);
     }
 
     private int IdDangChon() =>

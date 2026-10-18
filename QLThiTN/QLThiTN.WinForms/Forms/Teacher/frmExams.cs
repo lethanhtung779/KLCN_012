@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using QLThiTN.WinForms.Services;
 
 namespace QLThiTN.WinForms.Forms.Teacher;
@@ -40,8 +40,10 @@ public class frmExams : Form
         btnXoaDe.Click += (s, e) => XoaDe();
         var btnGoiDe = Ui.ButtonAccent("★ Miễn phí / VIP", 170);
         btnGoiDe.Click += (s, e) => DoiGoiDe();
+        var btnLamMoi = Ui.ButtonOutline("🔄 Làm mới", 120);
+        btnLamMoi.Click += (s, e) => TaiLai();
 
-        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnGoiDe, btnXoaDe })
+        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnGoiDe, btnLamMoi, btnXoaDe })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);
@@ -52,33 +54,42 @@ public class frmExams : Form
         _split.SplitterDistance = 300;
 
         // Grid de thi (tren)
+        var headerDe = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = Color.White };
         var lblDe = Ui.Label("Danh sách đề thi", Ui.H2, Ui.Navy);
-        var panelDe = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(0, 4, 0, 0) };
+        lblDe.Location = new Point(16, 8);
+        lblDe.AutoSize = true;
+        headerDe.Controls.Add(lblDe);
+
         Ui.StyleGrid(_gridDe);
         _gridDe.Dock = DockStyle.Fill;
         _gridDe.SelectionChanged += (s, e) => TaiDotThi();
-        panelDe.Controls.Add(_gridDe);
-        panelDe.Controls.Add(lblDe);
-        lblDe.Location = new Point(16, 8);
-        _gridDe.Location = new Point(0, 36);
+        _gridDe.DataError += (s, e) => { e.ThrowException = false; };
 
-        var panelDeWrap = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(0, 0, 0, 0) };
-        panelDeWrap.Controls.Add(panelDe);
-        _split.Panel1.Controls.Add(panelDeWrap);
+        var panelDe = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+        panelDe.Controls.Add(_gridDe);
+        panelDe.Controls.Add(headerDe);
+        _gridDe.BringToFront();
+        _split.Panel1.Controls.Add(panelDe);
 
         // Grid dot thi (duoi)
+        var headerDot = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.White };
         var lblDot = Ui.Label("Các đợt thi của đề đang chọn (chọn đề phía trên)", Ui.H2, Ui.Navy);
-        var panelDot = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+        lblDot.Location = new Point(16, 10);
+        lblDot.AutoSize = true;
+        var btnDongDot = Ui.ButtonOutline("Đóng đợt thi", 140, 32);
+        btnDongDot.Location = new Point(480, 5);
+        btnDongDot.Click += (s, e) => DongDot();
+        headerDot.Controls.Add(lblDot);
+        headerDot.Controls.Add(btnDongDot);
+
         Ui.StyleGrid(_gridDot);
         _gridDot.Dock = DockStyle.Fill;
-        var btnDongDot = Ui.ButtonOutline("Đóng đợt thi", 140, 34);
-        btnDongDot.Location = new Point(600, 8);
-        btnDongDot.Click += (s, e) => DongDot();
+        _gridDot.DataError += (s, e) => { e.ThrowException = false; };
+
+        var panelDot = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
         panelDot.Controls.Add(_gridDot);
-        panelDot.Controls.Add(lblDot);
-        panelDot.Controls.Add(btnDongDot);
-        lblDot.Location = new Point(16, 10);
-        _gridDot.Location = new Point(0, 40);
+        panelDot.Controls.Add(headerDot);
+        _gridDot.BringToFront();
         _split.Panel2.Controls.Add(panelDot);
         _split.Panel2.BackColor = Color.White;
 
@@ -119,8 +130,8 @@ public class frmExams : Form
         _gridDe.DataSource = _service.LayDanhSachDe();
         Ui.RenameColumns(_gridDe,
             ("DeThiID", "ID"), ("TenDe", "Tên đề"), ("TenMon", "Môn"), ("LoaiDe", "Loại đề"),
-            ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Cách tạo"), ("QuyenThi", "Quyền thi"),
-            ("SoDotThi", "Số đợt thi"));
+            ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Hình thức tạo"), ("QuyenThi", "Quyền thi"),
+            ("SoDotThi", "Số đợt thi"), ("SoMaDe", "Số mã đề"));
         Ui.HideColumns(_gridDe, "DeThiID", "LaMienPhi");
         if (_gridDe.Columns.Contains("LoaiDe"))
             foreach (DataGridViewRow row in _gridDe.Rows)
@@ -131,6 +142,40 @@ public class frmExams : Form
                     "ChinhThuc" => "Chính thức",
                     var x => x
                 };
+        if (_gridDe.Columns.Contains("HinhThucTao"))
+            foreach (DataGridViewRow row in _gridDe.Rows)
+                row.Cells["HinhThucTao"].Value = row.Cells["HinhThucTao"].Value switch
+                {
+                    "MaTranTHPTQG" => "Chuẩn THPTQG",
+                    "TuDong" => "Tự động",
+                    "ThuCong" => "Thủ công",
+                    var x => x
+                };
+
+        if (_gridDe.Columns.Contains("TenDe")) _gridDe.Columns["TenDe"]!.FillWeight = 220;
+        if (_gridDe.Columns.Contains("TenMon")) _gridDe.Columns["TenMon"]!.FillWeight = 90;
+        if (_gridDe.Columns.Contains("LoaiDe")) _gridDe.Columns["LoaiDe"]!.FillWeight = 95;
+        if (_gridDe.Columns.Contains("SoLuongCauHoi"))
+        {
+            _gridDe.Columns["SoLuongCauHoi"]!.FillWeight = 65;
+            _gridDe.Columns["SoLuongCauHoi"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _gridDe.Columns["SoLuongCauHoi"]!.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridDe.Columns.Contains("HinhThucTao")) _gridDe.Columns["HinhThucTao"]!.FillWeight = 110;
+        if (_gridDe.Columns.Contains("QuyenThi")) _gridDe.Columns["QuyenThi"]!.FillWeight = 110;
+        if (_gridDe.Columns.Contains("SoDotThi"))
+        {
+            _gridDe.Columns["SoDotThi"]!.FillWeight = 75;
+            _gridDe.Columns["SoDotThi"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _gridDe.Columns["SoDotThi"]!.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridDe.Columns.Contains("SoMaDe"))
+        {
+            _gridDe.Columns["SoMaDe"]!.FillWeight = 75;
+            _gridDe.Columns["SoMaDe"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _gridDe.Columns["SoMaDe"]!.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+
         TaiDotThi();
     }
 
@@ -145,12 +190,59 @@ public class frmExams : Form
         _gridDot.DataSource = id == 0 ? new DataTable() : _service.LayDanhSachDotThi(id);
         Ui.RenameColumns(_gridDot,
             ("DotThiID", "ID"), ("TenDotThi", "Tên đợt thi"), ("TenDe", "Đề"),
-            ("ThoiGianMoCong", "Mở công"), ("ThoiGianDongCong", "Đóng công"),
+            ("ThoiGianMoCong", "Mở cổng"), ("ThoiGianDongCong", "Đóng cổng"),
             ("ThoiLuongLamBai", "Thời lượng (phút)"), ("GioiHanSoLuong", "Giới hạn SL"),
             ("CongBoDiemSom", "Công bố điểm sớm"), ("TrangThai", "Trạng thái"),
             ("PhamVi", "Phạm vi"), ("SoLanThiToiDa", "Lần thi tối đa"),
             ("SoDangKy", "Đã đăng ký"), ("SoBaiDaNop", "Bài đã nộp"));
         Ui.HideColumns(_gridDot, "DotThiID", "TenDe");
+
+        if (_gridDot.Columns.Contains("ThoiGianMoCong"))
+            _gridDot.Columns["ThoiGianMoCong"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+        if (_gridDot.Columns.Contains("ThoiGianDongCong"))
+            _gridDot.Columns["ThoiGianDongCong"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+
+        if (_gridDot.Columns.Contains("TrangThai"))
+            foreach (DataGridViewRow row in _gridDot.Rows)
+                row.Cells["TrangThai"].Value = row.Cells["TrangThai"].Value switch
+                {
+                    "SapMo" => "Sắp mở",
+                    "DangMo" => "Đang mở",
+                    "DaDong" => "Đã đóng",
+                    var x => x
+                };
+
+        if (_gridDot.Columns.Contains("PhamVi"))
+            foreach (DataGridViewRow row in _gridDot.Rows)
+                row.Cells["PhamVi"].Value = row.Cells["PhamVi"].Value switch
+                {
+                    "ToanTruong" => "Toàn trường",
+                    "TheoLop" => "Theo lớp",
+                    "CongKhai" => "Công khai",
+                    "NoiBo" => "Nội bộ",
+                    var x => x
+                };
+
+        if (_gridDot.Columns.Contains("TenDotThi")) _gridDot.Columns["TenDotThi"]!.FillWeight = 160;
+        if (_gridDot.Columns.Contains("ThoiGianMoCong")) _gridDot.Columns["ThoiGianMoCong"]!.FillWeight = 120;
+        if (_gridDot.Columns.Contains("ThoiGianDongCong")) _gridDot.Columns["ThoiGianDongCong"]!.FillWeight = 120;
+        if (_gridDot.Columns.Contains("ThoiLuongLamBai")) _gridDot.Columns["ThoiLuongLamBai"]!.FillWeight = 90;
+        if (_gridDot.Columns.Contains("GioiHanSoLuong")) _gridDot.Columns["GioiHanSoLuong"]!.FillWeight = 75;
+        if (_gridDot.Columns.Contains("CongBoDiemSom")) _gridDot.Columns["CongBoDiemSom"]!.FillWeight = 85;
+        if (_gridDot.Columns.Contains("TrangThai")) _gridDot.Columns["TrangThai"]!.FillWeight = 80;
+        if (_gridDot.Columns.Contains("PhamVi")) _gridDot.Columns["PhamVi"]!.FillWeight = 85;
+        if (_gridDot.Columns.Contains("SoLanThiToiDa")) _gridDot.Columns["SoLanThiToiDa"]!.FillWeight = 75;
+        if (_gridDot.Columns.Contains("SoDangKy")) _gridDot.Columns["SoDangKy"]!.FillWeight = 75;
+        if (_gridDot.Columns.Contains("SoBaiDaNop")) _gridDot.Columns["SoBaiDaNop"]!.FillWeight = 75;
+
+        foreach (var col in new[] { "ThoiLuongLamBai", "GioiHanSoLuong", "TrangThai", "PhamVi", "SoLanThiToiDa", "SoDangKy", "SoBaiDaNop" })
+        {
+            if (_gridDot.Columns.Contains(col))
+            {
+                _gridDot.Columns[col]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                _gridDot.Columns[col]!.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            }
+        }
     }
 
     private int DotIdDangChon() =>
@@ -213,11 +305,23 @@ public class frmExams : Form
 
     private void MoManHinhTronDe()
     {
-        var deId = DeIdDangChon();
-        if (deId == 0) { MessageBox.Show("Hãy chọn một đề thi phía trên để thực hiện trộn đề.", "Thông báo"); return; }
-        var tenDe = _gridDe.CurrentRow!.Cells["TenDe"].Value?.ToString() ?? "";
-        using var f = new frmTronDe(deId, tenDe);
-        f.ShowDialog(FindForm());
-        TaiLai();
+        try
+        {
+            var deId = DeIdDangChon();
+            if (deId == 0)
+            {
+                MessageBox.Show("Hãy nhấp chọn một đề thi trong bảng danh sách phía trên trước khi bấm 'Trộn mã đề'.", "Chưa chọn đề thi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            var tenDe = _gridDe.CurrentRow!.Cells["TenDe"].Value?.ToString() ?? "";
+            using var f = new frmTronDe(deId, tenDe);
+            var owner = this.TopLevelControl as Form ?? FindForm() ?? this;
+            f.ShowDialog(owner);
+            TaiLai();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Không thể mở màn hình trộn đề:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 }

@@ -1,39 +1,70 @@
-- **U01**: Start exam marked DaDong while dates are open: HTTP 200 (expected rejection).
-- **U02**: Start TheoLop exam with no class membership: HTTP 200 (expected rejection).
-- **U03**: Re-register previously cancelled seat after another student fills capacity: HTTP 200; active registrations 2/1.
-- **U04**: Same exam has old closed and new open sessions; start HTTP 400: {"message":"De thi da dong cong, het han lam bai"}
+- **U01**: Start exam marked DaDong while dates are open: HTTP 400 (expected rejection).
+- **U02**: Start TheoLop exam with no class membership: HTTP 403 (expected rejection).
+- **U03**: Re-register previously cancelled seat after another student fills capacity: HTTP 409; active registrations 1/1.
+- **U04**: Same exam has old closed and new open sessions; start HTTP 200: {"baiLamID":3,"dotThiID":6,"lanThi":1,"isResume":false,"remainingSeconds":1800,"thoiGianBatDau":"2026-10-18T21:35:46.6452308+07:00","thoiGianDongCong":"2026-10-18T22:35:46.6297359","thoiLuongLamBai":30,"maDeID":5,"tenMaDe":"101","savedAnswers":[]}
 - **PASS-VIP**: Free account starting paid exam: HTTP 403 (expected 403).
-- **U05**: Autosave non-existent answer ID: HTTP 500 (expected validation 400).
+- **U05**: Autosave non-existent answer ID: HTTP 400 (expected validation 400).
 - **PASS-BLANK**: Blank submission HTTP 200; score 0.
 - **PASS-LIMIT**: Second attempt after one-attempt limit: HTTP 409 (expected 409).
-- **U06**: Production registration with SMTP disabled and one-character password: HTTP 200; pending record exists=True.
-- **U07**: Confirm one-character-password account: HTTP 200; login HTTP 200.
-- **PASS-TOKEN**: Reusing consumed confirmation token: HTTP 400 (expected 400).
+- **U06**: Production registration with SMTP disabled and one-character password: HTTP 400; pending record exists=False.
 - **PASS-GRADING**: Three question types: MC correct, 3/4 true-false correct, decimal comma accepted; score=9.0 (expected 9 under current linear partial-credit rule).
 - **PASS-TEACHER-API**: Question bank unassigned HTTP 403; after subject assignment HTTP 200 (expected 403/200).
+- **UI-login**: Constructed and rendered 900x560.
+- **FLOW-QUICK-LOGIN**: Teacher demo quick-login succeeds with both seed and legacy credentials.
+- **FLOW-LOGIN**: Teacher login succeeds; wrong password and student desktop login are denied.
+- **UI-teacher-statistics-no-assignment**: Constructed and rendered 1216x839.
 - **UI-teacher-main**: Constructed and rendered 1100x680.
 - **UI-teacher-questions**: Constructed and rendered 1216x839.
+- **UI-teacher-question-editor**: Constructed and rendered 1216x839.
 - **UI-teacher-statistics**: Constructed and rendered 1216x839.
-- **T01**: Teacher reads 9 sessions across system, without assignment filtering.
-- **T02**: Teacher directly calls admin AccountService.Them: success=True, new admin ID=6.
-- **T03**: Teacher can construct admin account-management form directly; sidebar hiding is not a service permission boundary.
-- **T04**: Teacher creates question in unassigned subject successfully: question ID=4.
-- **T05**: Different teacher identity edits another teacher's unused question successfully.
+- **T01**: Teacher reads assigned sessions (foreign visible=False, foreign detail blocked=True).
+- **T02**: Exception: UnauthorizedAccessException: Chức năng chỉ dành cho quản trị viên hệ thống có tài khoản đang hoạt động.
+- **T03**: Exception: UnauthorizedAccessException: Chức năng chỉ dành cho quản trị viên hệ thống có tài khoản đang hoạt động.
+- **T04**: Exception: UnauthorizedAccessException: Bạn không được phân công phụ trách môn học của chủ đề này.
+- **T05**: Exception: UnauthorizedAccessException: Bạn chỉ được phép chỉnh sửa hoặc xóa câu hỏi do chính mình tạo.
+- **UI-teacher-statistics-with-session**: Constructed and rendered 1216x839.
+- **FLOW-TEACHER-QUESTION**: Create, read, hide, edit, show and delete succeeded on assigned subject.
 - **PASS-TEACHER-EXAM**: Teacher creation of exam is denied by service.
 - **UI-admin-main**: Constructed and rendered 1100x680.
 - **UI-admin-accounts**: Constructed and rendered 1216x839.
+- **UI-admin-account-editor**: Constructed and rendered 456x465.
 - **UI-admin-training**: Constructed and rendered 1216x839.
+- **FLOW-CLASS-ASSIGNMENT-MARK**: Assigned and unassigned classes have distinct labels.
+- **UI-admin-class-detail**: Constructed and rendered 1216x839.
+- **UI-admin-class-teachers**: Constructed and rendered 1216x839.
+- **FLOW-CLASS-DETAIL-ROLE**: Teacher sees assigned class and roster, but not another class.
+- **UI-teacher-class-detail**: Constructed and rendered 1216x839.
+- **UI-admin-training-classes**: Constructed and rendered 1216x839.
+- **UI-admin-training-students**: Constructed and rendered 1216x839.
+- **UI-admin-training-schedule**: Constructed and rendered 1216x839.
+- **UI-admin-training-overview**: Constructed and rendered 1216x839.
+- **UI-admin-training-classes-unassigned**: Constructed and rendered 1216x839.
+- **UI-admin-course-editor**: Constructed and rendered 416x419.
+- **UI-admin-class-editor**: Constructed and rendered 416x259.
+- **UI-admin-assignment-editor**: Constructed and rendered 396x279.
+- **UI-admin-schedule-editor**: Constructed and rendered 416x399.
 - **UI-admin-exams**: Constructed and rendered 1216x839.
-- **UI-admin-session-edit**: Constructed and rendered 576x509.
-- **A01**: Delete existing exam throws: Invalid column name 'DeThiID'.
-Invalid column name 'DeThiID'.
-Invalid column name 'DeThiID'.
-- **A02**: Create course ending before start: success=True, ID=1.
-- **A03**: Create student with invalid email through service: success=True.
-- **A04**: Admin can lock own account through service (normal UI has a guard).
+- **UI-admin-exam-manual**: Constructed and rendered 1036x759.
+- **UI-admin-exam-automatic**: Constructed and rendered 456x559.
+- **UI-admin-exam-matrix**: Constructed and rendered 1216x839.
+- **UI-admin-exam-shuffle**: Constructed and rendered 1216x839.
+- **FLOW-REGENERATE-FOUR-CODES**: Four codes 101–104 persist and regenerate with a new order.
+- **UI-admin-exam-shuffle-four**: Constructed and rendered 1216x839.
+- **FLOW-SHUFFLE-BY-TOPIC**: Four codes keep each topic contiguous and order difficulty within topic.
+- **FLOW-MATRIX-DIFFICULTY**: Minimum topics validated; four codes retain 2 recognition and 2 comprehension questions.
+- **UI-admin-session-edit**: Constructed and rendered 596x519.
+- **UI-admin-backup**: Constructed and rendered 1216x839.
+- **FLOW-ADMIN-BACKUP**: Isolated audit database backup succeeded.
+- **A01**: Delete existing exam throws: Không thể xóa đề thi này vì đã có 2 bài thi của thí sinh. Hãy đóng đợt thi thay vì xóa.
+- **A02**: Create course ending before start: success=False, ID=0.
+- **A03**: Create student with invalid email through service: success=False.
+- **A04**: Exception: InvalidOperationException: Không thể tự khóa tài khoản quản trị đang đăng nhập.
 - **PASS-TRAINING**: Course/class/enrollment successes=True/True/True; repeated enrollment accepted=False.
-- **A05**: Two overlapping class sessions accepted: True/True.
-- **A06**: Duplicate assignment rejected=True, but candidate teacher acquired subject mapping=True.
-- **A07**: Oversized profile name leaves account without student profile: 1 orphan record.
-- **A08**: Duplicate question creation leaves inconsistent partial exam: 1 record.
-- **BROWSER**: Browser checks exit code 1.
+- **A05**: Two overlapping class sessions accepted: True/False.
+- **A06**: Duplicate assignment rejected=True, but candidate teacher acquired subject mapping=False.
+- **A07**: Oversized profile name leaves account without student profile: 0 orphan record.
+- **A08**: Duplicate question creation leaves inconsistent partial exam: 0 record.
+- **PASS-ANCHOR-PINNING**: Anchors detected=True, anchor option pinned to index 3 (D)=True.
+- **FLOW-ADMIN-ACCOUNT**: Create, edit, reset password, set package, lock, unlock and delete succeeded.
+- **FLOW-ADMIN-TRAINING**: Course, class, lesson and teacher assignment create/edit/delete succeeded.
+- **BROWSER**: Browser checks exit code 0.

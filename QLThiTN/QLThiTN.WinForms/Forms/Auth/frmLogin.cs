@@ -35,7 +35,7 @@ public class frmLogin : Form
             e.Graphics.FillRectangle(brush, rect);
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            TextRenderer.DrawText(e.Graphics, "🎓", new Font("Segoe UI Emoji", 30f),
+            TextRenderer.DrawText(e.Graphics, "QL", new Font("Segoe UI", 30f, FontStyle.Bold),
                 new Point(40, 78), Color.White);
             TextRenderer.DrawText(e.Graphics, "QUẢN LÝ & THI\nTRẮC NGHIỆM THPT", Ui.H1,
                 new Point(40, 150), Color.White);
@@ -67,7 +67,7 @@ public class frmLogin : Form
 
         var lblQuickLogin = Ui.Label("Đăng nhập nhanh", Ui.Small, Ui.TextMuted);
         var btnGiaoVien = Ui.ButtonOutline("Giáo viên", 135, 38);
-        btnGiaoVien.Click += (s, e) => DangNhapNhanh("giaovien1", "123456");
+        btnGiaoVien.Click += (s, e) => DangNhapNhanhGiaoVien();
         var btnAdmin = Ui.ButtonOutline("Admin", 135, 38);
         btnAdmin.Click += (s, e) => DangNhapNhanh("admin", "admin123");
 
@@ -97,6 +97,24 @@ public class frmLogin : Form
         _txtUser.Text = username;
         _txtPass.Text = password;
         DangNhap();
+    }
+
+    private void DangNhapNhanhGiaoVien()
+    {
+        _lblError.Text = "";
+        _txtUser.Text = "giaovien1";
+        // Hai phiên bản dữ liệu mẫu đang được dùng: DB cũ và seed_admin.sql.
+        foreach (var password in new[] { "Abc@123456", "123456" })
+        {
+            var (user, _) = _auth.Login("giaovien1", password);
+            if (user == null) continue;
+            _txtPass.Text = password;
+            DialogResult = DialogResult.OK;
+            Close();
+            return;
+        }
+        _txtPass.Clear();
+        _lblError.Text = "Tài khoản mẫu đã đổi mật khẩu hoặc không còn hoạt động. Hãy đăng nhập thủ công.";
     }
 
     private void DangNhap()

@@ -47,19 +47,28 @@
                     <li class="nav-item">
                         <a class="nav-link" asp-controller="Home" asp-action="Index"><i class="bi bi-house-door me-1"></i>Trang chủ</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" asp-controller="Exam" asp-action="Schedule"><i class="bi bi-calendar-event me-1"></i>Lịch thi</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" asp-controller="Exam" asp-action="KhoDe"><i class="bi bi-collection me-1"></i>Kho đề</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" asp-controller="Exam" asp-action="History"><i class="bi bi-search me-1"></i>Tra cứu kết quả</a>
-                    </li>
-                    @if (Context.Session.GetString("UserFullName") != null)
+                    @if (Context.Session.GetString("UserRole") != "GiaoVien")
                     {
                         <li class="nav-item">
-                            <a class="nav-link" asp-controller="Exam" asp-action="LearningSchedule"><i class="bi bi-calendar2-week me-1"></i>Lịch trình học tập</a>
+                            <a class="nav-link" asp-controller="Exam" asp-action="Schedule"><i class="bi bi-calendar-event me-1"></i>Lịch thi</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Exam" asp-action="KhoDe"><i class="bi bi-collection me-1"></i>Kho đề</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Exam" asp-action="History"><i class="bi bi-search me-1"></i>Tra cứu kết quả</a>
+                        </li>
+                        @if (Context.Session.GetString("UserFullName") != null)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Exam" asp-action="LearningSchedule"><i class="bi bi-calendar2-week me-1"></i>Lịch trình học tập</a>
+                            </li>
+                        }
+                    }
+                    else
+                    {
+                        <li class="nav-item">
+                            <span class="nav-link text-warning"><i class="bi bi-person-workspace me-1"></i>Khu vực Giáo viên</span>
                         </li>
                     }
                 </ul>
@@ -104,6 +113,13 @@
         </div>
     </nav>
 
+    @if (Context.Session.GetString("UserRole") == "GiaoVien")
+    {
+        <div class="alert alert-info border-0 rounded-0 mb-0 py-2 text-center small">
+            <i class="bi bi-info-circle me-1"></i>Bạn đang đăng nhập bằng tài khoản <strong>Giáo viên</strong>. Để quản lý ngân hàng câu hỏi, tạo đề và xem thống kê, vui lòng sử dụng phần mềm <strong>QLThiTN trên máy tính</strong>.
+        </div>
+    }
+
     <main role="main">
         @RenderBody()
     </main>
@@ -119,10 +135,13 @@
                     <h6 class="fw-bold text-uppercase mb-3">Liên kết nhanh</h6>
                     <ul class="list-unstyled small mb-0">
                         <li class="mb-2"><a asp-controller="Home" asp-action="Index" class="footer-link">Trang chủ</a></li>
-                        <li class="mb-2"><a asp-controller="Exam" asp-action="Schedule" class="footer-link">Lịch thi</a></li>
-                        <li class="mb-2"><a asp-controller="Exam" asp-action="KhoDe" class="footer-link">Kho đề</a></li>
-                        <li class="mb-2"><a asp-controller="Exam" asp-action="History" class="footer-link">Tra cứu kết quả</a></li>
-                        <li class="mb-2"><a asp-controller="Exam" asp-action="LearningSchedule" class="footer-link">Lịch trình học tập</a></li>
+                        @if (Context.Session.GetString("UserRole") != "GiaoVien")
+                        {
+                            <li class="mb-2"><a asp-controller="Exam" asp-action="Schedule" class="footer-link">Lịch thi</a></li>
+                            <li class="mb-2"><a asp-controller="Exam" asp-action="KhoDe" class="footer-link">Kho đề</a></li>
+                            <li class="mb-2"><a asp-controller="Exam" asp-action="History" class="footer-link">Tra cứu kết quả</a></li>
+                            <li class="mb-2"><a asp-controller="Exam" asp-action="LearningSchedule" class="footer-link">Lịch trình học tập</a></li>
+                        }
                     </ul>
                 </div>
                 <div class="col-md-4">

@@ -1,4 +1,7 @@
-﻿using System.Data;
+using System.Data;
+using System.Text;
+using System.Text.RegularExpressions;
+using Microsoft.Data.SqlClient;
 using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
@@ -6,6 +9,50 @@ namespace QLThiTN.WinForms.Services;
 /// <summary>Quan ly de thi: tao tu dong / thu cong tu ngan hang cau hoi, quan ly dot thi.</summary>
 public class ExamService(int? giaoVienPhuTrachId = null)
 {
+    private static string XoaDauTiengViet(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder();
+        foreach (var c in normalized)
+        {
+            var uc = System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c);
+            if (uc != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(c);
+            }
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC).Replace('đ', 'd').Replace('Đ', 'D');
+    }
+
+    private static readonly Regex[] ReDapAnCuoi =
+    [
+        new(@"^tat ca\s+(cac\s+)?(dap an|phuong an|cau|y)?\s*(tren|neu tren|ke tren)?\s*deu\s+(dung|sai|chinh xac)$", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"^tat ca\s+(cac\s+)?(dap an|phuong an|cau|y)\s+(tren|neu tren|ke tren)$", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"^tat ca\s+deu\s+(dung|sai|chinh xac)$", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"^ca\s+(([a-d](\s*,\s*|\s+va\s*))+[a-d]|ba|hai|3|2)\s+(dap an|phuong an|cau|y)?\s*(tren|neu tren)?\s*(deu\s+)?(dung|sai|chinh xac)$", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+        new(@"^khong co\s+(dap an|phuong an|cau|y)\s+nao\s+(dung|sai|chinh xac)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)
+    ];
+
+    /// <summary>
+    /// Kiểm tra xem một phương án có phải là loại đáp án phụ thuộc thứ tự
+    /// (như "Tất cả các đáp án trên đều đúng/sai", "Cả A và B...", "Không có đáp án nào đúng"...)
+    /// cần được cố định ở vị trí cuối cùng (D) khi trộn đề hay không.
+    /// </summary>
+    public static bool LaDapAnCoDinhCuoi(string? noiDung)
+    {
+        if (string.IsNullOrWhiteSpace(noiDung)) return false;
+        var clean = Regex.Replace(noiDung, "<.*?>", string.Empty);
+        clean = clean.Trim().TrimEnd('.', ';', ':', '!', ',').ToLowerInvariant();
+        clean = Regex.Replace(clean, @"\s+", " ");
+        var nonAccent = XoaDauTiengViet(clean);
+        foreach (var re in ReDapAnCuoi)
+        {
+            if (re.IsMatch(nonAccent)) return true;
+        }
+        return false;
+    }
+
     public static void YeuCauQuanTriVien()
     {
         if (!Session.IsQuanTriVien)
@@ -31,7 +78,8 @@ public class ExamService(int? giaoVienPhuTrachId = null)
             SELECT d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao,
                    d.LaMienPhi,
                    CASE WHEN d.LaMienPhi = 1 THEN N'Miễn phí' ELSE N'Đóng phí (VIP)' END AS QuyenThi,
-                   COUNT(dt.DotThiID) AS SoDotThi
+                   COUNT(dt.DotThiID) AS SoDotThi,
+                   (SELECT COUNT(*) FROM MaDeThi md WHERE md.DeThiID = d.DeThiID) AS SoMaDe
             FROM DeThi d
             JOIN MonHoc m ON m.MonHocID = d.MonHocID
             LEFT JOIN DotThi dt ON dt.DeThiID = d.DeThiID
@@ -86,33 +134,50 @@ public class ExamService(int? giaoVienPhuTrachId = null)
 
     private int TaoDeCore(string tenDe, int monHocId, string loaiDe, string hinhThuc, List<int> cauHoiIds)
     {
-        var id = Database.ExecuteScalarInt(@"
-            INSERT INTO DeThi (MonHocID, GiaoVienID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
-            VALUES (@m, @gv, @t, @l, @s, @h);
-            SELECT CAST(SCOPE_IDENTITY() AS INT);",
-            p =>
-            {
-                var gvId = GiaoVienPhuTrach();
-                p.AddWithValue("@m", monHocId);
-                p.AddWithValue("@gv", gvId);
-                p.AddWithValue("@t", tenDe.Trim());
-                p.AddWithValue("@l", loaiDe);
-                p.AddWithValue("@s", cauHoiIds.Count);
-                p.AddWithValue("@h", hinhThuc);
-            });
+        if (cauHoiIds.Distinct().Count() != cauHoiIds.Count)
+            throw new InvalidOperationException("Danh sách câu hỏi trong đề không được trùng lặp.");
 
-        for (var i = 0; i < cauHoiIds.Count; i++)
+        var gvId = GiaoVienPhuTrach();
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
         {
-            var cau = i;
-            Database.Execute(
-                "INSERT INTO DeThi_CauHoi (DeThiID, CauHoiID, ThuTu) VALUES (@d, @c, @t)",
-                p => { p.AddWithValue("@d", id); p.AddWithValue("@c", cauHoiIds[cau]); p.AddWithValue("@t", i + 1); });
-        }
+            using var cmd1 = new SqlCommand(@"
+                INSERT INTO DeThi (MonHocID, GiaoVienID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
+                VALUES (@m, @gv, @t, @l, @s, @h);
+                SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, tx);
+            cmd1.Parameters.AddWithValue("@m", monHocId);
+            cmd1.Parameters.AddWithValue("@gv", gvId);
+            cmd1.Parameters.AddWithValue("@t", tenDe.Trim());
+            cmd1.Parameters.AddWithValue("@l", loaiDe);
+            cmd1.Parameters.AddWithValue("@s", cauHoiIds.Count);
+            cmd1.Parameters.AddWithValue("@h", hinhThuc);
+            var id = Convert.ToInt32(cmd1.ExecuteScalar() ?? 0);
 
-        // Tao ma de mac dinh "101" giong luong website
-        Database.Execute("INSERT INTO MaDeThi (DeThiID, TenMaDe) VALUES (@d, N'101')",
-            p => p.AddWithValue("@d", id));
-        return id;
+            for (var i = 0; i < cauHoiIds.Count; i++)
+            {
+                using var cmd2 = new SqlCommand(
+                    "INSERT INTO DeThi_CauHoi (DeThiID, CauHoiID, ThuTu) VALUES (@d, @c, @t)", conn, tx);
+                cmd2.Parameters.AddWithValue("@d", id);
+                cmd2.Parameters.AddWithValue("@c", cauHoiIds[i]);
+                cmd2.Parameters.AddWithValue("@t", i + 1);
+                cmd2.ExecuteNonQuery();
+            }
+
+            // Tao ma de mac dinh "101" giong luong website
+            using var cmd3 = new SqlCommand(
+                "INSERT INTO MaDeThi (DeThiID, TenMaDe) VALUES (@d, N'101')", conn, tx);
+                cmd3.Parameters.AddWithValue("@d", id);
+            cmd3.ExecuteNonQuery();
+
+            tx.Commit();
+            return id;
+        }
+        catch
+        {
+            tx.Rollback();
+            throw;
+        }
     }
 
     /// <summary>Danh dau de mo cho tai khoan mien phi, hoac chi danh cho tai khoan dong phi.</summary>
@@ -130,18 +195,32 @@ public class ExamService(int? giaoVienPhuTrachId = null)
     public void XoaDe(int deThiId)
     {
         YeuCauQuanTriVien();
-        Database.Execute(@"
-            DELETE FROM LuaChonBaiLam WHERE ChiTietID IN (
-                SELECT ct.ChiTietID FROM ChiTietBaiLam ct
-                JOIN BaiLam bl ON bl.BaiLamID = ct.BaiLamID WHERE bl.DeThiID = @id);
-            DELETE FROM ChiTietBaiLam WHERE BaiLamID IN (SELECT BaiLamID FROM BaiLam WHERE DeThiID = @id);
-            DELETE FROM BaiLam WHERE DeThiID = @id;
-            DELETE FROM DangKyDotThi WHERE DotThiID IN (SELECT DotThiID FROM DotThi WHERE DeThiID = @id);
-            DELETE FROM DotThi WHERE DeThiID = @id;
-            DELETE FROM MaDeThi WHERE DeThiID = @id;
-            DELETE FROM DeThi_CauHoi WHERE DeThiID = @id;
-            DELETE FROM DeThi WHERE DeThiID = @id;",
-            p => p.AddWithValue("@id", deThiId));
+        var (coBaiLam, soBaiLam) = KiemTraBaiLamCuaDe(deThiId);
+        if (coBaiLam)
+            throw new InvalidOperationException($"Không thể xóa đề thi này vì đã có {soBaiLam} bài thi của thí sinh. Hãy đóng đợt thi thay vì xóa.");
+
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            using var cmd = new SqlCommand(@"
+                DELETE FROM DotThi_LopHoc WHERE DotThiID IN (SELECT DotThiID FROM DotThi WHERE DeThiID = @id);
+                DELETE FROM DangKyDotThi WHERE DotThiID IN (SELECT DotThiID FROM DotThi WHERE DeThiID = @id);
+                DELETE FROM DotThi WHERE DeThiID = @id;
+                DELETE FROM MaDe_DapAn WHERE MaDeID IN (SELECT MaDeID FROM MaDeThi WHERE DeThiID = @id);
+                DELETE FROM MaDe_CauHoi WHERE MaDeID IN (SELECT MaDeID FROM MaDeThi WHERE DeThiID = @id);
+                DELETE FROM MaDeThi WHERE DeThiID = @id;
+                DELETE FROM DeThi_CauHoi WHERE DeThiID = @id;
+                DELETE FROM DeThi WHERE DeThiID = @id;", conn, tx);
+            cmd.Parameters.AddWithValue("@id", deThiId);
+            cmd.ExecuteNonQuery();
+            tx.Commit();
+        }
+        catch
+        {
+            tx.Rollback();
+            throw;
+        }
     }
 
     // ------------------------------------------------------------------ dot thi
@@ -273,7 +352,8 @@ public class ExamService(int? giaoVienPhuTrachId = null)
         int soLuongMaDe,
         int maDeBatDau = 101,
         bool xoaCu = true,
-        bool xoaBaiLamCu = false)
+        bool xoaBaiLamCu = false,
+        bool ghimDapAnCuoi = true)
     {
         YeuCauQuanTriVien();
         if (soLuongMaDe < 1 || soLuongMaDe > 50)
@@ -296,7 +376,7 @@ public class ExamService(int? giaoVienPhuTrachId = null)
 
         // Lấy danh sách câu hỏi gốc của đề
         var dtCauHoi = Database.Query(@"
-            SELECT dc.CauHoiID, dc.ThuTu AS ThuTuGoc, c.LoaiCauHoi, c.NoiDung, c.Diem
+            SELECT dc.CauHoiID, dc.ThuTu AS ThuTuGoc, c.ChuDeID, c.LoaiCauHoi, c.MucDoKho, c.NoiDung, c.Diem
             FROM DeThi_CauHoi dc
             JOIN CauHoi c ON c.CauHoiID = dc.CauHoiID
             WHERE dc.DeThiID = @id
@@ -347,7 +427,9 @@ public class ExamService(int? giaoVienPhuTrachId = null)
             {
                 CauHoiID = chId,
                 ThuTuGoc = Convert.ToInt32(r["ThuTuGoc"]),
+                ChuDeID = Convert.ToInt32(r["ChuDeID"]),
                 LoaiCauHoi = r["LoaiCauHoi"]?.ToString() ?? "TracNghiem",
+                MucDoKho = r["MucDoKho"]?.ToString() ?? "ChuaXacDinh",
                 NoiDung = r["NoiDung"]?.ToString() ?? "",
                 Diem = Convert.ToDecimal(r["Diem"]),
                 DapAns = dapAnByCauHoi.GetValueOrDefault(chId, new())
@@ -394,6 +476,11 @@ public class ExamService(int? giaoVienPhuTrachId = null)
                 int maDeId;
                 if (existingId != null && existingId != DBNull.Value)
                 {
+                    if (!xoaCu)
+                    {
+                        tran.Rollback();
+                        return (false, $"Mã đề {tenMaDe} đã tồn tại. Hãy chọn mã bắt đầu khác để sinh thêm.", new());
+                    }
                     maDeId = Convert.ToInt32(existingId);
                     using var cmdDel = conn.CreateCommand();
                     cmdDel.Transaction = tran;
@@ -417,13 +504,15 @@ public class ExamService(int? giaoVienPhuTrachId = null)
 
                 maDeIds.Add(maDeId);
 
-                // Dùng seed ngẫu nhiên độc lập cho từng mã đề
-                var rng = new Random(deThiId * 7919 + (maDeBatDau + k) * 31 + k * 17);
+                // Mỗi lần trộn cần một chuỗi ngẫu nhiên mới; seed cố định theo ID
+                // khiến bấm "Làm mới" luôn tạo lại đúng cùng thứ tự cũ.
+                var rng = new Random(Random.Shared.Next());
 
-                // Shuffle các câu hỏi trong từng phần độc lập (bảo toàn cấu trúc Phần I -> Phần II -> Phần III)
-                var p1Shuffled = phan1.OrderBy(_ => rng.Next()).ToList();
-                var p2Shuffled = phan2.OrderBy(_ => rng.Next()).ToList();
-                var p3Shuffled = phan3.OrderBy(_ => rng.Next()).ToList();
+                // Giữ ba phần; trong mỗi phần gom câu theo chủ đề (mạch kiến thức),
+                // sau đó theo mức độ. Chỉ hoán vị câu trong cùng một ô ma trận.
+                var p1Shuffled = TronTheoChuDeVaMucDo(phan1, rng);
+                var p2Shuffled = TronTheoChuDeVaMucDo(phan2, rng);
+                var p3Shuffled = TronTheoChuDeVaMucDo(phan3, rng);
 
                 var allQuestions = new List<CauHoiItem>();
                 allQuestions.AddRange(p1Shuffled);
@@ -445,8 +534,20 @@ public class ExamService(int? giaoVienPhuTrachId = null)
                     // Xử lý đảo đáp án theo loại câu hỏi
                     if (q.LoaiCauHoi == "TracNghiem")
                     {
-                        // Hoán vị 4 phương án A, B, C, D
-                        var daShuffled = q.DapAns.OrderBy(_ => rng.Next()).ToList();
+                        List<DapAnItem> daShuffled;
+                        if (ghimDapAnCuoi)
+                        {
+                            // Tự động ghim các đáp án phụ thuộc thứ tự ("Tất cả...", "Cả A và B...", "Không có...") ở vị trí cuối (D)
+                            var anchors = q.DapAns.Where(d => LaDapAnCoDinhCuoi(d.NoiDung)).ToList();
+                            var nonAnchors = q.DapAns.Where(d => !LaDapAnCoDinhCuoi(d.NoiDung)).OrderBy(_ => rng.Next()).ToList();
+                            nonAnchors.AddRange(anchors);
+                            daShuffled = nonAnchors;
+                        }
+                        else
+                        {
+                            daShuffled = q.DapAns.OrderBy(_ => rng.Next()).ToList();
+                        }
+
                         for (int dIdx = 0; dIdx < daShuffled.Count; dIdx++)
                         {
                             using var cmdD = conn.CreateCommand();
@@ -461,8 +562,19 @@ public class ExamService(int? giaoVienPhuTrachId = null)
                     }
                     else if (q.LoaiCauHoi == "DungSai")
                     {
-                        // Hoán vị 4 ý con a, b, c, d
-                        var daShuffled = q.DapAns.OrderBy(_ => rng.Next()).ToList();
+                        List<DapAnItem> daShuffled;
+                        if (ghimDapAnCuoi)
+                        {
+                            var anchors = q.DapAns.Where(d => LaDapAnCoDinhCuoi(d.NoiDung)).ToList();
+                            var nonAnchors = q.DapAns.Where(d => !LaDapAnCoDinhCuoi(d.NoiDung)).OrderBy(_ => rng.Next()).ToList();
+                            nonAnchors.AddRange(anchors);
+                            daShuffled = nonAnchors;
+                        }
+                        else
+                        {
+                            daShuffled = q.DapAns.OrderBy(_ => rng.Next()).ToList();
+                        }
+
                         for (int dIdx = 0; dIdx < daShuffled.Count; dIdx++)
                         {
                             using var cmdD = conn.CreateCommand();
@@ -617,10 +729,11 @@ public class ExamService(int? giaoVienPhuTrachId = null)
     public DataTable LayChiTietMaDe(int maDeId)
     {
         return Database.Query(@"
-            SELECT mc.ThuTu AS CauSo, c.LoaiCauHoi, c.NoiDung AS NoiDungCau,
+            SELECT mc.ThuTu AS CauSo, c.LoaiCauHoi, c.MucDoKho, cd.TenChuDe, c.NoiDung AS NoiDungCau,
                    md.ThuTu AS ThuTuDapAn, d.NoiDung AS NoiDungDapAn, d.LaDapAnDung
             FROM MaDe_CauHoi mc
             JOIN CauHoi c ON c.CauHoiID = mc.CauHoiID
+            JOIN ChuDe cd ON cd.ChuDeID = c.ChuDeID
             JOIN MaDe_DapAn md ON md.MaDeID = mc.MaDeID AND md.CauHoiID = mc.CauHoiID
             JOIN DapAn d ON d.DapAnID = md.DapAnID
             WHERE mc.MaDeID = @m
@@ -661,13 +774,34 @@ public class ExamService(int? giaoVienPhuTrachId = null)
             p => p.AddWithValue("@m", monHocId));
     }
 
+    public DataTable LayMaTranTheoChuDeVaMucDo(int monHocId)
+    {
+        return Database.Query(@"
+            SELECT cd.ChuDeID, cd.TenChuDe, lv.MucDoKho,
+                   SUM(CASE WHEN c.LoaiCauHoi = 'TracNghiem' THEN 1 ELSE 0 END) AS SoTN,
+                   SUM(CASE WHEN c.LoaiCauHoi = 'DungSai' THEN 1 ELSE 0 END) AS SoDS,
+                   SUM(CASE WHEN c.LoaiCauHoi = 'TraLoiNgan' THEN 1 ELSE 0 END) AS SoTLN
+            FROM ChuDe cd
+            CROSS JOIN (VALUES (N'NhanBiet'), (N'ThongHieu'), (N'VanDung'), (N'VanDungCao')) lv(MucDoKho)
+            LEFT JOIN CauHoi c ON c.ChuDeID = cd.ChuDeID AND c.MucDoKho = lv.MucDoKho
+                AND c.TrangThai = N'HoatDong'
+            WHERE cd.MonHocID = @m
+            GROUP BY cd.ChuDeID, cd.TenChuDe, lv.MucDoKho
+            ORDER BY cd.ChuDeID, CASE lv.MucDoKho
+                WHEN N'NhanBiet' THEN 1 WHEN N'ThongHieu' THEN 2
+                WHEN N'VanDung' THEN 3 ELSE 4 END",
+            p => p.AddWithValue("@m", monHocId));
+    }
+
     public (int DeThiID, string Error) TaoDeTheoMaTranTHPTQG(
         string tenDe,
         int monHocId,
         string loaiDe,
         List<MaTranChuDeItem> maTran,
         bool tuDongTronMaDe = true,
-        int soLuongMaDe = 4)
+        int soLuongMaDe = 4,
+        int soChuDeToiThieu = 1,
+        int soCauMoiChuDeToiThieu = 1)
     {
         YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(tenDe))
@@ -681,6 +815,25 @@ public class ExamService(int? giaoVienPhuTrachId = null)
         if (tongCau == 0)
             return (0, "Chưa phân bổ số lượng câu hỏi cho ma trận đề thi.");
 
+        if (maTran.Any(x => x.SoCauPhan1 < 0 || x.SoCauPhan2 < 0 || x.SoCauPhan3 < 0))
+            return (0, "Số câu trong ma trận không được âm.");
+        if (maTran.GroupBy(x => (x.ChuDeID, x.MucDoKho)).Any(g => g.Count() > 1))
+            return (0, "Ma trận có chủ đề và mức độ bị lặp.");
+        if (maTran.Any(x => !string.IsNullOrEmpty(x.MucDoKho) &&
+            x.MucDoKho is not ("NhanBiet" or "ThongHieu" or "VanDung" or "VanDungCao")))
+            return (0, "Ma trận có mức độ tư duy không hợp lệ.");
+
+        var soChuDe = maTran.Where(x => x.SoCauPhan1 + x.SoCauPhan2 + x.SoCauPhan3 > 0)
+            .Select(x => x.ChuDeID).Distinct().Count();
+        if (soChuDe < soChuDeToiThieu)
+            return (0, $"Đề cần ít nhất {soChuDeToiThieu} chủ đề; hiện mới có {soChuDe}.");
+        foreach (var chuDe in maTran.GroupBy(x => x.ChuDeID))
+        {
+            var soCauChuDe = chuDe.Sum(x => x.SoCauPhan1 + x.SoCauPhan2 + x.SoCauPhan3);
+            if (soCauChuDe > 0 && soCauChuDe < soCauMoiChuDeToiThieu)
+                return (0, $"Chủ đề '{chuDe.First().TenChuDe}' cần ít nhất {soCauMoiChuDeToiThieu} câu; hiện có {soCauChuDe}.");
+        }
+
         // Kiểm tra ngân hàng câu hỏi
         var dtPool = LayMaTranChuDeTheoMon(monHocId);
         var poolMap = new Dictionary<int, (int TN, int DS, int TLN)>();
@@ -690,15 +843,26 @@ public class ExamService(int? giaoVienPhuTrachId = null)
             poolMap[id] = (Convert.ToInt32(r["SoTN"]), Convert.ToInt32(r["SoDS"]), Convert.ToInt32(r["SoTLN"]));
         }
 
+        var dtTheoMuc = LayMaTranTheoChuDeVaMucDo(monHocId);
+        var mucMap = dtTheoMuc.Rows.Cast<DataRow>().ToDictionary(
+            r => (Convert.ToInt32(r["ChuDeID"]), r["MucDoKho"].ToString()!),
+            r => (TN: Convert.ToInt32(r["SoTN"]), DS: Convert.ToInt32(r["SoDS"]), TLN: Convert.ToInt32(r["SoTLN"])));
         foreach (var item in maTran)
         {
-            if (!poolMap.TryGetValue(item.ChuDeID, out var pool)) continue;
+            if (!poolMap.TryGetValue(item.ChuDeID, out var pool))
+                return (0, $"Chủ đề '{item.TenChuDe}' không thuộc môn học đã chọn.");
+            if (!string.IsNullOrEmpty(item.MucDoKho))
+            {
+                if (!mucMap.TryGetValue((item.ChuDeID, item.MucDoKho), out pool))
+                    return (0, $"Không tìm thấy mức độ '{item.MucDoKho}' cho chủ đề '{item.TenChuDe}'.");
+            }
+            var mucText = string.IsNullOrEmpty(item.MucDoKho) ? "" : $" / {Models.MucDoKho.Display(item.MucDoKho)}";
             if (item.SoCauPhan1 > pool.TN)
-                return (0, $"Chủ đề '{item.TenChuDe}' chỉ có {pool.TN} câu Trắc nghiệm (cần {item.SoCauPhan1} câu).");
+                return (0, $"Chủ đề '{item.TenChuDe}'{mucText} chỉ có {pool.TN} câu Trắc nghiệm (cần {item.SoCauPhan1} câu).");
             if (item.SoCauPhan2 > pool.DS)
-                return (0, $"Chủ đề '{item.TenChuDe}' chỉ có {pool.DS} câu Đúng/Sai (cần {item.SoCauPhan2} câu).");
+                return (0, $"Chủ đề '{item.TenChuDe}'{mucText} chỉ có {pool.DS} câu Đúng/Sai (cần {item.SoCauPhan2} câu).");
             if (item.SoCauPhan3 > pool.TLN)
-                return (0, $"Chủ đề '{item.TenChuDe}' chỉ có {pool.TLN} câu Trả lời ngắn (cần {item.SoCauPhan3} câu).");
+                return (0, $"Chủ đề '{item.TenChuDe}'{mucText} chỉ có {pool.TLN} câu Trả lời ngắn (cần {item.SoCauPhan3} câu).");
         }
 
         // Bốc ngẫu nhiên câu hỏi theo từng chủ đề và từng phần độc lập
@@ -711,25 +875,25 @@ public class ExamService(int? giaoVienPhuTrachId = null)
             if (item.SoCauPhan1 > 0)
             {
                 var qs = Database.ReadList(
-                    "SELECT TOP (@n) CauHoiID FROM CauHoi WHERE ChuDeID = @c AND LoaiCauHoi = 'TracNghiem' AND TrangThai = 'HoatDong' ORDER BY NEWID()",
+                    "SELECT TOP (@n) CauHoiID FROM CauHoi WHERE ChuDeID = @c AND LoaiCauHoi = 'TracNghiem' AND TrangThai = 'HoatDong' AND (@muc = N'' OR MucDoKho = @muc) ORDER BY NEWID()",
                     r => r.GetInt32(0),
-                    p => { p.AddWithValue("@n", item.SoCauPhan1); p.AddWithValue("@c", item.ChuDeID); });
+                    p => { p.AddWithValue("@n", item.SoCauPhan1); p.AddWithValue("@c", item.ChuDeID); p.AddWithValue("@muc", item.MucDoKho); });
                 listPhan1.AddRange(qs);
             }
             if (item.SoCauPhan2 > 0)
             {
                 var qs = Database.ReadList(
-                    "SELECT TOP (@n) CauHoiID FROM CauHoi WHERE ChuDeID = @c AND LoaiCauHoi = 'DungSai' AND TrangThai = 'HoatDong' ORDER BY NEWID()",
+                    "SELECT TOP (@n) CauHoiID FROM CauHoi WHERE ChuDeID = @c AND LoaiCauHoi = 'DungSai' AND TrangThai = 'HoatDong' AND (@muc = N'' OR MucDoKho = @muc) ORDER BY NEWID()",
                     r => r.GetInt32(0),
-                    p => { p.AddWithValue("@n", item.SoCauPhan2); p.AddWithValue("@c", item.ChuDeID); });
+                    p => { p.AddWithValue("@n", item.SoCauPhan2); p.AddWithValue("@c", item.ChuDeID); p.AddWithValue("@muc", item.MucDoKho); });
                 listPhan2.AddRange(qs);
             }
             if (item.SoCauPhan3 > 0)
             {
                 var qs = Database.ReadList(
-                    "SELECT TOP (@n) CauHoiID FROM CauHoi WHERE ChuDeID = @c AND LoaiCauHoi = 'TraLoiNgan' AND TrangThai = 'HoatDong' ORDER BY NEWID()",
+                    "SELECT TOP (@n) CauHoiID FROM CauHoi WHERE ChuDeID = @c AND LoaiCauHoi = 'TraLoiNgan' AND TrangThai = 'HoatDong' AND (@muc = N'' OR MucDoKho = @muc) ORDER BY NEWID()",
                     r => r.GetInt32(0),
-                    p => { p.AddWithValue("@n", item.SoCauPhan3); p.AddWithValue("@c", item.ChuDeID); });
+                    p => { p.AddWithValue("@n", item.SoCauPhan3); p.AddWithValue("@c", item.ChuDeID); p.AddWithValue("@muc", item.MucDoKho); });
                 listPhan3.AddRange(qs);
             }
         }
@@ -740,47 +904,41 @@ public class ExamService(int? giaoVienPhuTrachId = null)
         allQuestionIds.AddRange(listPhan2);
         allQuestionIds.AddRange(listPhan3);
 
-        var deThiId = Database.ExecuteScalarInt(@"
-            INSERT INTO DeThi (MonHocID, GiaoVienID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
-            VALUES (@m, @gv, @t, @l, @s, N'MaTranTHPTQG');
-            SELECT CAST(SCOPE_IDENTITY() AS INT);",
-            p =>
-            {
-                var gvId = GiaoVienPhuTrach();
-                p.AddWithValue("@m", monHocId);
-                p.AddWithValue("@gv", gvId);
-                p.AddWithValue("@t", tenDe.Trim());
-                p.AddWithValue("@l", loaiDe);
-                p.AddWithValue("@s", allQuestionIds.Count);
-            });
-
-        for (int i = 0; i < allQuestionIds.Count; i++)
-        {
-            var idx = i;
-            Database.Execute(
-                "INSERT INTO DeThi_CauHoi (DeThiID, CauHoiID, ThuTu) VALUES (@d, @c, @t)",
-                p => { p.AddWithValue("@d", deThiId); p.AddWithValue("@c", allQuestionIds[idx]); p.AddWithValue("@t", idx + 1); });
-        }
+        if (allQuestionIds.Count != tongCau)
+            return (0, "Ngân hàng câu hỏi vừa thay đổi; vui lòng nạp lại ma trận và thử lại.");
+        var deThiId = TaoDeCore(tenDe, monHocId, loaiDe, "MaTranTHPTQG", allQuestionIds);
 
         // Tự động trộn mã đề nếu được yêu cầu
         if (tuDongTronMaDe)
         {
-            TronDeThi(deThiId, Math.Max(1, soLuongMaDe), 101, true, false);
+            var (success, message, _) = TronDeThi(deThiId, Math.Max(1, soLuongMaDe), 101, true, false);
+            if (!success)
+            {
+                XoaDe(deThiId);
+                return (0, "Không tạo được mã đề: " + message);
+            }
         }
-        else
-        {
-            Database.Execute("INSERT INTO MaDeThi (DeThiID, TenMaDe) VALUES (@d, N'101')",
-                p => p.AddWithValue("@d", deThiId));
-        }
-
         return (deThiId, "");
+    }
+
+    private static List<CauHoiItem> TronTheoChuDeVaMucDo(List<CauHoiItem> items, Random rng)
+    {
+        var levels = new[] { "NhanBiet", "ThongHieu", "VanDung", "VanDungCao", "ChuaXacDinh" };
+        return items.GroupBy(x => x.ChuDeID)
+            .OrderBy(g => g.Min(x => x.ThuTuGoc))
+            .SelectMany(chuDe => chuDe.GroupBy(x => x.MucDoKho)
+                .OrderBy(g => Array.IndexOf(levels, g.Key) is var i && i >= 0 ? i : levels.Length)
+                .SelectMany(g => g.OrderBy(_ => rng.Next())))
+            .ToList();
     }
 
     private class CauHoiItem
     {
         public int CauHoiID { get; set; }
         public int ThuTuGoc { get; set; }
+        public int ChuDeID { get; set; }
         public string LoaiCauHoi { get; set; } = "TracNghiem";
+        public string MucDoKho { get; set; } = "ChuaXacDinh";
         public string NoiDung { get; set; } = "";
         public decimal Diem { get; set; }
         public List<DapAnItem> DapAns { get; set; } = new();
@@ -801,6 +959,7 @@ public class MaTranChuDeItem
 {
     public int ChuDeID { get; set; }
     public string TenChuDe { get; set; } = "";
+    public string MucDoKho { get; set; } = "";
     public int SoCauPhan1 { get; set; }
     public int SoCauPhan2 { get; set; }
     public int SoCauPhan3 { get; set; }

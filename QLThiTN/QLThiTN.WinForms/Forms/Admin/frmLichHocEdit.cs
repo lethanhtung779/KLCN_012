@@ -7,11 +7,12 @@ public class frmLichHocEdit : Form
 {
     private readonly TrainingService _service = new();
     private readonly int _id;
-    private readonly ComboBox _cboLop = Ui.Combo(320);
-    private readonly TextBox _txtNoiDung = Ui.Input(320);
-    private readonly DateTimePicker _dtBatDau = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy HH:mm", Width = 320 };
-    private readonly DateTimePicker _dtKetThuc = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy HH:mm", Width = 320 };
-    private readonly TextBox _txtDiaDiem = Ui.Input(320);
+    private readonly int _lopHocIdMacDinh;
+    private readonly ComboBox _cboLop = Ui.Combo(380);
+    private readonly TextBox _txtNoiDung = Ui.Input(380);
+    private readonly DateTimePicker _dtBatDau = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy HH:mm", Width = 380 };
+    private readonly DateTimePicker _dtKetThuc = new() { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy HH:mm", Width = 380 };
+    private readonly TextBox _txtDiaDiem = Ui.Input(380);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
 
     public frmLichHocEdit(
@@ -23,15 +24,15 @@ public class frmLichHocEdit : Form
         string? diaDiem = null)
     {
         _id = id;
+        _lopHocIdMacDinh = lopHocId;
         Text = id == 0 ? "Thêm buổi học" : "Sửa buổi học";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        ClientSize = new Size(400, 360);
+        ClientSize = new Size(460, 420);
         BackColor = Color.White;
 
-        NapLop(lopHocId);
         _txtNoiDung.Text = noiDung ?? "";
         _dtBatDau.Value = batDau ?? DateTime.Now.Date.AddHours(8);
         _dtKetThuc.Value = ketThuc ?? DateTime.Now.Date.AddHours(10);
@@ -55,14 +56,16 @@ public class frmLichHocEdit : Form
         ]);
 
         var y = 16;
-        lblLop.Location = new Point(28, y); _cboLop.Location = new Point(28, y + 22); y += 52;
-        lblNd.Location = new Point(28, y); _txtNoiDung.Location = new Point(28, y + 22); y += 52;
-        lblBd.Location = new Point(28, y); _dtBatDau.Location = new Point(28, y + 22); y += 52;
-        lblKt.Location = new Point(28, y); _dtKetThuc.Location = new Point(28, y + 22); y += 52;
-        lblDd.Location = new Point(28, y); _txtDiaDiem.Location = new Point(28, y + 22); y += 52;
+        lblLop.Location = new Point(28, y); _cboLop.Location = new Point(28, y + 22); y += 56;
+        lblNd.Location = new Point(28, y); _txtNoiDung.Location = new Point(28, y + 22); y += 56;
+        lblBd.Location = new Point(28, y); _dtBatDau.Location = new Point(28, y + 22); y += 56;
+        lblKt.Location = new Point(28, y); _dtKetThuc.Location = new Point(28, y + 22); y += 56;
+        lblDd.Location = new Point(28, y); _txtDiaDiem.Location = new Point(28, y + 22); y += 56;
         _lblError.Location = new Point(28, y);
         btnLuu.Location = new Point(28, y + 20);
         btnHuy.Location = new Point(158, y + 20);
+
+        Load += (_, _) => NapLop(_lopHocIdMacDinh);
     }
 
     private void NapLop(int selectedId)
@@ -76,13 +79,29 @@ public class frmLichHocEdit : Form
             return;
         }
         _cboLop.DataSource = lopHoc;
-        if (selectedId > 0) _cboLop.SelectedValue = selectedId;
+        _cboLop.DropDownWidth = Math.Max(_cboLop.Width, 380);
+        if (selectedId > 0)
+        {
+            _cboLop.SelectedValue = selectedId;
+            _cboLop.Enabled = false;
+        }
+    }
+
+    private int LayLopIdDangChon()
+    {
+        if (_lopHocIdMacDinh > 0) return _lopHocIdMacDinh;
+        if (_cboLop.SelectedValue is int i && i > 0) return i;
+        if (_cboLop.SelectedItem is System.Data.DataRowView drv && drv["LopHocID"] != DBNull.Value)
+            return Convert.ToInt32(drv["LopHocID"]);
+        if (int.TryParse(_cboLop.SelectedValue?.ToString(), out var p) && p > 0) return p;
+        return 0;
     }
 
     private void Luu()
     {
         _lblError.Text = "";
-        if (_cboLop.SelectedValue is not int lopId || lopId <= 0)
+        var lopId = LayLopIdDangChon();
+        if (lopId <= 0)
         {
             _lblError.Text = "⚠ Hãy chọn lớp.";
             return;

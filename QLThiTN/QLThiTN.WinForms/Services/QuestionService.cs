@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using QLThiTN.WinForms.Models;
 
@@ -8,12 +8,41 @@ namespace QLThiTN.WinForms.Services;
 public class QuestionService
 {
     // ------------------------------------------------------------------ danh muc
-    public List<MonHoc> LayMonHoc() =>
-        Database.ReadList("SELECT MonHocID, TenMon FROM MonHoc ORDER BY MonHocID",
+    public List<MonHoc> LayMonHoc()
+    {
+        if (Session.IsGiaoVien)
+        {
+            return Database.ReadList(@"
+                SELECT m.MonHocID, m.TenMon FROM MonHoc m
+                JOIN GiaoVien_MonHoc gm ON gm.MonHocID = m.MonHocID
+                WHERE gm.GiaoVienID = @gv
+                ORDER BY m.MonHocID",
+                r => new MonHoc { MonHocID = r.GetInt32(0), TenMon = r.GetString(1) },
+                p => p.AddWithValue("@gv", Session.GiaoVienID));
+        }
+        return Database.ReadList("SELECT MonHocID, TenMon FROM MonHoc ORDER BY MonHocID",
             r => new MonHoc { MonHocID = r.GetInt32(0), TenMon = r.GetString(1) });
+    }
 
     public List<ChuDe> LayChuDe(int? monHocId = null)
     {
+        if (Session.IsGiaoVien)
+        {
+            var sqlGv = monHocId.HasValue
+                ? @"SELECT cd.ChuDeID, cd.MonHocID, cd.TenChuDe FROM ChuDe cd
+                    JOIN GiaoVien_MonHoc gm ON gm.MonHocID = cd.MonHocID
+                    WHERE gm.GiaoVienID = @gv AND cd.MonHocID = @m ORDER BY cd.TenChuDe"
+                : @"SELECT cd.ChuDeID, cd.MonHocID, cd.TenChuDe FROM ChuDe cd
+                    JOIN GiaoVien_MonHoc gm ON gm.MonHocID = cd.MonHocID
+                    WHERE gm.GiaoVienID = @gv ORDER BY cd.TenChuDe";
+            return Database.ReadList(sqlGv,
+                r => new ChuDe { ChuDeID = r.GetInt32(0), MonHocID = r.GetInt32(1), TenChuDe = r.GetString(2) },
+                p =>
+                {
+                    p.AddWithValue("@gv", Session.GiaoVienID);
+                    if (monHocId.HasValue) p.AddWithValue("@m", monHocId.Value);
+                });
+        }
         var sql = monHocId.HasValue
             ? "SELECT ChuDeID, MonHocID, TenChuDe FROM ChuDe WHERE MonHocID = @m ORDER BY TenChuDe"
             : "SELECT ChuDeID, MonHocID, TenChuDe FROM ChuDe ORDER BY TenChuDe";
@@ -26,7 +55,23 @@ public class QuestionService
     public DataTable TraCuu(int? monHocId, int? chuDeId, string? loai, string? mucDo, string? tuKhoa)
     {
         var sql = @"
-            SELECT c.CauHoiID, c.NoiDung, c.LoaiCauHoi, c.MucDoKho, c.Diem, c.TrangThai,
+            SELECT c.CauHoiID, c.NoiDung,
+                   CASE c.LoaiCauHoi
+                       WHEN 'TracNghiem' THEN N'Trắc nghiệm'
+                       WHEN 'DungSai' THEN N'Đúng/Sai'
+                       WHEN 'TraLoiNgan' THEN N'Trả lời ngắn'
+                       ELSE c.LoaiCauHoi END AS LoaiCauHoi,
+                   CASE c.MucDoKho
+                       WHEN 'ChuaXacDinh' THEN N'Chưa xác định'
+                       WHEN 'NhanBiet' THEN N'Nhận biết'
+                       WHEN 'ThongHieu' THEN N'Thông hiểu'
+                       WHEN 'VanDung' THEN N'Vận dụng'
+                       WHEN 'VanDungCao' THEN N'Vận dụng cao'
+                       ELSE c.MucDoKho END AS MucDoKho,
+                   c.Diem,
+                   CASE c.TrangThai
+                       WHEN 'HoatDong' THEN N'Hoạt động'
+                       ELSE N'Đã ẩn' END AS TrangThai,
                    cd.TenChuDe, m.TenMon, gv.HoTen AS TenGiaoVien, c.NgayTao, c.ChuDeID, c.GiaoVienID
             FROM CauHoi c
             JOIN ChuDe cd ON cd.ChuDeID = c.ChuDeID
@@ -37,6 +82,7 @@ public class QuestionService
               AND (@loai = N'' OR c.LoaiCauHoi = @loai)
               AND (@muc = N'' OR c.MucDoKho = @muc)
               AND (@tu = N'' OR c.NoiDung LIKE N'%' + @tu + N'%')
+              AND (@isGv = 0 OR cd.MonHocID IN (SELECT MonHocID FROM GiaoVien_MonHoc WHERE GiaoVienID = @gvId))
             ORDER BY c.CauHoiID DESC";
         return Database.Query(sql, p =>
         {
@@ -45,6 +91,8 @@ public class QuestionService
             p.AddWithValue("@loai", loai ?? "");
             p.AddWithValue("@muc", mucDo ?? "");
             p.AddWithValue("@tu", tuKhoa?.Trim() ?? "");
+            p.AddWithValue("@isGv", Session.IsGiaoVien ? 1 : 0);
+            p.AddWithValue("@gvId", Session.GiaoVienID);
         });
     }
 
@@ -118,9 +166,39 @@ public class QuestionService
 
     }
 
+    private static void KiemTraPhanCongMon(int chuDeId)
+    {
+        if (!Session.IsGiaoVien) return;
+        var gvId = Session.GiaoVienID;
+        var duocPhanCong = Database.ExecuteScalarInt(@"
+            SELECT COUNT(1) FROM GiaoVien_MonHoc gm
+            JOIN ChuDe cd ON cd.MonHocID = gm.MonHocID
+            WHERE gm.GiaoVienID = @gv AND cd.ChuDeID = @cd",
+            p =>
+            {
+                p.AddWithValue("@gv", gvId);
+                p.AddWithValue("@cd", chuDeId);
+            }) > 0;
+        if (!duocPhanCong)
+            throw new UnauthorizedAccessException("Bạn không được phân công phụ trách môn học của chủ đề này.");
+    }
+
+    private static void KiemTraTacGia(int cauHoiId)
+    {
+        if (!Session.IsGiaoVien) return;
+        var gvId = Session.GiaoVienID;
+        var authorId = Database.ExecuteScalarInt(
+            "SELECT GiaoVienID FROM CauHoi WHERE CauHoiID = @id",
+            p => p.AddWithValue("@id", cauHoiId));
+        if (authorId != gvId)
+            throw new UnauthorizedAccessException("Bạn chỉ được phép chỉnh sửa hoặc xóa câu hỏi do chính mình tạo.");
+    }
+
     private static int Luu(CauHoi c, bool themMoi)
     {
         KiemTraHopLe(c);
+        KiemTraPhanCongMon(c.ChuDeID);
+        if (!themMoi) KiemTraTacGia(c.CauHoiID);
         using var files = new QuestionImageStore.Batch();
         using var conn = Database.Open();
         using var tx = conn.BeginTransaction(IsolationLevel.Serializable);
@@ -239,6 +317,7 @@ public class QuestionService
 
     public (bool Ok, string Error) Xoa(int cauHoiId)
     {
+        KiemTraTacGia(cauHoiId);
         using var conn = Database.Open();
         using var tx = conn.BeginTransaction(IsolationLevel.Serializable);
         try
@@ -260,8 +339,11 @@ public class QuestionService
     }
 
     /// <summary>An / hien cau hoi (An = khong hien trong kho de web).</summary>
-    public void DoiTrangThai(int cauHoiId, bool an) =>
+    public void DoiTrangThai(int cauHoiId, bool an)
+    {
+        KiemTraTacGia(cauHoiId);
         Database.Execute("UPDATE CauHoi SET TrangThai = @t WHERE CauHoiID = @id",
             p => { p.AddWithValue("@t", an ? "An" : "HoatDong"); p.AddWithValue("@id", cauHoiId); });
+    }
 
 }

@@ -10,16 +10,54 @@ public static class ExamMapping
     /// thay vi host cua API (:5000) =&gt; 404 =&gt; browser chi hien alt text.
     /// O day ta ghi de thanh URL TUYET DOI tro thang sang API.
     /// </summary>
+    /// <summary>
+    /// Loai bo ma doc hai, script, cac event handler (onerror, onload, onclick...) va link nguy hiem.
+    /// </summary>
+    public static string SanitizeHtml(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+
+        // Xoa cac the nguy hiem bao gom ca noi dung ben trong
+        var sanitized = System.Text.RegularExpressions.Regex.Replace(
+            html,
+            @"<(script|style|iframe|object|embed|applet|meta|link|base|form)[^>]*?>[\s\S]*?<\/\1>",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Xoa cac the tu dong/the don nguy hiem
+        sanitized = System.Text.RegularExpressions.Regex.Replace(
+            sanitized,
+            @"<(script|style|iframe|object|embed|applet|meta|link|base|form)[^>]*?>",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Xoa tat ca thuoc tinh bat dau bang on (onerror, onload, onclick, onmouseover...)
+        sanitized = System.Text.RegularExpressions.Regex.Replace(
+            sanitized,
+            @"\s+on[a-zA-Z]+\s*=\s*(?:""[^""]*""|'[^']*'|[^\s>]+)",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // Xoa URI schemes nguy hiem (javascript:, vbscript:)
+        sanitized = System.Text.RegularExpressions.Regex.Replace(
+            sanitized,
+            @"(?:src|href)\s*=\s*(?:""\s*(?:javascript|vbscript):[^""]*""|'\s*(?:javascript|vbscript):[^']*'|(?:javascript|vbscript):[^\s>]+)",
+            string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return sanitized;
+    }
+
     public static string ToApiAbsoluteHtml(string? html, string apiBaseUrl)
     {
         if (string.IsNullOrEmpty(html)) return string.Empty;
+        var sanitized = SanitizeHtml(html);
         var baseUrl = (apiBaseUrl ?? string.Empty).TrimEnd('/');
-        if (baseUrl.Length == 0) return html;
-        if (!html.Contains("/api/", StringComparison.Ordinal)) return html;
+        if (baseUrl.Length == 0 || !sanitized.Contains("/api/", StringComparison.Ordinal)) return sanitized;
 
         // src="/api/..." -> src="http://host:5000/api/..."
         return System.Text.RegularExpressions.Regex.Replace(
-            html,
+            sanitized,
             "((?:src|href)\\s*=\\s*[\"'])/api/",
             "$1" + baseUrl + "/api/",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);

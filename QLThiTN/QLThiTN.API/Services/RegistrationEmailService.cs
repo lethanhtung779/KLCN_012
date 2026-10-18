@@ -33,6 +33,12 @@ public class RegistrationEmailService(
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(fullName))
             return (false, "Vui lòng điền đầy đủ thông tin.", null);
 
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
+            return (false, "Mật khẩu phải có ít nhất 6 ký tự.", null);
+
+        if (!env.IsDevelopment() && (string.IsNullOrWhiteSpace(_email.SmtpHost) || string.IsNullOrWhiteSpace(_email.SmtpPassword)))
+            return (false, "Hệ thống chưa cấu hình dịch vụ gửi email (SMTP). Vui lòng liên hệ quản trị viên.", null);
+
         if (await db.TaiKhoans.AnyAsync(t => t.TenDangNhap == userName))
             return (false, "Tên đăng nhập đã tồn tại.", null);
 
@@ -115,31 +121,42 @@ public class RegistrationEmailService(
         if (await db.TaiKhoans.AnyAsync(t => t.Email == row.Email))
             return (false, "Email đã được sử dụng.", null);
 
-        var tk = new TaiKhoan
+        await using var tx = await db.Database.BeginTransactionAsync();
+        try
         {
-            TenDangNhap = row.TenDangNhap,
-            MatKhau = row.MatKhauHash,
-            Email = row.Email,
-            VaiTro = "HocVien",
-            TrangThai = "HoatDong",
-            NgayTao = DateTime.Now
-        };
-        db.TaiKhoans.Add(tk);
-        row.DaSuDung = true;
-        await db.SaveChangesAsync();
+            var tk = new TaiKhoan
+            {
+                TenDangNhap = row.TenDangNhap,
+                MatKhau = row.MatKhauHash,
+                Email = row.Email,
+                VaiTro = "HocVien",
+                TrangThai = "HoatDong",
+                NgayTao = DateTime.Now
+            };
+            db.TaiKhoans.Add(tk);
+            row.DaSuDung = true;
+            await db.SaveChangesAsync();
 
-        db.HocViens.Add(new HocVien
+            db.HocViens.Add(new HocVien
+            {
+                TaiKhoanID = tk.TaiKhoanID,
+                HoTen = row.HoTen,
+                LoaiHocVien = "HocSinh",
+                LoaiGoi = GoiThi.MienPhi,
+                NgayDangKy = DateTime.Now
+            });
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            var auth = await BuildResponseAsync(tk);
+            return (true, "Xác minh email thành công! Bạn có thể đăng nhập.", auth);
+        }
+        catch (Exception ex)
         {
-            TaiKhoanID = tk.TaiKhoanID,
-            HoTen = row.HoTen,
-            LoaiHocVien = "HocSinh",
-            LoaiGoi = GoiThi.MienPhi,
-            NgayDangKy = DateTime.Now
-        });
-        await db.SaveChangesAsync();
-
-        var auth = await BuildResponseAsync(tk);
-        return (true, "Xác minh email thành công! Bạn có thể đăng nhập.", auth);
+            await tx.RollbackAsync();
+            logger.LogError(ex, "Lỗi khi kích hoạt tài khoản xác minh email {Email}", row.Email);
+            return (false, "Có lỗi xảy ra khi tạo tài khoản. Vui lòng thử lại sau.", null);
+        }
     }
 
     private string BuildConfirmUrl(string token)

@@ -21,7 +21,10 @@ public class frmMain : Form
         Controls.Add(_content);
         BuildSidebar();
         BuildContent();
-        MoManHinh("Tổng quan", TaoTongQuan);
+        if (Session.IsGiaoVien)
+            MoManHinh("Ngân hàng câu hỏi", () => new Forms.Teacher.frmQuestions());
+        else
+            MoManHinh("Tổng quan", TaoTongQuan);
     }
 
     // ------------------------------------------------------------------ sidebar
@@ -32,7 +35,7 @@ public class frmMain : Form
         // Header thong tin (thuong hieu + nguoi dung)
         var lblBrand = new Label
         {
-            Text = "🎓  QLTHI TN-THPT",
+            Text = "QLTHI TN-THPT",
             Font = new Font("Segoe UI", 12f, FontStyle.Bold),
             ForeColor = Color.White,
             AutoSize = false,
@@ -55,7 +58,7 @@ public class frmMain : Form
 
         var lblUserInfo = new Label
         {
-            Text = "👤  " + Session.HoTen,
+            Text = Session.HoTen,
             Font = Ui.Body,
             ForeColor = Color.White,
             AutoSize = false,
@@ -66,8 +69,9 @@ public class frmMain : Form
         // Menu chinh
         var flow = new FlowLayoutPanel
         {
-            Location = new Point(0, 116),
-            Size = new Size(232, 400),
+            Dock = DockStyle.Fill,
+            Margin = Padding.Empty,
+            AutoScroll = true,
             FlowDirection = FlowDirection.TopDown,
             WrapContents = false,
             BackColor = Ui.Navy
@@ -76,25 +80,26 @@ public class frmMain : Form
         // Phân hệ Quản trị viên (Admin / Phòng Đào tạo)
         if (Session.IsQuanTriVien)
         {
-            flow.Controls.Add(NavButton("👥  Quản lý tài khoản", () => MoManHinh("Quản lý tài khoản", () => new Forms.Admin.frmAccounts())));
-            flow.Controls.Add(NavButton("📖  Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp học", () => new Forms.Admin.frmDaoTao())));
-            flow.Controls.Add(NavButton("📝  Đề thi & Kỳ thi", () => MoManHinh("Đề thi & Kỳ thi", () => new Forms.Teacher.frmExams())));
-            flow.Controls.Add(NavButton("🗄️  Backup & Restore", () => MoManHinh("Sao lưu & phục hồi dữ liệu", () => new Forms.Admin.frmBackupRestore())));
+            flow.Controls.Add(NavButton("Quản lý tài khoản", () => MoManHinh("Quản lý tài khoản", () => new Forms.Admin.frmAccounts())));
+            flow.Controls.Add(NavButton("Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp học", () => new Forms.Admin.frmDaoTao())));
+            flow.Controls.Add(NavButton("Đề thi & Kỳ thi", () => MoManHinh("Đề thi & Kỳ thi", () => new Forms.Teacher.frmExams())));
+            flow.Controls.Add(NavButton("Sao lưu & phục hồi", () => MoManHinh("Sao lưu & phục hồi dữ liệu", () => new Forms.Admin.frmBackupRestore())));
         }
 
         if (Session.IsGiaoVien)
         {
-            flow.Controls.Add(NavButton("📚  Ngân hàng câu hỏi", () => MoManHinh("Ngân hàng câu hỏi", () => new Forms.Teacher.frmQuestions())));
-            flow.Controls.Add(NavButton("📊  Thống kê kết quả", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));
+            flow.Controls.Add(NavButton("Ngân hàng câu hỏi", () => MoManHinh("Ngân hàng câu hỏi", () => new Forms.Teacher.frmQuestions())));
+            flow.Controls.Add(NavButton("Lớp phụ trách", () => MoManHinh("Lớp phụ trách", () => new Forms.Admin.frmChiTietLopHoc())));
+            flow.Controls.Add(NavButton("Thống kê kết quả", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));
         }
 
-        flow.Controls.Add(new Label { Height = 10, Width = 232, BackColor = Ui.Navy });
-        flow.Controls.Add(NavButton("🔑  Đổi mật khẩu", () =>
+        flow.Controls.Add(new Label { Height = 10, Width = 216, BackColor = Ui.Navy });
+        flow.Controls.Add(NavButton("Đổi mật khẩu", () =>
         {
             using var f = new frmDoiMatKhau();
             f.ShowDialog(this);
         }));
-        var btnLogout = NavButton("⏻  Đăng xuất", () =>
+        var btnLogout = NavButton("Đăng xuất", () =>
         {
             Session.Clear();
             IsLogout = true;
@@ -102,13 +107,13 @@ public class frmMain : Form
         });
         btnLogout.ForeColor = Color.FromArgb(255, 150, 150);
         flow.Controls.Add(btnLogout);
-        flow.Controls.Add(new Label { Height = 10, Width = 232, BackColor = Ui.Navy });
-        flow.Controls.Add(NavButton("🔄  Tổng quan", () => MoManHinh("Tổng quan", TaoTongQuan)));
+        flow.Controls.Add(new Label { Height = 10, Width = 216, BackColor = Ui.Navy });
+        flow.Controls.Add(NavButton("Tổng quan", () => MoManHinh("Tổng quan", TaoTongQuan)));
 
-        sidebar.Controls.Add(lblBrand);
-        sidebar.Controls.Add(lblRole);
-        sidebar.Controls.Add(lblUserInfo);
+        var sidebarHeader = new Panel { Dock = DockStyle.Top, Height = 116, BackColor = Ui.Navy };
+        sidebarHeader.Controls.AddRange([lblBrand, lblRole, lblUserInfo]);
         sidebar.Controls.Add(flow);
+        sidebar.Controls.Add(sidebarHeader);
         Controls.Add(sidebar);
     }
 
@@ -121,7 +126,7 @@ public class frmMain : Form
             ForeColor = Color.FromArgb(200, 210, 230),
             BackColor = Ui.Navy,
             FlatStyle = FlatStyle.Flat,
-            Size = new Size(232, 46),
+            Size = new Size(216, 46),
             TextAlign = ContentAlignment.MiddleLeft,
             Padding = new Padding(20, 0, 0, 0),
             Cursor = Cursors.Hand,
@@ -185,21 +190,34 @@ public class frmMain : Form
 
         var panel = new Panel { Dock = DockStyle.Fill, BackColor = Ui.BgSoft, AutoScroll = true };
 
-        var x = 24;
-        foreach (var (title, value, color) in cards)
+        var cardGrid = new TableLayoutPanel
         {
-            var card = new Panel { Size = new Size(250, 130), Location = new Point(x, 24), BackColor = Color.White };
+            Dock = DockStyle.Top,
+            Height = 316,
+            ColumnCount = 2,
+            RowCount = 2,
+            Padding = new Padding(16, 12, 16, 0),
+        };
+        cardGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        cardGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+        cardGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        cardGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+        for (var i = 0; i < cards.Length; i++)
+        {
+            var (title, value, color) = cards[i];
+            var card = new Panel { Dock = DockStyle.Fill, Margin = new Padding(8), BackColor = Color.White };
             var bar = new Panel { Dock = DockStyle.Top, Height = 6, BackColor = color };
             var lblValue = new Label { Text = value, Font = new Font("Segoe UI", 22f, FontStyle.Bold), ForeColor = Ui.Navy, AutoSize = true, Location = new Point(20, 28) };
             var lblTitle = new Label { Text = title, Font = Ui.Body, ForeColor = Ui.TextMuted, AutoSize = true, Location = new Point(20, 84) };
             card.Controls.AddRange([lblValue, lblTitle, bar]);
-            panel.Controls.Add(card);
-            x += 266;
+            cardGrid.Controls.Add(card, i % 2, i / 2);
         }
 
         var note = Ui.Label("Số liệu đồng bộ trực tiếp với cơ sở dữ liệu ThiTracNghiem dùng chung cho website.", Ui.Small, Ui.TextMuted);
-        note.Location = new Point(28, 172);
+        note.Dock = DockStyle.Top;
+        note.Padding = new Padding(24, 8, 0, 0);
         panel.Controls.Add(note);
+        panel.Controls.Add(cardGrid);
 
         f.Controls.Add(panel);
         return f;

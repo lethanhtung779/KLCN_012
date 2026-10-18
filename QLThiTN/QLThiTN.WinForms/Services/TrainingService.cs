@@ -1,4 +1,5 @@
 using System.Data;
+using Microsoft.Data.SqlClient;
 using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
@@ -29,11 +30,14 @@ public class TrainingService
 
     public (bool Ok, string Error, int Id) ThemKhoaHoc(string ten, int monHocId, DateTime? ngayBd, DateTime? ngayKt, string trangThai)
     {
+        Session.YeuCauQuanTriVien();
         ten = ten.Trim();
         if (string.IsNullOrWhiteSpace(ten)) return (false, "Chưa nhập tên khóa học.", 0);
         if (monHocId <= 0) return (false, "Hãy chọn môn học.", 0);
         if (trangThai is not (TrangThaiKhoaHoc.HoatDong or TrangThaiKhoaHoc.TamDung or TrangThaiKhoaHoc.DaKetThuc))
             return (false, "Trạng thái không hợp lệ.", 0);
+        if (ngayBd.HasValue && ngayKt.HasValue && ngayKt.Value < ngayBd.Value)
+            return (false, "Ngày kết thúc phải diễn ra sau ngày bắt đầu.", 0);
 
         var id = Database.ExecuteScalarInt(@"
             INSERT INTO KhoaHoc (TenKhoaHoc, MonHocID, NgayBatDau, NgayKetThuc, TrangThai)
@@ -52,10 +56,13 @@ public class TrainingService
 
     public (bool Ok, string Error) SuaKhoaHoc(int id, string ten, int monHocId, DateTime? ngayBd, DateTime? ngayKt, string trangThai)
     {
+        Session.YeuCauQuanTriVien();
         ten = ten.Trim();
         if (id <= 0) return (false, "Khóa học không hợp lệ.");
         if (string.IsNullOrWhiteSpace(ten)) return (false, "Chưa nhập tên khóa học.");
         if (monHocId <= 0) return (false, "Hãy chọn môn học.");
+        if (ngayBd.HasValue && ngayKt.HasValue && ngayKt.Value < ngayBd.Value)
+            return (false, "Ngày kết thúc phải diễn ra sau ngày bắt đầu.");
 
         Database.Execute(@"
             UPDATE KhoaHoc SET TenKhoaHoc = @ten, MonHocID = @mon, NgayBatDau = @bd, NgayKetThuc = @kt, TrangThai = @tt
@@ -74,6 +81,7 @@ public class TrainingService
 
     public (bool Ok, string Error) XoaKhoaHoc(int id)
     {
+        Session.YeuCauQuanTriVien();
         if (Database.ExecuteScalarInt("SELECT COUNT(1) FROM LopHoc WHERE KhoaHocID = @id", p => p.AddWithValue("@id", id)) > 0)
             return (false, "Không thể xóa: khóa học đã có lớp học. Hãy xóa các lớp trước.");
         Database.Execute("DELETE FROM KhoaHoc WHERE KhoaHocID = @id", p => p.AddWithValue("@id", id));
@@ -84,7 +92,9 @@ public class TrainingService
     {
         var sql = @"
             SELECT lh.LopHocID, lh.TenLop, lh.KhoaHocID, kh.TenKhoaHoc, mh.TenMon,
-                   (SELECT COUNT(1) FROM HocVien_Lop hvl WHERE hvl.LopHocID = lh.LopHocID AND hvl.TrangThai = N'DangHoc') AS SoHocVien
+                   (SELECT COUNT(1) FROM HocVien_Lop hvl WHERE hvl.LopHocID = lh.LopHocID AND hvl.TrangThai = N'DangHoc') AS SoHocVien,
+                   CASE WHEN EXISTS (SELECT 1 FROM PhanCongGiangDay pc WHERE pc.LopHocID = lh.LopHocID)
+                        THEN N'Đã phân công' ELSE N'Chưa phân công' END AS TrangThaiPhanCong
             FROM LopHoc lh
             INNER JOIN KhoaHoc kh ON kh.KhoaHocID = lh.KhoaHocID
             INNER JOIN MonHoc mh ON mh.MonHocID = kh.MonHocID
@@ -96,6 +106,78 @@ public class TrainingService
             p.AddWithValue("@khoaHocId", khoaHocId.HasValue ? khoaHocId.Value : DBNull.Value);
             p.AddWithValue("@tuKhoa", tuKhoa?.Trim() ?? "");
         });
+    }
+
+    /// <summary>Danh sách lớp cho màn hình chi tiết, giới hạn giáo viên theo phân công thật.</summary>
+    public DataTable LayLopDuocXem(string? tuKhoa = null)
+    {
+        if (!Session.IsAccountActive() || !Session.IsQuanTriVien && !Session.IsGiaoVien)
+            throw new UnauthorizedAccessException("Bạn không có quyền xem lớp học.");
+        return Database.Query(@"
+            SELECT lh.LopHocID, lh.TenLop, kh.TenKhoaHoc, mh.TenMon,
+                   (SELECT COUNT(*) FROM HocVien_Lop hl WHERE hl.LopHocID = lh.LopHocID AND hl.TrangThai = N'DangHoc') AS SoHocVien,
+                   CASE WHEN EXISTS (SELECT 1 FROM PhanCongGiangDay pc WHERE pc.LopHocID = lh.LopHocID)
+                        THEN N'Đã phân công' ELSE N'Chưa phân công' END AS TrangThaiPhanCong
+            FROM LopHoc lh
+            JOIN KhoaHoc kh ON kh.KhoaHocID = lh.KhoaHocID
+            JOIN MonHoc mh ON mh.MonHocID = kh.MonHocID
+            WHERE (@admin = 1 OR EXISTS (
+                SELECT 1 FROM PhanCongGiangDay pc
+                WHERE pc.LopHocID = lh.LopHocID AND pc.GiaoVienID = @gv))
+              AND (@search = N'' OR lh.TenLop LIKE N'%' + @search + N'%'
+                   OR kh.TenKhoaHoc LIKE N'%' + @search + N'%')
+            ORDER BY lh.LopHocID DESC", p =>
+        {
+            p.AddWithValue("@admin", Session.IsQuanTriVien);
+            p.AddWithValue("@gv", Session.GiaoVienID);
+            p.AddWithValue("@search", tuKhoa?.Trim() ?? "");
+        });
+    }
+
+    public DataTable LayThongTinLopDuocXem(int lopHocId)
+    {
+        if (!Session.IsAccountActive() || !Session.IsQuanTriVien && !Session.IsGiaoVien)
+            throw new UnauthorizedAccessException("Bạn không có quyền xem lớp học.");
+        return Database.Query(@"
+            SELECT lh.LopHocID, lh.TenLop, lh.KhoaHocID, kh.TenKhoaHoc, kh.NgayBatDau,
+                   kh.NgayKetThuc, kh.TrangThai, mh.TenMon,
+                   (SELECT COUNT(*) FROM HocVien_Lop hl WHERE hl.LopHocID = lh.LopHocID AND hl.TrangThai = N'DangHoc') AS SoHocVien,
+                   (SELECT COUNT(*) FROM LichHoc lich WHERE lich.LopHocID = lh.LopHocID AND lich.ThoiGianBatDau >= SYSDATETIME()) AS SoBuoiSapToi
+            FROM LopHoc lh
+            JOIN KhoaHoc kh ON kh.KhoaHocID = lh.KhoaHocID
+            JOIN MonHoc mh ON mh.MonHocID = kh.MonHocID
+            WHERE lh.LopHocID = @lop AND (@admin = 1 OR EXISTS (
+                SELECT 1 FROM PhanCongGiangDay pc
+                WHERE pc.LopHocID = lh.LopHocID AND pc.GiaoVienID = @gv))", p =>
+        {
+            p.AddWithValue("@lop", lopHocId);
+            p.AddWithValue("@admin", Session.IsQuanTriVien);
+            p.AddWithValue("@gv", Session.GiaoVienID);
+        });
+    }
+
+    public DataTable LayHocVienLopDuocXem(int lopHocId)
+    {
+        YeuCauQuyenXemLop(lopHocId);
+        return LayHocVienTrongLop(lopHocId);
+    }
+
+    public DataTable LayPhanCongLopDuocXem(int lopHocId)
+    {
+        YeuCauQuyenXemLop(lopHocId);
+        return LayPhanCongTheoLop(lopHocId);
+    }
+
+    public DataTable LayLichHocLopDuocXem(int lopHocId)
+    {
+        YeuCauQuyenXemLop(lopHocId);
+        return LayLichHocTheoLop(lopHocId);
+    }
+
+    private void YeuCauQuyenXemLop(int lopHocId)
+    {
+        if (LayThongTinLopDuocXem(lopHocId).Rows.Count == 0)
+            throw new UnauthorizedAccessException("Bạn không được phân công phụ trách lớp học này.");
     }
 
     public DataTable LayComboKhoaHoc() =>
@@ -114,6 +196,7 @@ public class TrainingService
 
     public (bool Ok, string Error, int Id) ThemLopHoc(string tenLop, int khoaHocId)
     {
+        Session.YeuCauQuanTriVien();
         tenLop = tenLop.Trim();
         if (string.IsNullOrWhiteSpace(tenLop)) return (false, "Chưa nhập tên lớp.", 0);
         if (khoaHocId <= 0) return (false, "Hãy chọn khóa học.", 0);
@@ -127,6 +210,7 @@ public class TrainingService
 
     public (bool Ok, string Error) SuaLopHoc(int id, string tenLop, int khoaHocId)
     {
+        Session.YeuCauQuanTriVien();
         tenLop = tenLop.Trim();
         if (string.IsNullOrWhiteSpace(tenLop)) return (false, "Chưa nhập tên lớp.");
         Database.Execute("UPDATE LopHoc SET TenLop = @ten, KhoaHocID = @kh WHERE LopHocID = @id",
@@ -136,6 +220,7 @@ public class TrainingService
 
     public (bool Ok, string Error) XoaLopHoc(int id)
     {
+        Session.YeuCauQuanTriVien();
         if (Database.ExecuteScalarInt("SELECT COUNT(1) FROM HocVien_Lop WHERE LopHocID = @id", p => p.AddWithValue("@id", id)) > 0)
             return (false, "Không thể xóa: lớp còn học viên. Hãy gỡ học viên khỏi lớp trước.");
         if (Database.ExecuteScalarInt("SELECT COUNT(1) FROM PhanCongGiangDay WHERE LopHocID = @id", p => p.AddWithValue("@id", id)) > 0)
@@ -177,6 +262,7 @@ public class TrainingService
 
     public (bool Ok, string Error) ThemHocVienVaoLop(int lopHocId, int hocVienId)
     {
+        Session.YeuCauQuanTriVien();
         if (lopHocId <= 0 || hocVienId <= 0) return (false, "Dữ liệu không hợp lệ.");
         if (Database.ExecuteScalarInt(
                 "SELECT COUNT(1) FROM HocVien_Lop WHERE LopHocID = @lop AND HocVienID = @hv",
@@ -192,6 +278,7 @@ public class TrainingService
 
     public (bool Ok, string Error) XoaHocVienKhoiLop(int lopHocId, int hocVienId)
     {
+        Session.YeuCauQuanTriVien();
         Database.Execute("DELETE FROM HocVien_Lop WHERE LopHocID = @lop AND HocVienID = @hv",
             p => { p.AddWithValue("@lop", lopHocId); p.AddWithValue("@hv", hocVienId); });
         return (true, "");
@@ -199,6 +286,7 @@ public class TrainingService
 
     public (bool Ok, string Error) DoiTrangThaiHocVienLop(int lopHocId, int hocVienId, string trangThai)
     {
+        Session.YeuCauQuanTriVien();
         if (trangThai is not (TrangThaiHocVienLop.DangHoc or TrangThaiHocVienLop.DaKetThuc or TrangThaiHocVienLop.ThoiHoc))
             return (false, "Trạng thái không hợp lệ.");
         Database.Execute("UPDATE HocVien_Lop SET TrangThai = @tt WHERE LopHocID = @lop AND HocVienID = @hv",
@@ -220,59 +308,88 @@ public class TrainingService
         Database.Query(@"
             SELECT mh.MonHocID, mh.TenMon
             FROM MonHoc mh
+            LEFT JOIN LopHoc lh ON lh.LopHocID = @lop
+            LEFT JOIN KhoaHoc kh ON kh.KhoaHocID = lh.KhoaHocID
             WHERE NOT EXISTS (
                 SELECT 1 FROM PhanCongGiangDay pc
                 WHERE pc.LopHocID = @lop AND pc.MonHocID = mh.MonHocID)
-            ORDER BY mh.TenMon",
+            ORDER BY CASE WHEN mh.MonHocID = kh.MonHocID THEN 0 ELSE 1 END, mh.TenMon",
             p => p.AddWithValue("@lop", lopHocId));
 
     public DataTable LayGiaoVienTheoMon(int monHocId) =>
         Database.Query(@"
-            SELECT gv.GiaoVienID, gv.HoTen
+            SELECT gv.GiaoVienID, 
+                   CASE 
+                       WHEN gvm.MonHocID IS NOT NULL AND tk.TenDangNhap IS NOT NULL 
+                           THEN gv.HoTen + N' (' + tk.TenDangNhap + N') [Đúng chuyên môn]'
+                       WHEN tk.TenDangNhap IS NOT NULL 
+                           THEN gv.HoTen + N' (' + tk.TenDangNhap + N')'
+                       ELSE gv.HoTen 
+                   END AS HoTen,
+                   CASE WHEN gvm.MonHocID IS NOT NULL THEN 0 ELSE 1 END AS ThuTu
             FROM GiaoVien gv
-            INNER JOIN GiaoVien_MonHoc gvm ON gvm.GiaoVienID = gv.GiaoVienID
-            WHERE gvm.MonHocID = @mon
-            ORDER BY gv.HoTen",
+            LEFT JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
+            LEFT JOIN GiaoVien_MonHoc gvm ON gvm.GiaoVienID = gv.GiaoVienID AND gvm.MonHocID = @mon
+            WHERE tk.TrangThai = N'HoatDong' OR tk.TrangThai IS NULL
+            ORDER BY ThuTu, gv.HoTen",
             p => p.AddWithValue("@mon", monHocId));
 
     public DataTable LayTatCaGiaoVien() =>
-        Database.Query("SELECT GiaoVienID, HoTen FROM GiaoVien ORDER BY HoTen");
+        Database.Query(@"
+            SELECT gv.GiaoVienID, 
+                   CASE WHEN tk.TenDangNhap IS NOT NULL 
+                        THEN gv.HoTen + N' (' + tk.TenDangNhap + N')' 
+                        ELSE gv.HoTen END AS HoTen
+            FROM GiaoVien gv
+            LEFT JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
+            WHERE tk.TrangThai = N'HoatDong' OR tk.TrangThai IS NULL
+            ORDER BY gv.HoTen");
 
     public (bool Ok, string Error) LuuPhanCong(int lopHocId, int monHocId, int giaoVienId, bool sua)
     {
+        Session.YeuCauQuanTriVien();
         if (lopHocId <= 0 || monHocId <= 0 || giaoVienId <= 0)
             return (false, "Hãy chọn đủ lớp, môn và giáo viên.");
-
-        // Giao vu phan cong lop -> tu dong ghi nhan GV duoc day mon do (neu chua co trong GiaoVien_MonHoc)
-        Database.Execute(@"
-            IF NOT EXISTS (SELECT 1 FROM GiaoVien_MonHoc WHERE GiaoVienID = @gv AND MonHocID = @mon)
-                INSERT INTO GiaoVien_MonHoc (GiaoVienID, MonHocID) VALUES (@gv, @mon)",
-            p => { p.AddWithValue("@gv", giaoVienId); p.AddWithValue("@mon", monHocId); });
 
         if (!sua && Database.ExecuteScalarInt(
                 "SELECT COUNT(1) FROM PhanCongGiangDay WHERE LopHocID = @lop AND MonHocID = @mon",
                 p => { p.AddWithValue("@lop", lopHocId); p.AddWithValue("@mon", monHocId); }) > 0)
             return (false, "Môn này đã có phân công cho lớp. Hãy sửa thay vì thêm mới.");
 
-        if (sua)
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
         {
-            Database.Execute(@"
+            using var cmd1 = new SqlCommand(@"
+                IF NOT EXISTS (SELECT 1 FROM GiaoVien_MonHoc WHERE GiaoVienID = @gv AND MonHocID = @mon)
+                    INSERT INTO GiaoVien_MonHoc (GiaoVienID, MonHocID) VALUES (@gv, @mon)", conn, tx);
+            cmd1.Parameters.AddWithValue("@gv", giaoVienId);
+            cmd1.Parameters.AddWithValue("@mon", monHocId);
+            cmd1.ExecuteNonQuery();
+
+            using var cmd2 = new SqlCommand(sua ? @"
                 UPDATE PhanCongGiangDay SET GiaoVienID = @gv
-                WHERE LopHocID = @lop AND MonHocID = @mon",
-                p => { p.AddWithValue("@gv", giaoVienId); p.AddWithValue("@lop", lopHocId); p.AddWithValue("@mon", monHocId); });
-        }
-        else
-        {
-            Database.Execute(@"
+                WHERE LopHocID = @lop AND MonHocID = @mon" : @"
                 INSERT INTO PhanCongGiangDay (LopHocID, MonHocID, GiaoVienID)
-                VALUES (@lop, @mon, @gv)",
-                p => { p.AddWithValue("@lop", lopHocId); p.AddWithValue("@mon", monHocId); p.AddWithValue("@gv", giaoVienId); });
+                VALUES (@lop, @mon, @gv)", conn, tx);
+            cmd2.Parameters.AddWithValue("@gv", giaoVienId);
+            cmd2.Parameters.AddWithValue("@lop", lopHocId);
+            cmd2.Parameters.AddWithValue("@mon", monHocId);
+            cmd2.ExecuteNonQuery();
+
+            tx.Commit();
+            return (true, "");
         }
-        return (true, "");
+        catch (Exception ex)
+        {
+            tx.Rollback();
+            return (false, "Lỗi phân công: " + ex.Message);
+        }
     }
 
     public (bool Ok, string Error) XoaPhanCong(int lopHocId, int monHocId)
     {
+        Session.YeuCauQuanTriVien();
         Database.Execute("DELETE FROM PhanCongGiangDay WHERE LopHocID = @lop AND MonHocID = @mon",
             p => { p.AddWithValue("@lop", lopHocId); p.AddWithValue("@mon", monHocId); });
         return (true, "");
@@ -288,8 +405,23 @@ public class TrainingService
 
     public (bool Ok, string Error, int Id) ThemLichHoc(int lopHocId, string? noiDung, DateTime batDau, DateTime ketThuc, string? diaDiem)
     {
+        Session.YeuCauQuanTriVien();
         if (lopHocId <= 0) return (false, "Hãy chọn lớp.", 0);
         if (ketThuc <= batDau) return (false, "Thời gian kết thúc phải sau thời gian bắt đầu.", 0);
+
+        var trungLich = Database.ExecuteScalarInt(@"
+            SELECT COUNT(1) FROM LichHoc
+            WHERE (LopHocID = @lop OR (@dd IS NOT NULL AND @dd <> N'' AND DiaDiem = @dd))
+              AND (ThoiGianBatDau < @kt AND ThoiGianKetThuc > @bd)",
+            p =>
+            {
+                p.AddWithValue("@lop", lopHocId);
+                p.AddWithValue("@dd", string.IsNullOrWhiteSpace(diaDiem) ? DBNull.Value : diaDiem.Trim());
+                p.AddWithValue("@bd", batDau);
+                p.AddWithValue("@kt", ketThuc);
+            }) > 0;
+        if (trungLich)
+            return (false, "Lịch học bị trùng thời gian với lớp học hoặc phòng học khác.", 0);
 
         var id = Database.ExecuteScalarInt(@"
             INSERT INTO LichHoc (LopHocID, NoiDung, ThoiGianBatDau, ThoiGianKetThuc, DiaDiem)
@@ -308,7 +440,25 @@ public class TrainingService
 
     public (bool Ok, string Error) SuaLichHoc(int lichHocId, int lopHocId, string? noiDung, DateTime batDau, DateTime ketThuc, string? diaDiem)
     {
+        Session.YeuCauQuanTriVien();
         if (ketThuc <= batDau) return (false, "Thời gian kết thúc phải sau thời gian bắt đầu.");
+
+        var trungLich = Database.ExecuteScalarInt(@"
+            SELECT COUNT(1) FROM LichHoc
+            WHERE LichHocID <> @id
+              AND (LopHocID = @lop OR (@dd IS NOT NULL AND @dd <> N'' AND DiaDiem = @dd))
+              AND (ThoiGianBatDau < @kt AND ThoiGianKetThuc > @bd)",
+            p =>
+            {
+                p.AddWithValue("@id", lichHocId);
+                p.AddWithValue("@lop", lopHocId);
+                p.AddWithValue("@dd", string.IsNullOrWhiteSpace(diaDiem) ? DBNull.Value : diaDiem.Trim());
+                p.AddWithValue("@bd", batDau);
+                p.AddWithValue("@kt", ketThuc);
+            }) > 0;
+        if (trungLich)
+            return (false, "Lịch học bị trùng thời gian với lớp học hoặc phòng học khác.");
+
         Database.Execute(@"
             UPDATE LichHoc SET LopHocID = @lop, NoiDung = @nd, ThoiGianBatDau = @bd, ThoiGianKetThuc = @kt, DiaDiem = @dd
             WHERE LichHocID = @id",
@@ -326,6 +476,7 @@ public class TrainingService
 
     public (bool Ok, string Error) XoaLichHoc(int lichHocId)
     {
+        Session.YeuCauQuanTriVien();
         Database.Execute("DELETE FROM LichHoc WHERE LichHocID = @id", p => p.AddWithValue("@id", lichHocId));
         return (true, "");
     }

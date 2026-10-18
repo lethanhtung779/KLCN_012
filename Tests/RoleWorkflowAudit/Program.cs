@@ -11,7 +11,7 @@ using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
 
-var repo = Path.GetFullPath(args.FirstOrDefault() ?? ".");
+var repo = Path.GetFullPath(args.FirstOrDefault(a => !a.StartsWith("--")) ?? ".");
 var apiRoot = Path.Combine(repo, "QLThiTN", "QLThiTN.API");
 var auditOutput = Path.Combine(repo, "audit", "2026-10-18");
 Directory.CreateDirectory(auditOutput);
@@ -262,7 +262,8 @@ try
     Check(repeatUser.TaiKhoanID == googleUser.TaiKhoanID, "Google login reuses existing account for same email");
 
     await WorkflowProbes.Run(db, a, b, anonymous, student, other, exam, question);
-    DesktopProbes.Run(connection.ConnectionString, auditOutput, teacher.GiaoVienID, teacher.TaiKhoanID, topic.ChuDeID, subject.MonHocID, exam.DeThiID);
+    DesktopProbes.Run(connection.ConnectionString, auditOutput, teacher.GiaoVienID, teacher.TaiKhoanID, topic.ChuDeID, subject.MonHocID, exam.DeThiID,
+        visible: args.Contains("--visible"));
     await db.CauHois.Where(x => x.CauHoiID == question.CauHoiID).ExecuteUpdateAsync(s =>
         s.SetProperty(x => x.NoiDung, "2 + 2? <img src='/audit-missing' onerror='window.__auditXss=true'>"));
     var node = new ProcessStartInfo("node") { WorkingDirectory = repo, UseShellExecute = false, CreateNoWindow = true };
@@ -271,8 +272,25 @@ try
     node.ArgumentList.Add(auditOutput);
     node.ArgumentList.Add(exam.DeThiID.ToString());
     var extraNodeModules = Environment.GetEnvironmentVariable("PLAYWRIGHT_NODE_MODULES");
+    if (string.IsNullOrWhiteSpace(extraNodeModules))
+    {
+        var candidatePath = Path.GetFullPath(Path.Combine(repo, "..", "test", "browser-audit", "node_modules"));
+        if (Directory.Exists(candidatePath)) extraNodeModules = candidatePath;
+    }
     if (!string.IsNullOrWhiteSpace(extraNodeModules)) node.Environment["NODE_PATH"] = extraNodeModules;
-    using (var browserProcess = Process.Start(node)!) { await browserProcess.WaitForExitAsync(); WorkflowProbes.Record("BROWSER", $"Browser checks exit code {browserProcess.ExitCode}."); }
+    node.RedirectStandardOutput = true;
+    node.RedirectStandardError = true;
+    using (var browserProcess = Process.Start(node)!)
+    {
+        var stdOutTask = browserProcess.StandardOutput.ReadToEndAsync();
+        var stdErrTask = browserProcess.StandardError.ReadToEndAsync();
+        await browserProcess.WaitForExitAsync();
+        var stdErr = await stdErrTask;
+        var stdOut = await stdOutTask;
+        if (browserProcess.ExitCode != 0 && !string.IsNullOrWhiteSpace(stdErr))
+            Console.WriteLine($"BROWSER stderr: {stdErr}");
+        WorkflowProbes.Record("BROWSER", $"Browser checks exit code {browserProcess.ExitCode}.");
+    }
     File.WriteAllLines(Path.Combine(auditOutput, "observations.md"), WorkflowProbes.Observations);
     await db.TaiKhoans.Where(x => x.TaiKhoanID == student.TaiKhoanID).ExecuteUpdateAsync(s => s.SetProperty(x => x.TrangThai, "BiKhoa"));
     Check((await a.GetAsync($"/api/auth/profile/{student.TaiKhoanID}")).StatusCode == HttpStatusCode.Unauthorized, "Locking account revokes existing token");

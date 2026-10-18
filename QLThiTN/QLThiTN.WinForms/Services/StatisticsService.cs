@@ -6,16 +6,48 @@ namespace QLThiTN.WinForms.Services;
 /// <summary>Thong ke ket qua thi: theo ky thi, theo hoc vien, chat luong cau hoi.</summary>
 public class StatisticsService
 {
-    public DataTable LayDanhSachDotThiChoThongKe() =>
-        Database.Query(@"
+    private static void KiemTraQuyenDotThi(int dotThiId)
+    {
+        if (!Session.IsGiaoVien) return;
+        var coQuyen = Database.ExecuteScalarInt(@"
+            SELECT COUNT(1) FROM DotThi dt
+            JOIN DeThi d ON d.DeThiID = dt.DeThiID
+            JOIN GiaoVien_MonHoc gm ON gm.MonHocID = d.MonHocID
+            WHERE dt.DotThiID = @dt AND gm.GiaoVienID = @gv",
+            p =>
+            {
+                p.AddWithValue("@dt", dotThiId);
+                p.AddWithValue("@gv", Session.GiaoVienID);
+            }) > 0;
+        if (!coQuyen)
+            throw new UnauthorizedAccessException("Bạn không được phân công phụ trách môn học của đợt thi này.");
+    }
+
+    public DataTable LayDanhSachDotThiChoThongKe()
+    {
+        if (Session.IsGiaoVien)
+        {
+            return Database.Query(@"
+                SELECT dt.DotThiID, dt.TenDotThi + N' — ' + d.TenDe AS HienThi
+                FROM DotThi dt
+                JOIN DeThi d ON d.DeThiID = dt.DeThiID
+                JOIN GiaoVien_MonHoc gm ON gm.MonHocID = d.MonHocID
+                WHERE gm.GiaoVienID = @gv
+                ORDER BY dt.ThoiGianMoCong DESC",
+                p => p.AddWithValue("@gv", Session.GiaoVienID));
+        }
+        return Database.Query(@"
             SELECT dt.DotThiID, dt.TenDotThi + N' — ' + d.TenDe AS HienThi
             FROM DotThi dt
             JOIN DeThi d ON d.DeThiID = dt.DeThiID
             ORDER BY dt.ThoiGianMoCong DESC");
+    }
 
     /// <summary>Ket qua chi tiet tung hoc vien trong dot thi.</summary>
-    public List<KetQuaThi> LayKetQuaDotThi(int dotThiId) =>
-        Database.ReadList(@"
+    public List<KetQuaThi> LayKetQuaDotThi(int dotThiId)
+    {
+        KiemTraQuyenDotThi(dotThiId);
+        return Database.ReadList(@"
             SELECT bl.BaiLamID, COALESCE(hv.HoTen, N'(khách)') AS HoTen, tk.TenDangNhap,
                    bl.LanThi, bl.TongDiem, bl.ThoiGianBatDau, bl.ThoiGianNop, bl.TrangThai
             FROM BaiLam bl
@@ -35,11 +67,14 @@ public class StatisticsService
                 TrangThai = r.GetString(7)
             },
             p => p.AddWithValue("@id", dotThiId));
+    }
 
     /// <summary>Ti le dung/sai tung cau hoi trong dot thi — do chat luong cau hoi.
     /// TracNghiem/DungSai: dung khi lua chon khop dap an; TraLoiNgan: dung khi DiemDatDuoc = toi da.</summary>
-    public List<ThongKeCauHoi> LayChatLuongCauHoi(int dotThiId) =>
-        Database.ReadList(@"
+    public List<ThongKeCauHoi> LayChatLuongCauHoi(int dotThiId)
+    {
+        KiemTraQuyenDotThi(dotThiId);
+        return Database.ReadList(@"
             SELECT dch.CauHoiID, dch.ThuTu, c.NoiDung,
                    COUNT(ct.ChiTietID) AS SoLanTraLoi,
                    SUM(CASE WHEN ct.DiemDatDuoc >= c.Diem THEN 1 ELSE 0 END) AS SoLanDung
@@ -59,6 +94,7 @@ public class StatisticsService
                 SoLanDung = r.IsDBNull(4) ? 0 : r.GetInt32(4)
             },
             p => p.AddWithValue("@id", dotThiId));
+    }
 
     /// <summary>Phan bo diem (so bai theo khoang diem 0-10, buoc 1 diem).</summary>
     public Dictionary<string, int> PhanBoDiem(List<KetQuaThi> ketQua)

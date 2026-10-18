@@ -105,11 +105,21 @@ public class DotThiController : ControllerBase
     public async Task<IActionResult> DangKy(int id, [FromBody] DangKyDotThiRequestDto request)
     {
         if (request.HocVienID != User.StudentId()) return Forbid();
+        await using var transaction = await ExamTransaction.BeginAsync(_db, $"register:{id}");
         var dot = await _db.DotThis.FirstOrDefaultAsync(d => d.DotThiID == id);
         if (dot is null) return NotFound(new { message = "Khong tim thay dot thi" });
 
         if (dot.TrangThai == "DaDong" || dot.ThoiGianDongCong < DateTime.Now)
             return BadRequest(new { message = "Dot thi da dong, khong the dang ky" });
+
+        if (dot.PhamVi == "TheoLop")
+        {
+            var thuocLop = await _db.DotThi_LopHocs
+                .AnyAsync(dtl => dtl.DotThiID == dot.DotThiID &&
+                    _db.HocVien_Lops.Any(hvl => hvl.LopHocID == dtl.LopHocID && hvl.HocVienID == request.HocVienID && hvl.TrangThai == "DangHoc"));
+            if (!thuocLop)
+                return StatusCode(403, new { message = "Đợt thi chỉ dành cho các lớp học được phân công. Bạn không thuộc danh sách dự thi." });
+        }
 
         var hv = await _db.HocViens.FindAsync(request.HocVienID);
         if (hv is null) return BadRequest(new { message = "Hoc vien khong ton tai" });
@@ -122,7 +132,7 @@ public class DotThiController : ControllerBase
         if (existing is not null && existing.TrangThai != "DaHuy")
             return Conflict(new { message = "Ban da dang ky dot thi nay" });
 
-        if (dot.GioiHanSoLuong.HasValue && existing is null)
+        if (dot.GioiHanSoLuong.HasValue)
         {
             var soDangKy = await _db.DangKyDotThis
                 .CountAsync(k => k.DotThiID == id && k.TrangThai != "DaHuy");
@@ -146,6 +156,7 @@ public class DotThiController : ControllerBase
             });
         }
         await _db.SaveChangesAsync();
+        await transaction.CommitAsync();
 
         return Ok(new { message = "Dang ky dot thi thanh cong" });
     }

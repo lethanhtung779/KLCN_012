@@ -22,7 +22,7 @@ public class RegisterRequestDto
     [Required]
     public string FullName { get; set; } = string.Empty;
 
-    [Required]
+    [Required, MinLength(6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự.")]
     public string Password { get; set; } = string.Empty;
 
     public string VaiTro { get; set; } = "HocVien";

@@ -24,6 +24,7 @@ public static class Ui
     /// <summary>Don dep + trang tri DataGridView theo nhan dien chung.</summary>
     public static void StyleGrid(DataGridView grid)
     {
+        EnableDoubleBuffering(grid);
         grid.BorderStyle = BorderStyle.None;
         grid.BackgroundColor = Color.White;
         grid.AllowUserToAddRows = false;
@@ -74,7 +75,7 @@ public static class Ui
     {
         var b = new Button
         {
-            Text = text,
+            Text = CleanActionText(text),
             Width = w,
             Height = h,
             FlatStyle = FlatStyle.Flat,
@@ -92,7 +93,7 @@ public static class Ui
     {
         var b = new Button
         {
-            Text = text,
+            Text = CleanActionText(text),
             Width = w,
             Height = h,
             FlatStyle = FlatStyle.Flat,
@@ -110,7 +111,7 @@ public static class Ui
         var c = color ?? Navy;
         var b = new Button
         {
-            Text = text,
+            Text = CleanActionText(text),
             Width = w,
             Height = h,
             FlatStyle = FlatStyle.Flat,
@@ -126,6 +127,14 @@ public static class Ui
 
     public static Button ButtonDanger(string text, int w = 140, int h = 38) =>
         ButtonOutline(text, w, h, Danger);
+
+    private static string CleanActionText(string text)
+    {
+        // Emoji đầu nhãn thường hiện thành ô vuông trên máy không có font biểu tượng.
+        var firstLetter = 0;
+        while (firstLetter < text.Length && !char.IsLetterOrDigit(text[firstLetter])) firstLetter++;
+        return text[firstLetter..];
+    }
 
     public static Label Label(string text, Font? font = null, Color? color = null)
     {
@@ -169,5 +178,16 @@ public static class Ui
             TextRenderer.DrawText(e.Graphics, owner.Text, owner.Font, owner.ClientRectangle, Color.White,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
         };
+    }
+
+    /// <summary>Bật chế độ DoubleBuffered giúp lưới vẽ mượt mà, không bị chớp giật hay đơ khi tải nhiều dòng.</summary>
+    public static void EnableDoubleBuffering(Control c)
+    {
+        try
+        {
+            typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                ?.SetValue(c, true, null);
+        }
+        catch { }
     }
 }

@@ -72,6 +72,9 @@ IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
     public static int ExecuteScalarInt(string sql, Action<SqlParameterCollection>? bind = null) =>
         Convert.ToInt32(ExecuteScalar(sql, bind) ?? 0);
 
+    public static string ExecuteScalarString(string sql, Action<SqlParameterCollection>? bind = null) =>
+        ExecuteScalar(sql, bind)?.ToString() ?? "";
+
     /// <summary>Lay DataTable cho DataGridView va cac man hinh danh sach.</summary>
     public static DataTable Query(string sql, Action<SqlParameterCollection>? bind = null)
     {

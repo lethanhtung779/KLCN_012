@@ -1,4 +1,4 @@
-﻿using QLThiTN.WinForms.Models;
+using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
 
@@ -20,6 +20,28 @@ public static class Session
     public static int GiaoVienID => IsGiaoVien ? Current?.ProfileID ?? 0 : 0;
 
     public static string HoTen => Current?.HoTen ?? Current?.TenDangNhap ?? "";
+
+    public static bool IsAccountActive()
+    {
+        if (Current == null) return false;
+        try
+        {
+            var trangThai = Database.ExecuteScalarString($"SELECT TrangThai FROM TaiKhoan WHERE TaiKhoanID = {Current.TaiKhoanID}");
+            if (!string.IsNullOrEmpty(trangThai) && trangThai != "HoatDong")
+            {
+                Clear();
+                return false;
+            }
+        }
+        catch { }
+        return true;
+    }
+
+    public static void YeuCauQuanTriVien()
+    {
+        if (!IsQuanTriVien || !IsAccountActive())
+            throw new UnauthorizedAccessException("Chức năng chỉ dành cho quản trị viên hệ thống có tài khoản đang hoạt động.");
+    }
 }
 
 /// <summary>Dang nhap, doi mat khau cho phan he Quan tri & Giao vien.</summary>

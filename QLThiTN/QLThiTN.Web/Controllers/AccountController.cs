@@ -48,7 +48,13 @@ public class AccountController : Controller
         if (HttpContext.Session.GetString(SessionUser) != null)
             return RedirectToAction("Index", "Home");
         ViewBag.ReturnUrl = returnUrl;
-        return View(new LoginViewModel());
+        var model = new LoginViewModel();
+        if (Request.Cookies.TryGetValue("RememberedUsername", out var remUser) && !string.IsNullOrWhiteSpace(remUser))
+        {
+            model.Username = remUser;
+            model.RememberMe = true;
+        }
+        return View(model);
     }
 
     [HttpPost]
@@ -66,6 +72,21 @@ public class AccountController : Controller
         }
 
         SetUserSession(user);
+
+        if (model.RememberMe)
+        {
+            Response.Cookies.Append("RememberedUsername", model.Username.Trim(), new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddDays(30),
+                HttpOnly = true,
+                Secure = Request.IsHttps,
+                SameSite = SameSiteMode.Lax
+            });
+        }
+        else
+        {
+            Response.Cookies.Delete("RememberedUsername");
+        }
 
         if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
             return Redirect(returnUrl);

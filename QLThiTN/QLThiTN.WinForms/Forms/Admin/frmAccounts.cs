@@ -13,6 +13,7 @@ public class frmAccounts : Form
 
     public frmAccounts()
     {
+        Session.YeuCauQuanTriVien();
         Text = "Quản lý tài khoản";
         Font = Ui.Body;
 
@@ -27,6 +28,9 @@ public class frmAccounts : Form
 
         var btnTim = Ui.ButtonPrimary("Tìm kiếm", 110);
         btnTim.Click += (s, e) => TaiLai();
+
+        var btnLamMoi = Ui.ButtonOutline("Làm mới", 100);
+        btnLamMoi.Click += (s, e) => { _txtTim.Text = ""; _cboVaiTro.SelectedIndex = 0; TaiLai(); };
 
         var btnThem = Ui.ButtonAccent("＋ Thêm tài khoản", 170);
         btnThem.Click += (s, e) => { using var f = new frmAccountEdit(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
@@ -59,7 +63,7 @@ public class frmAccounts : Form
             BackColor = Color.White,
             WrapContents = true
         };
-        foreach (Control c in new Control[] { lblTim, _txtTim, _cboVaiTro, btnTim, btnThem, btnSua, btnKhoa, btnMatKhau, btnGoi, btnXoa })
+        foreach (Control c in new Control[] { lblTim, _txtTim, _cboVaiTro, btnTim, btnLamMoi, btnThem, btnSua, btnKhoa, btnMatKhau, btnGoi, btnXoa })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);

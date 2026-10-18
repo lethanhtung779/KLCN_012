@@ -14,7 +14,7 @@
             {
                 <div class="input-group" style="max-width: 320px;">
                     <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                    <input type="text" id="searchHistory" class="form-control" placeholder="Tìm theo tên kỳ thi / môn học...">
+                    <input type="text" id="searchHistory" class="form-control" placeholder="Tìm theo tên kỳ thi / môn học..." aria-label="Tìm kiếm lịch sử thi">
                 </div>
             }
         </div>
@@ -189,19 +189,18 @@
             // Vẽ biểu đồ điểm số bằng Chart.js
             var chartEl = document.getElementById('scoreHistoryChart');
             if (chartEl) {
-                var labels = [];
-                var scores = [];
-
                 @if (Model.Items.Any(i => i.ScorePublished))
                 {
                     var sortedPublished = Model.Items.Where(i => i.ScorePublished).OrderBy(i => i.EndTime).ToList();
-                    foreach (var p in sortedPublished)
-                    {
-                        var shortTitle = p.ExamTitle.Length > 20 ? p.ExamTitle.Substring(0, 18) + "..." : p.ExamTitle;
-                        var dateStr = p.EndTime?.ToString("dd/MM") ?? "";
-                        @:labels.push('@Html.Raw(shortTitle) (@dateStr)');
-                        @:scores.push(@p.Score);
-                    }
+                    var chartLabels = sortedPublished.Select(p => $"{(p.ExamTitle.Length > 20 ? p.ExamTitle.Substring(0, 18) + "..." : p.ExamTitle)} ({(p.EndTime?.ToString("dd/MM") ?? "")})").ToList();
+                    var chartScores = sortedPublished.Select(p => p.Score).ToList();
+                    @:var labels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartLabels));
+                    @:var scores = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(chartScores));
+                }
+                else
+                {
+                    @:var labels = [];
+                    @:var scores = [];
                 }
 
                 new Chart(chartEl, {

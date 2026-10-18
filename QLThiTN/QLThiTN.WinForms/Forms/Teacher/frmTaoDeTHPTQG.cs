@@ -18,13 +18,16 @@ public class frmTaoDeTHPTQG : Form
     private readonly TextBox _txtTenDe = Ui.Input(360);
     private readonly ComboBox _cboLoaiDe = Ui.Combo(180);
     private readonly NumericUpDown _numSoMaDe = new() { Width = 80, Minimum = 1, Maximum = 24, Value = 4, Font = Ui.Body };
-    private readonly CheckBox _chkTuDongTron = new() { Text = "🔀 Tự động trộn & sinh luôn 4 mã đề (101, 102...)", AutoSize = true, Checked = true, Font = Ui.Body };
+    private readonly NumericUpDown _numSoChuDeToiThieu = new() { Width = 70, Minimum = 1, Maximum = 99, Value = 1, Font = Ui.Body };
+    private readonly NumericUpDown _numCauMoiChuDe = new() { Width = 70, Minimum = 1, Maximum = 99, Value = 1, Font = Ui.Body };
+    private readonly CheckBox _chkTuDongTron = new() { Text = "Tự động trộn và sinh mã đề (101, 102...)", AutoSize = true, Checked = true, Font = Ui.Body };
 
     // Grid ma trận chủ đề
     private readonly DataGridView _gridMaTran = new();
 
     // Thống kê tổng số câu
     private readonly Label _lblTongKet = Ui.Label("", Ui.H2, Ui.Navy);
+    private readonly Label _lblMucDo = Ui.Label("", Ui.Body, Ui.TextMuted);
     private readonly Label _lblGoiYChuan = Ui.Label("", Ui.Small, Ui.TextMuted);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
 
@@ -33,10 +36,10 @@ public class frmTaoDeTHPTQG : Form
     public frmTaoDeTHPTQG(int? giaoVienId = null)
     {
         _examService = new ExamService(giaoVienId);
-        Text = "Tạo đề thi chuẩn cấu trúc THPT Quốc gia (Ma trận Chủ đề)";
+        Text = "Tạo đề thi theo ma trận chủ đề và mức độ";
         StartPosition = FormStartPosition.CenterParent;
-        Size = new Size(1020, 720);
-        MinimumSize = new Size(920, 600);
+        Size = new Size(1120, 760);
+        MinimumSize = new Size(1000, 650);
         Font = Ui.Body;
         BackColor = Ui.BgSoft;
 
@@ -48,9 +51,9 @@ public class frmTaoDeTHPTQG : Form
             BackColor = Color.White,
             Padding = new Padding(20, 12, 20, 8)
         };
-        var lblTitle = Ui.Label("🎓 TẠO ĐỀ THI CHUẨN MA TRẬN THPT QUỐC GIA", Ui.H1, Ui.Navy);
+        var lblTitle = Ui.Label("TẠO ĐỀ THI THEO MA TRẬN", Ui.H1, Ui.Navy);
         lblTitle.Location = new Point(20, 10);
-        var lblSub = Ui.Label("Cấu trúc 3 phần theo chuẩn Bộ GD&ĐT: Phần I (Trắc nghiệm A-D), Phần II (Đúng/Sai 4 ý), Phần III (Trả lời ngắn). Phân bổ số câu linh hoạt theo từng chủ đề.",
+        var lblSub = Ui.Label("Phân bổ câu hỏi theo chủ đề, mức độ tư duy và dạng câu. Cấu trúc gợi ý thay đổi theo môn.",
             Ui.Small, Ui.TextMuted);
         lblSub.Location = new Point(20, 42);
         pnlHeader.Controls.AddRange([lblTitle, lblSub]);
@@ -84,7 +87,7 @@ public class frmTaoDeTHPTQG : Form
         _cboLoaiDe.Items.Add(new ComboItem("OnTap", "Bài tập về nhà"));
         _cboLoaiDe.SelectedIndex = 0;
 
-        var btnNapChuan = Ui.ButtonAccent("⚡ Nạp Ma trận chuẩn Bộ GD&ĐT", 250, 36);
+        var btnNapChuan = Ui.ButtonAccent("Nạp gợi ý cấu trúc môn", 250, 36);
         btnNapChuan.Location = new Point(20, 68);
         btnNapChuan.Click += (s, e) => NapMaTranChuanBo();
 
@@ -101,7 +104,7 @@ public class frmTaoDeTHPTQG : Form
             Padding = new Padding(20, 10, 20, 10)
         };
 
-        var lblGridTitle = Ui.Label("Bảng phân bổ số lượng câu hỏi theo Chủ đề:", Ui.H2, Ui.Navy);
+        var lblGridTitle = Ui.Label("Phân bổ theo chủ đề × mức độ tư duy × dạng câu (chỉ sửa các cột số câu):", Ui.H2, Ui.Navy);
         lblGridTitle.Dock = DockStyle.Top;
         lblGridTitle.Height = 28;
 
@@ -109,6 +112,26 @@ public class frmTaoDeTHPTQG : Form
         _gridMaTran.Dock = DockStyle.Fill;
         _gridMaTran.ReadOnly = false;
         _gridMaTran.CellValueChanged += (s, e) => CapNhatTongKet();
+        _gridMaTran.CellValidating += (_, e) =>
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            var col = _gridMaTran.Columns[e.ColumnIndex].Name;
+            var khoCol = col switch { "SoTN" => "KhoTN", "SoDS" => "KhoDS", "SoTLN" => "KhoTLN", _ => "" };
+            if (khoCol.Length == 0) return;
+            var khoText = _gridMaTran.Rows[e.RowIndex].Cells[khoCol].Value?.ToString()?.TrimStart('/') ?? "0";
+            int.TryParse(khoText, out var kho);
+            if (!int.TryParse(e.FormattedValue?.ToString(), out var count) || count < 0 || count > kho)
+            {
+                _gridMaTran.Rows[e.RowIndex].ErrorText = $"Nhập số từ 0 đến {kho} cho ô này.";
+                _lblError.Text = _gridMaTran.Rows[e.RowIndex].ErrorText;
+                e.Cancel = true;
+            }
+        };
+        _gridMaTran.CellEndEdit += (_, e) =>
+        {
+            _gridMaTran.Rows[e.RowIndex].ErrorText = "";
+            _lblError.Text = "";
+        };
         _gridMaTran.CurrentCellDirtyStateChanged += (s, e) =>
         {
             if (_gridMaTran.IsCurrentCellDirty)
@@ -123,7 +146,7 @@ public class frmTaoDeTHPTQG : Form
         var pnlBottom = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 115,
+            Height = 164,
             BackColor = Color.White,
             Padding = new Padding(20, 10, 20, 10)
         };
@@ -131,24 +154,35 @@ public class frmTaoDeTHPTQG : Form
         _lblTongKet.Location = new Point(20, 10);
         _lblTongKet.AutoSize = true;
 
-        _lblError.Location = new Point(20, 42);
+        _lblMucDo.Location = new Point(20, 39);
+        _lblMucDo.AutoSize = true;
+
+        _lblError.Location = new Point(20, 67);
         _lblError.AutoSize = true;
 
-        _chkTuDongTron.Location = new Point(20, 70);
+        _chkTuDongTron.Location = new Point(20, 99);
         var lblSoMa = Ui.Label("Số mã đề:", Ui.Body, Ui.Navy);
-        lblSoMa.Location = new Point(410, 72);
-        _numSoMaDe.Location = new Point(490, 70);
+        lblSoMa.Location = new Point(410, 101);
+        _numSoMaDe.Location = new Point(490, 99);
 
-        var btnTaoDe = Ui.ButtonAccent("⚡ Tạo đề thi & Sinh mã đề", 220, 42);
+        var lblSoChuDe = Ui.Label("Ít nhất chủ đề:", Ui.Body, Ui.Navy);
+        lblSoChuDe.Location = new Point(20, 128);
+        _numSoChuDeToiThieu.Location = new Point(145, 124);
+        var lblCauMoiChuDe = Ui.Label("Ít nhất câu/chủ đề:", Ui.Body, Ui.Navy);
+        lblCauMoiChuDe.Location = new Point(235, 128);
+        _numCauMoiChuDe.Location = new Point(405, 124);
+
+        var btnTaoDe = Ui.ButtonAccent("Tạo đề thi và sinh mã", 220, 42);
         Ui.GradientButton(btnTaoDe, Ui.Accent, Ui.Accent2);
-        btnTaoDe.Location = new Point(620, 62);
+        btnTaoDe.Location = new Point(620, 92);
         btnTaoDe.Click += (s, e) => ThucHienTaoDe();
 
         var btnHuy = Ui.ButtonOutline("Hủy", 100, 42);
-        btnHuy.Location = new Point(860, 62);
+        btnHuy.Location = new Point(860, 92);
         btnHuy.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-        pnlBottom.Controls.AddRange([_lblTongKet, _lblError, _chkTuDongTron, lblSoMa, _numSoMaDe, btnTaoDe, btnHuy]);
+        pnlBottom.Controls.AddRange([_lblTongKet, _lblMucDo, _lblError, _chkTuDongTron, lblSoMa,
+            _numSoMaDe, lblSoChuDe, _numSoChuDeToiThieu, lblCauMoiChuDe, _numCauMoiChuDe, btnTaoDe, btnHuy]);
 
         Controls.Add(pnlGridWrap);
         Controls.Add(pnlBottom);
@@ -172,12 +206,14 @@ public class frmTaoDeTHPTQG : Form
 
         _txtTenDe.Text = $"Đề thi thử THPT Quốc gia - Môn {tenMon} ({DateTime.Now:dd/MM/yyyy})";
 
-        var dtPool = _examService.LayMaTranChuDeTheoMon(monId);
+        var dtPool = _examService.LayMaTranTheoChuDeVaMucDo(monId);
 
         // Tạo bảng giao diện ma trận
         var table = new DataTable();
         table.Columns.Add("ChuDeID", typeof(int));
         table.Columns.Add("TenChuDe", typeof(string));
+        table.Columns.Add("MucDoKho", typeof(string));
+        table.Columns.Add("TenMucDo", typeof(string));
         table.Columns.Add("SoTN", typeof(int));
         table.Columns.Add("KhoTN", typeof(string));
         table.Columns.Add("SoDS", typeof(int));
@@ -191,6 +227,8 @@ public class frmTaoDeTHPTQG : Form
             var row = table.NewRow();
             row["ChuDeID"] = r["ChuDeID"];
             row["TenChuDe"] = r["TenChuDe"];
+            row["MucDoKho"] = r["MucDoKho"];
+            row["TenMucDo"] = MucDoKho.Display(r["MucDoKho"].ToString()!);
             row["SoTN"] = 0;
             row["KhoTN"] = $"/{r["SoTN"]}";
             row["SoDS"] = 0;
@@ -204,15 +242,16 @@ public class frmTaoDeTHPTQG : Form
         _gridMaTran.DataSource = table;
 
         Ui.RenameColumns(_gridMaTran,
-            ("TenChuDe", "Tên Chủ đề / Chuyên đề"),
-            ("SoTN", "Phần I: TN (A-D)"),
+            ("TenChuDe", "Chủ đề"),
+            ("TenMucDo", "Mức độ"),
+            ("SoTN", "I: TN (A-D)"),
             ("KhoTN", "Kho TN"),
-            ("SoDS", "Phần II: Đúng/Sai"),
+            ("SoDS", "II: Đúng/Sai"),
             ("KhoDS", "Kho Đ/S"),
-            ("SoTLN", "Phần III: Trả lời ngắn"),
+            ("SoTLN", "III: TL ngắn"),
             ("KhoTLN", "Kho TLN"),
             ("TongCau", "Tổng câu"));
-        Ui.HideColumns(_gridMaTran, "ChuDeID");
+        Ui.HideColumns(_gridMaTran, "ChuDeID", "MucDoKho");
 
         // Cấu hình cột nào được sửa, cột nào chỉ xem
         foreach (DataGridViewColumn col in _gridMaTran.Columns)
@@ -235,7 +274,7 @@ public class frmTaoDeTHPTQG : Form
             }
         }
 
-        // Tự động nạp cấu trúc chuẩn luôn khi vừa chọn môn
+        // Gợi ý phân bổ theo dạng câu và mức độ; người dùng có thể sửa từng ô.
         NapMaTranChuanBo();
     }
 
@@ -248,31 +287,40 @@ public class frmTaoDeTHPTQG : Form
         int chuanDS = 4;
         int chuanTLN = 6;
 
-        if (tenMon.Contains("Toan", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Toán", StringComparison.OrdinalIgnoreCase))
+        if (tenMon.Contains("Ngữ văn", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Ngu van", StringComparison.OrdinalIgnoreCase))
+        {
+            chuanTN = chuanDS = chuanTLN = 0;
+            _lblGoiYChuan.Text = "Ngữ văn là bài tự luận; màn hình ma trận trắc nghiệm này chưa tạo được đề Văn.";
+        }
+        else if (tenMon.Contains("Toan", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Toán", StringComparison.OrdinalIgnoreCase))
         {
             chuanTN = 12;
             chuanDS = 4;
             chuanTLN = 6;
-            _lblGoiYChuan.Text = "Chuẩn Bộ GD&ĐT môn Toán: 12 câu Phần I, 4 câu Phần II, 6 câu Phần III (Tổng 22 câu / 90 phút).";
+            _lblGoiYChuan.Text = "Gợi ý Toán: 12 TN, 4 Đ/S, 6 trả lời ngắn. Kiểm tra lại trước khi tạo.";
         }
-        else if (tenMon.Contains("Tieng Anh", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Tiếng Anh", StringComparison.OrdinalIgnoreCase))
+        else if (tenMon.Contains("Tiếng", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Tieng", StringComparison.OrdinalIgnoreCase)
+            || tenMon.Contains("Ngoại ngữ", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Ngoai ngu", StringComparison.OrdinalIgnoreCase))
         {
             chuanTN = 40;
             chuanDS = 0;
             chuanTLN = 0;
-            _lblGoiYChuan.Text = "Chuẩn Bộ GD&ĐT môn Tiếng Anh: 40 câu trắc nghiệm 4 lựa chọn (Tổng 40 câu / 50 phút).";
+            _lblGoiYChuan.Text = "Gợi ý Ngoại ngữ: 40 câu TN. Các bài đọc chung ngữ liệu cần chọn và duyệt riêng.";
         }
-        else if (tenMon.Contains("Lich Su", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Lịch sử", StringComparison.OrdinalIgnoreCase))
+        else if (tenMon.Contains("Lich Su", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Lịch sử", StringComparison.OrdinalIgnoreCase)
+            || tenMon.Contains("Kinh tế", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Kinh te", StringComparison.OrdinalIgnoreCase)
+            || tenMon.Contains("Công nghệ", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Cong nghe", StringComparison.OrdinalIgnoreCase)
+            || tenMon.Contains("Tin học", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Tin hoc", StringComparison.OrdinalIgnoreCase))
         {
-            chuanTN = 18;
+            chuanTN = 24;
             chuanDS = 4;
             chuanTLN = 0;
-            _lblGoiYChuan.Text = "Chuẩn Bộ GD&ĐT môn Lịch sử: 18 câu Phần I, 4 câu Phần II (Tổng 22 câu / 50 phút).";
+            _lblGoiYChuan.Text = "Gợi ý: 24 TN, 4 Đ/S. Tin học có nhánh tự chọn cần biên tập riêng.";
         }
         else
         {
             // Vật lý, Hóa học, Sinh học, Địa lí, Tin học, Công nghệ
-            _lblGoiYChuan.Text = $"Chuẩn Bộ GD&ĐT môn {tenMon}: 18 câu Phần I, 4 câu Phần II, 6 câu Phần III (Tổng 28 câu / 50 phút).";
+            _lblGoiYChuan.Text = $"Gợi ý {tenMon}: 18 TN, 4 Đ/S, 6 trả lời ngắn. Kiểm tra lại trước khi tạo.";
         }
 
         // Phân bổ đều và thông minh theo số câu có sẵn trong kho
@@ -290,15 +338,33 @@ public class frmTaoDeTHPTQG : Form
         }
 
         // Phân bổ Phần I (TN)
-        PhanBoCau(rows, "SoTN", "KhoTN", chuanTN);
+        PhanBoCauTheoMucDo(rows, "SoTN", "KhoTN", chuanTN);
 
         // Phân bổ Phần II (Đ/S)
-        PhanBoCau(rows, "SoDS", "KhoDS", chuanDS);
+        PhanBoCauTheoMucDo(rows, "SoDS", "KhoDS", chuanDS);
 
         // Phân bổ Phần III (TLN)
-        PhanBoCau(rows, "SoTLN", "KhoTLN", chuanTLN);
+        PhanBoCauTheoMucDo(rows, "SoTLN", "KhoTLN", chuanTLN);
 
         CapNhatTongKet();
+    }
+
+    private void PhanBoCauTheoMucDo(List<DataGridViewRow> rows, string colSo, string colKho, int canPhanBo)
+    {
+        var levels = new[] { "NhanBiet", "ThongHieu", "VanDung", "VanDungCao" };
+        var weights = new[] { 0.40, 0.30, 0.20, 0.10 }; // Gợi ý, không phải tỷ lệ bắt buộc.
+        var targets = weights.Select(w => (int)Math.Floor(canPhanBo * w)).ToArray();
+        var phanDu = canPhanBo - targets.Sum();
+        foreach (var i in Enumerable.Range(0, weights.Length)
+            .OrderByDescending(i => canPhanBo * weights[i] - targets[i]).Take(phanDu))
+            targets[i]++;
+        for (var i = 0; i < levels.Length; i++)
+            PhanBoCau(rows.Where(r => r.Cells["MucDoKho"].Value?.ToString() == levels[i]).ToList(),
+                colSo, colKho, targets[i]);
+
+        // Thiếu câu ở mức mục tiêu: dùng mức còn đủ câu, người tạo đề sẽ thấy số thực tế.
+        var conThieu = canPhanBo - rows.Sum(r => Convert.ToInt32(r.Cells[colSo].Value ?? 0));
+        if (conThieu > 0) PhanBoCau(rows, colSo, colKho, conThieu);
     }
 
     private void PhanBoCau(List<DataGridViewRow> rows, string colSo, string colKho, int canPhanBo)
@@ -346,7 +412,11 @@ public class frmTaoDeTHPTQG : Form
         }
 
         var total = sumTN + sumDS + sumTLN;
-        _lblTongKet.Text = $"📊 Đang chọn: {total} câu  |  Phần I (TN): {sumTN} câu  |  Phần II (Đ/S): {sumDS} câu  |  Phần III (TLN): {sumTLN} câu";
+        _lblTongKet.Text = $"Đang chọn: {total} câu  |  Phần I (TN): {sumTN}  |  Phần II (Đ/S): {sumDS}  |  Phần III (TLN): {sumTLN}";
+        var muc = _gridMaTran.Rows.Cast<DataGridViewRow>()
+            .GroupBy(r => r.Cells["TenMucDo"].Value?.ToString() ?? "")
+            .Select(g => $"{g.Key}: {g.Sum(r => Convert.ToInt32(r.Cells["TongCau"].Value ?? 0))}");
+        _lblMucDo.Text = "Mức độ — " + string.Join("  |  ", muc);
     }
 
     private void ThucHienTaoDe()
@@ -360,6 +430,13 @@ public class frmTaoDeTHPTQG : Form
         }
 
         var monId = (int)(_cboMon.SelectedItem as ComboItem)!.Value!;
+        var tenMon = _cboMon.SelectedItem?.ToString() ?? "";
+        if (tenMon.Contains("Ngữ văn", StringComparison.OrdinalIgnoreCase) ||
+            tenMon.Contains("Ngu van", StringComparison.OrdinalIgnoreCase))
+        {
+            _lblError.Text = "Môn Ngữ văn là đề tự luận; màn hình trắc nghiệm này chưa hỗ trợ tạo đề Văn.";
+            return;
+        }
         var loaiDe = (_cboLoaiDe.SelectedItem as ComboItem)?.Value?.ToString() ?? "ThiThu";
 
         var maTran = new List<MaTranChuDeItem>();
@@ -370,6 +447,7 @@ public class frmTaoDeTHPTQG : Form
             var tn = Convert.ToInt32(r.Cells["SoTN"].Value ?? 0);
             var ds = Convert.ToInt32(r.Cells["SoDS"].Value ?? 0);
             var tln = Convert.ToInt32(r.Cells["SoTLN"].Value ?? 0);
+            var mucDo = r.Cells["MucDoKho"].Value?.ToString() ?? "";
 
             if (tn > 0 || ds > 0 || tln > 0)
             {
@@ -377,6 +455,7 @@ public class frmTaoDeTHPTQG : Form
                 {
                     ChuDeID = chId,
                     TenChuDe = tenCd,
+                    MucDoKho = mucDo,
                     SoCauPhan1 = tn,
                     SoCauPhan2 = ds,
                     SoCauPhan3 = tln
@@ -402,7 +481,9 @@ public class frmTaoDeTHPTQG : Form
                 loaiDe,
                 maTran,
                 tuDongTron,
-                soLuongMa);
+                soLuongMa,
+                (int)_numSoChuDeToiThieu.Value,
+                (int)_numCauMoiChuDe.Value);
 
             if (id == 0)
             {

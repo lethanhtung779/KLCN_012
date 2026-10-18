@@ -6,7 +6,7 @@ namespace QLThiTN.WinForms.Forms.Teacher;
 
 /// <summary>
 /// Màn hình trộn đề thi ngẫu nhiên (sinh mã đề 101, 102, 103, 104...)
-/// theo chuẩn cấu trúc đề thi tốt nghiệp THPT Quốc gia (Bộ GD&ĐT).
+/// giữ nguyên phần thi, mạch kiến thức (chủ đề) và phân bố mức độ của đề gốc.
 /// </summary>
 public class frmTronDe : Form
 {
@@ -18,9 +18,12 @@ public class frmTronDe : Form
     private readonly NumericUpDown _numSoLuong = new() { Width = 110, Minimum = 1, Maximum = 24, Value = 4, Font = Ui.Body };
     private readonly NumericUpDown _numMaBatDau = new() { Width = 110, Minimum = 101, Maximum = 999, Value = 101, Font = Ui.Body };
     private readonly CheckBox _chkXoaCu = new() { Text = "Làm mới (xóa các mã đề cũ chưa có bài thi)", AutoSize = true, Checked = true, Font = Ui.Body };
+    private readonly CheckBox _chkGhimDapAnCuoi = new() { Text = "Cố định đáp án 'Tất cả...' ở vị trí cuối (D)", AutoSize = true, Checked = true, Font = Ui.Body };
     private readonly Button _btnTron;
     private readonly Label _lblThongKe = Ui.Label("", Ui.Body, Ui.Navy);
     private readonly Label _lblCanhBao = Ui.Label("", Ui.Small, Ui.Warning);
+    private readonly Label _lblKetQua = Ui.Label("", Ui.Body, Ui.Success);
+    private readonly Label _lblDsMaDe = Ui.Label("Các mã đề hiện có: 0", Ui.H2, Ui.Navy);
 
     // Tab 1: Danh sách mã đề & Xem trước
     private readonly DataGridView _gridMaDe = new();
@@ -35,7 +38,7 @@ public class frmTronDe : Form
         _tenDe = tenDe;
 
         Text = $"Trộn đề thi ngẫu nhiên — {tenDe}";
-        StartPosition = FormStartPosition.CenterParent;
+        StartPosition = FormStartPosition.CenterScreen;
         Size = new Size(1000, 680);
         MinimumSize = new Size(880, 560);
         Font = Ui.Body;
@@ -50,7 +53,7 @@ public class frmTronDe : Form
             Padding = new Padding(20, 12, 20, 10)
         };
 
-        var lblTitle = Ui.Label($"🔀 TRỘN ĐỀ THI: {tenDe}", Ui.H1, Ui.Navy);
+        var lblTitle = Ui.Label($"TRỘN ĐỀ THI: {tenDe}", Ui.H1, Ui.Navy);
         lblTitle.Location = new Point(20, 10);
         pnlHeader.Controls.Add(lblTitle);
 
@@ -66,26 +69,28 @@ public class frmTronDe : Form
         var pnlConfig = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 65,
+            Height = 112,
             BackColor = Color.FromArgb(248, 250, 253),
-            Padding = new Padding(20, 12, 20, 10)
+            Padding = new Padding(20, 10, 20, 10)
         };
 
         var lblSl = Ui.Label("Số mã đề:", Ui.Body, Ui.Navy);
-        lblSl.Location = new Point(20, 20);
-        _numSoLuong.Location = new Point(100, 18);
+        lblSl.Location = new Point(20, 22);
+        _numSoLuong.Location = new Point(95, 20);
 
         var lblStart = Ui.Label("Mã bắt đầu:", Ui.Body, Ui.Navy);
-        lblStart.Location = new Point(230, 20);
-        _numMaBatDau.Location = new Point(320, 18);
+        lblStart.Location = new Point(220, 22);
+        _numMaBatDau.Location = new Point(310, 20);
 
-        _chkXoaCu.Location = new Point(450, 20);
+        _chkXoaCu.Location = new Point(20, 56);
+        _chkGhimDapAnCuoi.Location = new Point(20, 82);
 
-        _btnTron = Ui.ButtonAccent("⚡ Tiến hành trộn đề", 180, 36);
-        _btnTron.Location = new Point(780, 14);
+        _btnTron = Ui.ButtonAccent("⚡ Tiến hành trộn đề", 180, 42);
+        _btnTron.Location = new Point(780, 53);
+        pnlConfig.SizeChanged += (_, _) => _btnTron.Left = Math.Max(660, pnlConfig.ClientSize.Width - _btnTron.Width - 20);
         _btnTron.Click += (s, e) => ThucHienTron();
 
-        pnlConfig.Controls.AddRange([lblSl, _numSoLuong, lblStart, _numMaBatDau, _chkXoaCu, _btnTron]);
+        pnlConfig.Controls.AddRange([lblSl, _numSoLuong, lblStart, _numMaBatDau, _chkXoaCu, _chkGhimDapAnCuoi, _btnTron]);
 
         // TabControl chính
         var tabs = new TabControl
@@ -96,25 +101,28 @@ public class frmTronDe : Form
         };
 
         // --- TAB 1: Danh sách & Xem trước
-        var tabXem = new TabPage("  📋 Danh sách mã đề & Xem trước  ") { BackColor = Color.White };
+        var tabXem = new TabPage("Danh sách mã đề & Xem trước") { BackColor = Color.White };
         var splitXem = new SplitContainer
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
-            SplitterDistance = 320,
             BackColor = Ui.BorderSoft
+        };
+        splitXem.SizeChanged += (_, _) =>
+        {
+            if (splitXem.Width > 700)
+                splitXem.SplitterDistance = Math.Clamp(splitXem.Width * 35 / 100, 300, splitXem.Width - 360);
         };
 
         // Bên trái Tab 1: Grid các mã đề
         var pnlLeft = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(12) };
-        var lblDsMaDe = Ui.Label("Các mã đề hiện có:", Ui.H2, Ui.Navy);
-        lblDsMaDe.Dock = DockStyle.Top;
-        lblDsMaDe.Height = 30;
+        _lblDsMaDe.Dock = DockStyle.Top;
+        _lblDsMaDe.Height = 30;
         Ui.StyleGrid(_gridMaDe);
         _gridMaDe.Dock = DockStyle.Fill;
         _gridMaDe.SelectionChanged += (s, e) => TaiChiTietMaDeDangChon();
         pnlLeft.Controls.Add(_gridMaDe);
-        pnlLeft.Controls.Add(lblDsMaDe);
+        pnlLeft.Controls.Add(_lblDsMaDe);
         splitXem.Panel1.Controls.Add(pnlLeft);
 
         // Bên phải Tab 1: Chi tiết câu hỏi của mã đề
@@ -131,7 +139,7 @@ public class frmTronDe : Form
         tabXem.Controls.Add(splitXem);
 
         // --- TAB 2: Ma trận đáp án
-        var tabMaTran = new TabPage("  📊 Ma trận đáp án (Answer Key)  ") { BackColor = Color.White };
+        var tabMaTran = new TabPage("Ma trận đáp án") { BackColor = Color.White };
         var pnlMaTranWrap = new Panel { Dock = DockStyle.Fill, Padding = new Padding(16), BackColor = Color.White };
         var pnlMaTranToolbar = new FlowLayoutPanel
         {
@@ -172,13 +180,27 @@ public class frmTronDe : Form
         btnDong.Dock = DockStyle.Right;
         btnDong.Click += (s, e) => Close();
         pnlBottom.Controls.Add(btnDong);
+        _lblKetQua.Dock = DockStyle.Fill;
+        _lblKetQua.AutoSize = false;
+        _lblKetQua.Padding = new Padding(20, 12, 0, 0);
+        pnlBottom.Controls.Add(_lblKetQua);
 
         Controls.Add(tabs);
         Controls.Add(pnlConfig);
         Controls.Add(pnlHeader);
         Controls.Add(pnlBottom);
 
-        Load += (s, e) => KhoiTaoDuLieu();
+        Load += (s, e) =>
+        {
+            try
+            {
+                KhoiTaoDuLieu();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khởi tạo màn hình trộn đề:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        };
     }
 
     private readonly RadioButton _radSinhThem = new() { Text = "Sinh thêm mã đề mới (giữ bài làm cũ)", AutoSize = true, Font = Ui.Body, Checked = true };
@@ -206,7 +228,7 @@ public class frmTronDe : Form
         }
         else
         {
-            _lblCanhBao.Text = "✔ Chuẩn THPT Quốc gia: Thứ tự 3 phần được bảo toàn; câu hỏi và phương án được hoán vị ngẫu nhiên độc lập trong từng phần.";
+            _lblCanhBao.Text = "Câu được xếp theo phần thi → chủ đề → mức độ; chỉ trộn trong cùng nhóm. Hãy duyệt từng mã trước khi mở đợt thi.";
         }
 
         TaiDanhSachMaDe();
@@ -216,6 +238,7 @@ public class frmTronDe : Form
     private void TaiDanhSachMaDe()
     {
         var dt = _service.LayDanhSachMaDe(_deThiId);
+        _lblDsMaDe.Text = $"Các mã đề hiện có: {dt.Rows.Count}";
         _gridMaDe.DataSource = dt;
         Ui.RenameColumns(_gridMaDe,
             ("MaDeID", "ID"),
@@ -227,6 +250,7 @@ public class frmTronDe : Form
         if (_gridMaDe.Rows.Count > 0)
         {
             _gridMaDe.ClearSelection();
+            _gridMaDe.CurrentCell = _gridMaDe.Rows[0].Cells["TenMaDe"];
             _gridMaDe.Rows[0].Selected = true;
             TaiChiTietMaDeDangChon();
         }
@@ -251,6 +275,8 @@ public class frmTronDe : Form
         var viewTable = new DataTable();
         viewTable.Columns.Add("CauSo", typeof(int));
         viewTable.Columns.Add("LoaiCauHoi", typeof(string));
+        viewTable.Columns.Add("MucDoKho", typeof(string));
+        viewTable.Columns.Add("TenChuDe", typeof(string));
         viewTable.Columns.Add("NoiDungCau", typeof(string));
         viewTable.Columns.Add("PhuongAn", typeof(string));
         viewTable.Columns.Add("DapAnDung", typeof(string));
@@ -259,6 +285,8 @@ public class frmTronDe : Form
         {
             CauSo = Convert.ToInt32(r["CauSo"]),
             Loai = r["LoaiCauHoi"]?.ToString() ?? "",
+            MucDoKho = r["MucDoKho"]?.ToString() ?? "",
+            TenChuDe = r["TenChuDe"]?.ToString() ?? "",
             NoiDung = r["NoiDungCau"]?.ToString() ?? ""
         });
 
@@ -266,6 +294,8 @@ public class frmTronDe : Form
         {
             var row = viewTable.NewRow();
             row["CauSo"] = g.Key.CauSo;
+            row["MucDoKho"] = QLThiTN.WinForms.Models.MucDoKho.Display(g.Key.MucDoKho);
+            row["TenChuDe"] = g.Key.TenChuDe;
             row["LoaiCauHoi"] = g.Key.Loai switch
             {
                 "TracNghiem" => "Phần I: TN",
@@ -328,24 +358,36 @@ public class frmTronDe : Form
         Ui.RenameColumns(_gridChiTiet,
             ("CauSo", "Câu"),
             ("LoaiCauHoi", "Phần thi"),
-            ("NoiDungCau", "Nội dung câu hỏi"),
-            ("PhuongAn", "Các phương án đã đảo"),
-            ("DapAnDung", "Đáp án đúng"));
+            ("MucDoKho", "Mức độ"),
+            ("TenChuDe", "Chủ đề"),
+            ("NoiDungCau", "Câu hỏi"),
+            ("PhuongAn", "Phương án"),
+            ("DapAnDung", "Đúng"));
 
         if (_gridChiTiet.Columns.Contains("CauSo"))
         {
             _gridChiTiet.Columns["CauSo"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-            _gridChiTiet.Columns["CauSo"]!.Width = 60;
+            _gridChiTiet.Columns["CauSo"]!.Width = 50;
         }
         if (_gridChiTiet.Columns.Contains("LoaiCauHoi"))
         {
             _gridChiTiet.Columns["LoaiCauHoi"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-            _gridChiTiet.Columns["LoaiCauHoi"]!.Width = 110;
+            _gridChiTiet.Columns["LoaiCauHoi"]!.Width = 95;
+        }
+        if (_gridChiTiet.Columns.Contains("MucDoKho"))
+        {
+            _gridChiTiet.Columns["MucDoKho"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            _gridChiTiet.Columns["MucDoKho"]!.Width = 105;
+        }
+        if (_gridChiTiet.Columns.Contains("TenChuDe"))
+        {
+            _gridChiTiet.Columns["TenChuDe"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            _gridChiTiet.Columns["TenChuDe"]!.Width = 110;
         }
         if (_gridChiTiet.Columns.Contains("DapAnDung"))
         {
             _gridChiTiet.Columns["DapAnDung"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-            _gridChiTiet.Columns["DapAnDung"]!.Width = 130;
+            _gridChiTiet.Columns["DapAnDung"]!.Width = 75;
         }
     }
 
@@ -417,16 +459,25 @@ public class frmTronDe : Form
 
         try
         {
-            var (success, msg, _) = _service.TronDeThi(_deThiId, soLuong, maBatDau, xoaCu, xoaBaiLamCu);
+            var soMaTruoc = _service.LayDanhSachMaDe(_deThiId).Rows.Count;
+            var (success, msg, _) = _service.TronDeThi(_deThiId, soLuong, maBatDau, xoaCu, xoaBaiLamCu, _chkGhimDapAnCuoi.Checked);
             if (success)
             {
-                MessageBox.Show(msg, "Trộn đề thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 TaiDanhSachMaDe();
                 TaiMaTranDapAn();
+                var soMaSau = _gridMaDe.Rows.Count;
+                _lblKetQua.ForeColor = Ui.Success;
+                _lblKetQua.Text = xoaCu
+                    ? $"Đã làm mới {soLuong} mã ({maBatDau}–{maBatDau + soLuong - 1}). Hiện có {soMaSau} mã đề."
+                    : $"Đã sinh thêm {soLuong} mã. Tổng cộng {soMaTruoc} → {soMaSau} mã đề.";
+                MessageBox.Show(this, _lblKetQua.Text + "\nMở mã đề bên trái để xem thứ tự câu và đáp án mới.",
+                    "Trộn đề thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
-                MessageBox.Show(msg, "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _lblKetQua.ForeColor = Ui.Danger;
+                _lblKetQua.Text = msg;
+                MessageBox.Show(this, msg, "Chưa trộn được đề", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
         catch (Exception ex)

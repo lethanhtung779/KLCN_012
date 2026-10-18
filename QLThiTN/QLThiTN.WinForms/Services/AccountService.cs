@@ -1,4 +1,5 @@
 using System.Data;
+using Microsoft.Data.SqlClient;
 using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
@@ -8,6 +9,7 @@ public class AccountService
 {
     public DataTable LayDanhSach(string? tuKhoa, string? vaiTro)
     {
+        Session.YeuCauQuanTriVien();
         var sql = @"
             SELECT tk.TaiKhoanID, tk.TenDangNhap, tk.Email, tk.VaiTro, tk.TrangThai,
                    COALESCE(gv.HoTen, hv.HoTen, qtv.HoTen, N'') AS HoTen,
@@ -61,76 +63,104 @@ public class AccountService
     public (bool Ok, string Error, int TaiKhoanID) Them(
         string tenDangNhap, string email, string hoTen, string vaiTro, string matKhau)
     {
+        Session.YeuCauQuanTriVien();
         tenDangNhap = tenDangNhap.Trim();
         email = email.Trim();
         hoTen = hoTen.Trim();
 
         if (string.IsNullOrWhiteSpace(tenDangNhap)) return (false, "Chưa nhập tên đăng nhập.", 0);
         if (string.IsNullOrWhiteSpace(hoTen)) return (false, "Chưa nhập họ tên.", 0);
+        if (hoTen.Length > 100) return (false, "Họ tên không được vượt quá 100 ký tự.", 0);
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out _)) return (false, "Email không hợp lệ.", 0);
         if (string.IsNullOrWhiteSpace(matKhau) || matKhau.Length < 6) return (false, "Mật khẩu tối thiểu 6 ký tự.", 0);
         if (vaiTro is not ("GiaoVien" or "HocVien" or "QuanTriVien")) return (false, "Vai trò không hợp lệ.", 0);
         if (TenDangNhapTonTai(tenDangNhap)) return (false, $"Tên đăng nhập '{tenDangNhap}' đã tồn tại.", 0);
         if (EmailTonTai(email)) return (false, $"Email '{email}' đã được sử dụng.", 0);
 
-        var id = Database.ExecuteScalarInt(@"
-            INSERT INTO TaiKhoan (TenDangNhap, MatKhau, Email, VaiTro, TrangThai, NgayTao)
-            VALUES (@u, @p, @e, @v, N'HoatDong', SYSDATETIME());
-            SELECT CAST(SCOPE_IDENTITY() AS INT);",
-            p =>
-            {
-                p.AddWithValue("@u", tenDangNhap);
-                p.AddWithValue("@p", PasswordHelper.Hash(matKhau));
-                p.AddWithValue("@e", email);
-                p.AddWithValue("@v", vaiTro);
-            });
-
         var profileTable = vaiTro switch
         {
             "GiaoVien" => "GiaoVien",
             "QuanTriVien" => "QuanTriVien",
             _ => "HocVien"
         };
-        var profilePk = vaiTro switch
-        {
-            "GiaoVien" => "GiaoVienID",
-            "QuanTriVien" => "QuanTriVienID",
-            _ => "HocVienID"
-        };
         var loaiHocVien = vaiTro == "HocVien" ? ", LoaiHocVien, LoaiGoi" : "";
         var giaTriHocVien = vaiTro == "HocVien" ? ", N'HocSinh', N'MienPhi'" : "";
 
-        Database.Execute(
-            $"INSERT INTO {profileTable} (TaiKhoanID, HoTen{loaiHocVien}) VALUES (@id, @h{giaTriHocVien})",
-            p => { p.AddWithValue("@id", id); p.AddWithValue("@h", hoTen); });
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            using var cmd1 = new SqlCommand(@"
+                INSERT INTO TaiKhoan (TenDangNhap, MatKhau, Email, VaiTro, TrangThai, NgayTao)
+                VALUES (@u, @p, @e, @v, N'HoatDong', SYSDATETIME());
+                SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, tx);
+            cmd1.Parameters.AddWithValue("@u", tenDangNhap);
+            cmd1.Parameters.AddWithValue("@p", PasswordHelper.Hash(matKhau));
+            cmd1.Parameters.AddWithValue("@e", email);
+            cmd1.Parameters.AddWithValue("@v", vaiTro);
+            var id = Convert.ToInt32(cmd1.ExecuteScalar() ?? 0);
 
-        return (true, "", id);
+            using var cmd2 = new SqlCommand(
+                $"INSERT INTO {profileTable} (TaiKhoanID, HoTen{loaiHocVien}) VALUES (@id, @h{giaTriHocVien})", conn, tx);
+            cmd2.Parameters.AddWithValue("@id", id);
+            cmd2.Parameters.AddWithValue("@h", hoTen);
+            cmd2.ExecuteNonQuery();
+
+            tx.Commit();
+            return (true, "", id);
+        }
+        catch (Exception ex)
+        {
+            tx.Rollback();
+            return (false, "Lỗi khi tạo tài khoản: " + ex.Message, 0);
+        }
     }
 
     /// <summary>Sua ho ten, email (khong doi ten dang nhap va vai tro de bao toan du lieu).</summary>
     public (bool Ok, string Error) Sua(int taiKhoanId, string email, string hoTen, string vaiTro)
     {
+        Session.YeuCauQuanTriVien();
         email = email.Trim();
         hoTen = hoTen.Trim();
         if (string.IsNullOrWhiteSpace(hoTen)) return (false, "Chưa nhập họ tên.");
+        if (hoTen.Length > 100) return (false, "Họ tên không được vượt quá 100 ký tự.");
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out _)) return (false, "Email không hợp lệ.");
         if (EmailTonTai(email, taiKhoanId)) return (false, $"Email '{email}' đã được sử dụng.");
 
-        Database.Execute("UPDATE TaiKhoan SET Email = @e WHERE TaiKhoanID = @id",
-            p => { p.AddWithValue("@e", email); p.AddWithValue("@id", taiKhoanId); });
-
-        var profileTable = vaiTro switch
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
         {
-            "GiaoVien" => "GiaoVien",
-            "QuanTriVien" => "QuanTriVien",
-            _ => "HocVien"
-        };
-        Database.Execute($"UPDATE {profileTable} SET HoTen = @h WHERE TaiKhoanID = @id",
-            p => { p.AddWithValue("@h", hoTen); p.AddWithValue("@id", taiKhoanId); });
-        return (true, "");
+            using var cmd1 = new SqlCommand("UPDATE TaiKhoan SET Email = @e WHERE TaiKhoanID = @id", conn, tx);
+            cmd1.Parameters.AddWithValue("@e", email);
+            cmd1.Parameters.AddWithValue("@id", taiKhoanId);
+            cmd1.ExecuteNonQuery();
+
+            var profileTable = vaiTro switch
+            {
+                "GiaoVien" => "GiaoVien",
+                "QuanTriVien" => "QuanTriVien",
+                _ => "HocVien"
+            };
+            using var cmd2 = new SqlCommand($"UPDATE {profileTable} SET HoTen = @h WHERE TaiKhoanID = @id", conn, tx);
+            cmd2.Parameters.AddWithValue("@h", hoTen);
+            cmd2.Parameters.AddWithValue("@id", taiKhoanId);
+            cmd2.ExecuteNonQuery();
+
+            tx.Commit();
+            return (true, "");
+        }
+        catch (Exception ex)
+        {
+            tx.Rollback();
+            return (false, "Lỗi khi cập nhật tài khoản: " + ex.Message);
+        }
     }
 
     /// <summary>Dat lai mat khau cho tai khoan (quan tri vien reset).</summary>
     public void DatLaiMatKhau(int taiKhoanId, string matKhauMoi)
     {
+        Session.YeuCauQuanTriVien();
         Database.Execute("UPDATE TaiKhoan SET MatKhau = @p WHERE TaiKhoanID = @id",
             p => { p.AddWithValue("@p", PasswordHelper.Hash(matKhauMoi)); p.AddWithValue("@id", taiKhoanId); });
     }
@@ -138,6 +168,7 @@ public class AccountService
     /// <summary>Cap goi cho hoc vien. Khi chuyen sang DongPhi lan dau se gui email VIP.</summary>
     public (bool Ok, string Message) CapQuyenGoi(int taiKhoanId, string loaiGoi)
     {
+        Session.YeuCauQuanTriVien();
         if (loaiGoi is not ("MienPhi" or "DongPhi"))
             return (false, "Gói không hợp lệ.");
 
@@ -181,6 +212,10 @@ public class AccountService
     /// <summary>Khoa / mo tai khoan.</summary>
     public void DoiTrangThai(int taiKhoanId, bool khoa)
     {
+        Session.YeuCauQuanTriVien();
+        if (khoa && Session.Current?.TaiKhoanID == taiKhoanId)
+            throw new InvalidOperationException("Không thể tự khóa tài khoản quản trị đang đăng nhập.");
+
         Database.Execute("UPDATE TaiKhoan SET TrangThai = @t WHERE TaiKhoanID = @id",
             p => { p.AddWithValue("@t", khoa ? "Khoa" : "HoatDong"); p.AddWithValue("@id", taiKhoanId); });
     }
@@ -189,6 +224,7 @@ public class AccountService
     /// va tai khoan da co bai thi de bao toan lich su).</summary>
     public (bool Ok, string Error) Xoa(int taiKhoanId)
     {
+        Session.YeuCauQuanTriVien();
         if (Session.Current?.TaiKhoanID == taiKhoanId)
             return (false, "Không thể xóa tài khoản đang đăng nhập.");
 

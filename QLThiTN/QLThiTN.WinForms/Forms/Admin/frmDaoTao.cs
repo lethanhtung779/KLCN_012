@@ -12,11 +12,14 @@ public class frmDaoTao : Form
     private readonly DataGridView _gridKhoa = new();
     private readonly TextBox _txtTimKhoa = Ui.Input(200);
     private readonly ComboBox _cboLocMonKhoa = Ui.Combo(180);
+    private readonly Label _lblKhoaCount = Ui.Label("", Ui.Small, Ui.TextMuted);
 
     // Tab lop hoc
     private readonly DataGridView _gridLop = new();
     private readonly TextBox _txtTimLop = Ui.Input(200);
     private readonly ComboBox _cboLocKhoaLop = Ui.Combo(220);
+    private readonly Label _lblLopCount = Ui.Label("", Ui.Small, Ui.TextMuted);
+    private readonly CheckBox _chkChuaPhanCong = new() { Text = "Chỉ lớp chưa phân công", AutoSize = true, Font = Ui.Body, ForeColor = Ui.Navy };
 
     // Tab xep hoc vien
     private readonly ComboBox _cboLopXep = Ui.Combo(280);
@@ -25,12 +28,8 @@ public class frmDaoTao : Form
     private readonly TextBox _txtTimHv = Ui.Input(200);
     private readonly ComboBox _cboTrangThaiHv = Ui.Combo(140);
 
-    // Tab phan cong
-    private readonly ComboBox _cboLopPc = Ui.Combo(280);
-    private readonly DataGridView _gridPc = new();
-
     // Tab lich hoc
-    private readonly ComboBox _cboLopLh = Ui.Combo(280);
+    private readonly ComboBox _cboLopLh = Ui.Combo(400);
     private readonly DataGridView _gridLh = new();
 
     // Tab tong hop: danh sach khoa + bang chi tiet khi chon
@@ -41,34 +40,56 @@ public class frmDaoTao : Form
     private readonly Label _lblChiTietKhoa = Ui.Label("Chọn một khóa học ở danh sách bên trái để xem chi tiết.", Ui.H2, Ui.Navy);
     private List<TongHopKhoaHoc> _tongHopCache = [];
     private TabControl? _tabs;
-    private const int TabTongHopIndex = 0;
+    private const int TabTongHopIndex = 4;
 
     public frmDaoTao()
     {
+        Session.YeuCauQuanTriVien();
         Text = "Quản lý khóa học & lớp";
         Font = Ui.Body;
 
         _tabs = new TabControl { Dock = DockStyle.Fill, Font = Ui.Body, Padding = new Point(12, 8) };
-        _tabs.TabPages.Add(TaoTabTongHop());
         _tabs.TabPages.Add(TaoTabKhoaHoc());
         _tabs.TabPages.Add(TaoTabLopHoc());
         _tabs.TabPages.Add(TaoTabXepHocVien());
-        _tabs.TabPages.Add(TaoTabPhanCong());
         _tabs.TabPages.Add(TaoTabLichHoc());
+        _tabs.TabPages.Add(TaoTabTongHop());
         _tabs.SelectedIndexChanged += (_, _) =>
+        {
+            switch (_tabs.SelectedIndex)
+            {
+                case 0: // Khóa học
+                    TaiKhoaHoc();
+                    break;
+                case 1: // Lớp học
+                    NapLocKhoaLop();
+                    TaiLopHoc();
+                    break;
+                case 2: // Xếp học viên
+                    NapComboLop(_cboLopXep);
+                    TaiHocVienLop();
+                    break;
+                case 3: // Lịch học
+                    NapComboLop(_cboLopLh);
+                    TaiLichHoc();
+                    break;
+                case 4: // Tổng hợp
+                    TaiTongHop();
+                    break;
+            }
+        };
+        Controls.Add(_tabs);
+        Load += (_, _) =>
         {
             if (_tabs.SelectedIndex == TabTongHopIndex) TaiTongHop();
         };
-        Controls.Add(_tabs);
 
         NapLocMonKhoa();
         NapLocKhoaLop();
         NapComboLop(_cboLopXep);
-        NapComboLop(_cboLopPc);
         NapComboLop(_cboLopLh);
         TaiKhoaHoc();
         TaiLopHoc();
-        TaiTongHop();
     }
 
     private void CapNhatTongHop() => TaiTongHop();
@@ -116,7 +137,7 @@ public class frmDaoTao : Form
         {
             Dock = DockStyle.Fill,
             Orientation = Orientation.Vertical,
-            SplitterDistance = 380,
+            SplitterDistance = 460,
             BackColor = Ui.BgSoft
         };
 
@@ -126,26 +147,37 @@ public class frmDaoTao : Form
         lblDs.Padding = new Padding(12, 10, 0, 0);
         lblDs.BackColor = Color.White;
 
-        var pnlTrai = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-        pnlTrai.Controls.Add(_gridDanhSachKhoa);
-        pnlTrai.Controls.Add(lblDs);
+        var pnlTrai = TaoPaneBang(lblDs, _gridDanhSachKhoa);
 
         _lblChiTietKhoa.Dock = DockStyle.Top;
         _lblChiTietKhoa.Height = 40;
         _lblChiTietKhoa.Padding = new Padding(12, 10, 0, 0);
         _lblChiTietKhoa.BackColor = Color.White;
 
-        var pnlPhai = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-        pnlPhai.Controls.Add(_gridChiTietKhoa);
-        pnlPhai.Controls.Add(_lblChiTietKhoa);
+        var pnlPhai = TaoPaneBang(_lblChiTietKhoa, _gridChiTietKhoa);
 
         split.Panel1.Controls.Add(pnlTrai);
         split.Panel2.Controls.Add(pnlPhai);
 
-        page.Controls.Add(split);
-        page.Controls.Add(_lblTongHopStats);
-        page.Controls.Add(note);
-        page.Controls.Add(toolbar);
+        ChiaDoiKhiHienThi(split);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = Color.White };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+        foreach (var control in new Control[] { toolbar, note, split, _lblTongHopStats })
+        {
+            control.Dock = DockStyle.Fill;
+            control.Margin = Padding.Empty;
+        }
+        note.AutoSize = false;
+        _lblTongHopStats.AutoSize = false;
+        layout.Controls.Add(toolbar, 0, 0);
+        layout.Controls.Add(note, 0, 1);
+        layout.Controls.Add(split, 0, 2);
+        layout.Controls.Add(_lblTongHopStats, 0, 3);
+        page.Controls.Add(layout);
         return page;
     }
 
@@ -313,12 +345,20 @@ public class frmDaoTao : Form
         _gridKhoa.Dock = DockStyle.Fill;
         _gridKhoa.CellDoubleClick += (_, _) => SuaKhoaHoc();
 
-        _txtTimKhoa.PlaceholderText = "Tên khóa / môn...";
+        _txtTimKhoa.PlaceholderText = "Tìm tên khóa học, môn học...";
         _txtTimKhoa.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) TaiKhoaHoc(); };
         _cboLocMonKhoa.SelectedIndexChanged += (_, _) => TaiKhoaHoc();
 
         var btnTim = Ui.ButtonPrimary("Tìm", 80);
         btnTim.Click += (_, _) => TaiKhoaHoc();
+        var btnLamMoi = Ui.ButtonOutline("Làm mới", 90);
+        btnLamMoi.Click += (_, _) =>
+        {
+            _txtTimKhoa.Clear();
+            if (_cboLocMonKhoa.Items.Count > 0) _cboLocMonKhoa.SelectedIndex = 0;
+            TaiKhoaHoc();
+        };
+
         var btnThem = Ui.ButtonAccent("＋ Mở khóa học", 150);
         btnThem.Click += (_, _) =>
         {
@@ -330,9 +370,17 @@ public class frmDaoTao : Form
         var btnXoa = Ui.ButtonDanger("🗑 Xóa", 90);
         btnXoa.Click += (_, _) => XoaKhoaHoc();
 
-        var toolbar = TaoToolbar([Ui.Label("Tìm:", Ui.Body, Ui.TextMuted), _txtTimKhoa, _cboLocMonKhoa, btnTim, btnThem, btnSua, btnXoa]);
-        page.Controls.Add(_gridKhoa);
-        page.Controls.Add(toolbar);
+        var toolbar = TaoToolbar([
+            Ui.Label("Tìm:", Ui.Body, Ui.TextMuted), _txtTimKhoa,
+            Ui.Label("Môn:", Ui.Body, Ui.TextMuted), _cboLocMonKhoa,
+            btnTim, btnLamMoi, btnThem, btnSua, btnXoa
+        ]);
+
+        var pnlBottom = new Panel { Dock = DockStyle.Bottom, Height = 32, BackColor = Color.White };
+        _lblKhoaCount.Location = new Point(16, 7);
+        pnlBottom.Controls.Add(_lblKhoaCount);
+
+        DatBoCucBang(page, toolbar, _gridKhoa, pnlBottom, 32);
         return page;
     }
 
@@ -350,12 +398,45 @@ public class frmDaoTao : Form
     private void TaiKhoaHoc()
     {
         int? monId = _cboLocMonKhoa.SelectedValue is int m && m > 0 ? m : null;
-        _gridKhoa.DataSource = _service.LayDanhSachKhoaHoc(_txtTimKhoa.Text, monId);
+        var dt = _service.LayDanhSachKhoaHoc(_txtTimKhoa.Text, monId);
+        _gridKhoa.DataSource = dt;
         Ui.RenameColumns(_gridKhoa,
             ("KhoaHocID", "ID"), ("TenKhoaHoc", "Tên khóa học"), ("TenMon", "Môn học"),
             ("NgayBatDau", "Bắt đầu"), ("NgayKetThuc", "Kết thúc"), ("TrangThai", "Trạng thái"), ("SoLop", "Số lớp"));
-        Ui.HideColumns(_gridKhoa, "KhoaHocID", "MonHocID");
+        Ui.HideColumns(_gridKhoa, "MonHocID");
         FormatTrangThaiKhoa(_gridKhoa);
+
+        if (_gridKhoa.Columns.Contains("KhoaHocID"))
+        {
+            _gridKhoa.Columns["KhoaHocID"]!.FillWeight = 50;
+            _gridKhoa.Columns["KhoaHocID"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridKhoa.Columns.Contains("TenKhoaHoc")) _gridKhoa.Columns["TenKhoaHoc"]!.FillWeight = 240;
+        if (_gridKhoa.Columns.Contains("TenMon")) _gridKhoa.Columns["TenMon"]!.FillWeight = 110;
+        if (_gridKhoa.Columns.Contains("NgayBatDau"))
+        {
+            _gridKhoa.Columns["NgayBatDau"]!.FillWeight = 95;
+            _gridKhoa.Columns["NgayBatDau"]!.DefaultCellStyle.Format = "dd/MM/yyyy";
+            _gridKhoa.Columns["NgayBatDau"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridKhoa.Columns.Contains("NgayKetThuc"))
+        {
+            _gridKhoa.Columns["NgayKetThuc"]!.FillWeight = 95;
+            _gridKhoa.Columns["NgayKetThuc"]!.DefaultCellStyle.Format = "dd/MM/yyyy";
+            _gridKhoa.Columns["NgayKetThuc"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridKhoa.Columns.Contains("TrangThai"))
+        {
+            _gridKhoa.Columns["TrangThai"]!.FillWeight = 95;
+            _gridKhoa.Columns["TrangThai"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridKhoa.Columns.Contains("SoLop"))
+        {
+            _gridKhoa.Columns["SoLop"]!.FillWeight = 65;
+            _gridKhoa.Columns["SoLop"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+
+        _lblKhoaCount.Text = $"Tổng cộng: {dt.Rows.Count:N0} khóa học";
     }
 
     private static void FormatTrangThaiKhoa(DataGridView grid)
@@ -409,14 +490,24 @@ public class frmDaoTao : Form
         var page = new TabPage("Lớp học") { BackColor = Ui.BgSoft };
         Ui.StyleGrid(_gridLop);
         _gridLop.Dock = DockStyle.Fill;
-        _gridLop.CellDoubleClick += (_, _) => SuaLopHoc();
+        _gridLop.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) XemChiTietLop(); };
 
+        _txtTimLop.PlaceholderText = "Tìm tên lớp, khóa học...";
         _txtTimLop.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) TaiLopHoc(); };
         _cboLocKhoaLop.SelectedIndexChanged += (_, _) => TaiLopHoc();
 
         var btnTim = Ui.ButtonPrimary("Tìm", 80);
         btnTim.Click += (_, _) => TaiLopHoc();
-        var btnThem = Ui.ButtonAccent("＋ Mở lớp", 120);
+        var btnLamMoi = Ui.ButtonOutline("Làm mới", 90);
+        btnLamMoi.Click += (_, _) =>
+        {
+            _txtTimLop.Clear();
+            if (_cboLocKhoaLop.Items.Count > 0) _cboLocKhoaLop.SelectedIndex = 0;
+            _chkChuaPhanCong.Checked = false;
+            TaiLopHoc();
+        };
+
+        var btnThem = Ui.ButtonAccent("＋ Mở lớp mới", 130);
         btnThem.Click += (_, _) =>
         {
             using var f = new frmLopHocEdit();
@@ -424,19 +515,32 @@ public class frmDaoTao : Form
             {
                 TaiLopHoc();
                 NapComboLop(_cboLopXep);
-                NapComboLop(_cboLopPc);
                 NapComboLop(_cboLopLh);
                 CapNhatTongHop();
             }
         };
         var btnSua = Ui.ButtonPrimary("✎ Sửa", 90);
         btnSua.Click += (_, _) => SuaLopHoc();
+        var btnChiTiet = Ui.ButtonOutline("Chi tiết", 100);
+        btnChiTiet.Click += (_, _) => XemChiTietLop();
         var btnXoa = Ui.ButtonDanger("🗑 Xóa", 90);
         btnXoa.Click += (_, _) => XoaLopHoc();
 
-        var toolbar = TaoToolbar([Ui.Label("Tìm:", Ui.Body, Ui.TextMuted), _txtTimLop, _cboLocKhoaLop, btnTim, btnThem, btnSua, btnXoa]);
-        page.Controls.Add(_gridLop);
-        page.Controls.Add(toolbar);
+        var toolbar = TaoToolbar([
+            Ui.Label("Tìm:", Ui.Body, Ui.TextMuted), _txtTimLop,
+            Ui.Label("Khóa:", Ui.Body, Ui.TextMuted), _cboLocKhoaLop,
+            btnTim, btnLamMoi, btnThem, btnChiTiet, btnSua, btnXoa
+        ]);
+
+        var pnlBottom = new Panel { Dock = DockStyle.Bottom, Height = 32, BackColor = Color.White };
+        _lblLopCount.Location = new Point(16, 7);
+        pnlBottom.Controls.Add(_lblLopCount);
+        _chkChuaPhanCong.Dock = DockStyle.Right;
+        _chkChuaPhanCong.Width = 205;
+        _chkChuaPhanCong.CheckedChanged += (_, _) => TaiLopHoc();
+        pnlBottom.Controls.Add(_chkChuaPhanCong);
+
+        DatBoCucBang(page, toolbar, _gridLop, pnlBottom, 32);
         return page;
     }
 
@@ -454,14 +558,55 @@ public class frmDaoTao : Form
     private void TaiLopHoc()
     {
         int? khId = _cboLocKhoaLop.SelectedValue is int k && k > 0 ? k : null;
-        _gridLop.DataSource = _service.LayDanhSachLopHoc(khId, _txtTimLop.Text);
+        var dt = _service.LayDanhSachLopHoc(khId, _txtTimLop.Text);
+        var view = dt.DefaultView;
+        if (_chkChuaPhanCong.Checked) view.RowFilter = "TrangThaiPhanCong = 'Chưa phân công'";
+        _gridLop.DataSource = view;
         Ui.RenameColumns(_gridLop,
             ("LopHocID", "ID"), ("TenLop", "Tên lớp"), ("TenKhoaHoc", "Khóa học"),
-            ("TenMon", "Môn"), ("SoHocVien", "Học viên đang học"));
-        Ui.HideColumns(_gridLop, "LopHocID", "KhoaHocID");
+            ("TenMon", "Môn"), ("SoHocVien", "Số học viên"),
+            ("TrangThaiPhanCong", "Phân công GV"));
+        Ui.HideColumns(_gridLop, "KhoaHocID");
+
+        if (_gridLop.Columns.Contains("LopHocID"))
+        {
+            _gridLop.Columns["LopHocID"]!.FillWeight = 50;
+            _gridLop.Columns["LopHocID"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridLop.Columns.Contains("TenLop")) _gridLop.Columns["TenLop"]!.FillWeight = 220;
+        if (_gridLop.Columns.Contains("TenKhoaHoc")) _gridLop.Columns["TenKhoaHoc"]!.FillWeight = 220;
+        if (_gridLop.Columns.Contains("TenMon")) _gridLop.Columns["TenMon"]!.FillWeight = 110;
+        if (_gridLop.Columns.Contains("SoHocVien"))
+        {
+            _gridLop.Columns["SoHocVien"]!.FillWeight = 85;
+            _gridLop.Columns["SoHocVien"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+
+        if (_gridLop.Columns.Contains("TrangThaiPhanCong"))
+            _gridLop.Columns["TrangThaiPhanCong"]!.FillWeight = 125;
+        var chuaPhanCong = 0;
+        foreach (DataGridViewRow row in _gridLop.Rows)
+        {
+            if (row.Cells["TrangThaiPhanCong"].Value?.ToString() != "Chưa phân công") continue;
+            chuaPhanCong++;
+            row.DefaultCellStyle.BackColor = Color.FromArgb(255, 248, 232);
+            row.Cells["TrangThaiPhanCong"].Style.ForeColor = Color.FromArgb(160, 88, 0);
+        }
+
+        _lblLopCount.Text = $"Hiển thị: {view.Count:N0}/{dt.Rows.Count:N0} lớp học · {chuaPhanCong:N0} lớp chưa phân công giáo viên";
     }
 
     private int IdLopChon(DataGridView grid) => GridId(grid, "LopHocID");
+
+    private void XemChiTietLop()
+    {
+        var id = IdLopChon(_gridLop);
+        if (id == 0) { ThongBaoChon(); return; }
+        using var detail = new frmChiTietLopHoc(id);
+        detail.ShowDialog(FindForm());
+        TaiLopHoc();
+        CapNhatTongHop();
+    }
 
     private void SuaLopHoc()
     {
@@ -475,7 +620,6 @@ public class frmDaoTao : Form
         {
             TaiLopHoc();
             NapComboLop(_cboLopXep);
-            NapComboLop(_cboLopPc);
             NapComboLop(_cboLopLh);
             CapNhatTongHop();
         }
@@ -492,7 +636,6 @@ public class frmDaoTao : Form
         if (!ok) { MessageBox.Show(error, "Không thể xóa", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
         TaiLopHoc();
         NapComboLop(_cboLopXep);
-        NapComboLop(_cboLopPc);
         NapComboLop(_cboLopLh);
         CapNhatTongHop();
     }
@@ -522,15 +665,17 @@ public class frmDaoTao : Form
         btnThem.Click += (_, _) => ThemHocVienVaoLop();
         var btnXoa = Ui.ButtonDanger("← Gỡ khỏi lớp", 140);
         btnXoa.Click += (_, _) => GoHocVienKhoiLop();
-        var btnDoiTt = Ui.ButtonOutline("Đổi trạng thái", 130);
+        var btnDoiTt = Ui.ButtonOutline("Đổi trạng thái", 145);
         btnDoiTt.Click += (_, _) => DoiTrangThaiHocVien();
+        var btnLamMoi = Ui.ButtonOutline("Làm mới", 100);
+        btnLamMoi.Click += (_, _) => { TaiHocVienLop(); TaiHocVienChuaLop(); };
 
         var top = TaoToolbar([
             Ui.Label("Lớp:", Ui.Body, Ui.TextMuted), _cboLopXep,
-            Ui.Label("Tìm HV:", Ui.Body, Ui.TextMuted), _txtTimHv, btnTim,
+            Ui.Label("Tìm HV:", Ui.Body, Ui.TextMuted), _txtTimHv, btnTim, btnLamMoi,
             btnThem, btnXoa, btnDoiTt, Ui.Label("Trạng thái:", Ui.Body, Ui.TextMuted), _cboTrangThaiHv
         ]);
-        top.Height = 62;
+        top.WrapContents = true;
 
         var split = new SplitContainer
         {
@@ -540,19 +685,25 @@ public class frmDaoTao : Form
             BackColor = Ui.BgSoft
         };
         var lblTrong = Ui.Label("Học viên trong lớp", Ui.H2, Ui.Navy);
-        lblTrong.Dock = DockStyle.Top;
         lblTrong.Padding = new Padding(8, 8, 0, 4);
-        split.Panel1.Controls.Add(_gridTrongLop);
-        split.Panel1.Controls.Add(lblTrong);
+        split.Panel1.Controls.Add(TaoPaneBang(lblTrong, _gridTrongLop));
 
         var lblChua = Ui.Label("Học viên có thể thêm", Ui.H2, Ui.Navy);
-        lblChua.Dock = DockStyle.Top;
         lblChua.Padding = new Padding(8, 8, 0, 4);
-        split.Panel2.Controls.Add(_gridChuaLop);
-        split.Panel2.Controls.Add(lblChua);
+        split.Panel2.Controls.Add(TaoPaneBang(lblChua, _gridChuaLop));
 
-        page.Controls.Add(split);
-        page.Controls.Add(top);
+        ChiaDoiKhiHienThi(split);
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.White };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        top.Dock = DockStyle.Fill;
+        top.Margin = Padding.Empty;
+        split.Dock = DockStyle.Fill;
+        split.Margin = Padding.Empty;
+        layout.Controls.Add(top, 0, 0);
+        layout.Controls.Add(split, 0, 1);
+        page.Controls.Add(layout);
         return page;
     }
 
@@ -641,88 +792,11 @@ public class frmDaoTao : Form
         CapNhatTongHop();
     }
 
-    // ------------------------------------------------------------------ Phan cong
-    private TabPage TaoTabPhanCong()
-    {
-        var page = new TabPage("Phân công GV") { BackColor = Ui.BgSoft };
-        Ui.StyleGrid(_gridPc);
-        _gridPc.Dock = DockStyle.Fill;
-        _gridPc.CellDoubleClick += (_, _) => SuaPhanCong();
-
-        _cboLopPc.SelectedIndexChanged += (_, _) => TaiPhanCong();
-
-        var btnThem = Ui.ButtonAccent("＋ Phân công", 140);
-        btnThem.Click += (_, _) => ThemPhanCong();
-        var btnSua = Ui.ButtonPrimary("✎ Sửa", 90);
-        btnSua.Click += (_, _) => SuaPhanCong();
-        var btnXoa = Ui.ButtonDanger("🗑 Xóa", 90);
-        btnXoa.Click += (_, _) => XoaPhanCong();
-
-        var toolbar = TaoToolbar([
-            Ui.Label("Lớp:", Ui.Body, Ui.TextMuted), _cboLopPc,
-            btnThem, btnSua, btnXoa
-        ]);
-
-        var note = Ui.Label(
-            "Mỗi lớp — mỗi môn chỉ một giáo viên. Khi phân công, hệ thống tự ghi nhận giáo viên dạy môn đó.",
-            Ui.Small, Ui.TextMuted);
-        note.Dock = DockStyle.Bottom;
-        note.Padding = new Padding(16, 6, 0, 6);
-        note.Height = 28;
-
-        page.Controls.Add(_gridPc);
-        page.Controls.Add(note);
-        page.Controls.Add(toolbar);
-        return page;
-    }
-
-    private int LopPcId() => _cboLopPc.SelectedValue is int i ? i : 0;
-
-    private void TaiPhanCong()
-    {
-        var lop = LopPcId();
-        if (lop <= 0) { _gridPc.DataSource = null; return; }
-        _gridPc.DataSource = _service.LayPhanCongTheoLop(lop);
-        Ui.RenameColumns(_gridPc,
-            ("MonHocID", "Môn ID"), ("TenMon", "Môn học"), ("TenGiaoVien", "Giáo viên"));
-        Ui.HideColumns(_gridPc, "LopHocID", "MonHocID", "GiaoVienID");
-    }
-
-    private void ThemPhanCong()
-    {
-        var lop = LopPcId();
-        if (lop <= 0) { MessageBox.Show("Hãy chọn lớp.", "Thông báo"); return; }
-        using var f = new frmPhanCongEdit(lop);
-        if (f.ShowDialog(FindForm()) == DialogResult.OK) { TaiPhanCong(); CapNhatTongHop(); }
-    }
-
-    private void SuaPhanCong()
-    {
-        var lop = LopPcId();
-        if (lop <= 0 || _gridPc.CurrentRow == null) { ThongBaoChon(); return; }
-        var mon = Convert.ToInt32(_gridPc.CurrentRow.Cells["MonHocID"].Value);
-        var gv = Convert.ToInt32(_gridPc.CurrentRow.Cells["GiaoVienID"].Value);
-        using var f = new frmPhanCongEdit(lop, sua: true, monHocId: mon, giaoVienId: gv);
-        if (f.ShowDialog(FindForm()) == DialogResult.OK) { TaiPhanCong(); CapNhatTongHop(); }
-    }
-
-    private void XoaPhanCong()
-    {
-        var lop = LopPcId();
-        if (lop <= 0 || _gridPc.CurrentRow == null) { ThongBaoChon(); return; }
-        var monTen = _gridPc.CurrentRow.Cells["TenMon"].Value;
-        if (MessageBox.Show($"Xóa phân công môn '{monTen}'?", "Xác nhận", MessageBoxButtons.YesNo) != DialogResult.Yes)
-            return;
-        var mon = Convert.ToInt32(_gridPc.CurrentRow.Cells["MonHocID"].Value);
-        _service.XoaPhanCong(lop, mon);
-        TaiPhanCong();
-        CapNhatTongHop();
-    }
-
     // ------------------------------------------------------------------ Lich hoc
     private TabPage TaoTabLichHoc()
     {
         var page = new TabPage("Lịch học") { BackColor = Ui.BgSoft };
+        _cboLopLh.DropDownWidth = 650;
         Ui.StyleGrid(_gridLh);
         _gridLh.Dock = DockStyle.Fill;
         _gridLh.CellDoubleClick += (_, _) => SuaLichHoc();
@@ -740,10 +814,12 @@ public class frmDaoTao : Form
         btnSua.Click += (_, _) => SuaLichHoc();
         var btnXoa = Ui.ButtonDanger("🗑 Xóa", 90);
         btnXoa.Click += (_, _) => XoaLichHoc();
+        var btnLamMoi = Ui.ButtonOutline("Làm mới", 100);
+        btnLamMoi.Click += (_, _) => TaiLichHoc();
 
         var toolbar = TaoToolbar([
             Ui.Label("Lớp:", Ui.Body, Ui.TextMuted), _cboLopLh,
-            btnThem, btnSua, btnXoa
+            btnThem, btnSua, btnXoa, btnLamMoi
         ]);
 
         var note = Ui.Label(
@@ -753,9 +829,7 @@ public class frmDaoTao : Form
         note.Padding = new Padding(16, 6, 0, 6);
         note.Height = 28;
 
-        page.Controls.Add(_gridLh);
-        page.Controls.Add(note);
-        page.Controls.Add(toolbar);
+        DatBoCucBang(page, toolbar, _gridLh, note, 28);
         return page;
     }
 
@@ -769,7 +843,27 @@ public class frmDaoTao : Form
         Ui.RenameColumns(_gridLh,
             ("LichHocID", "ID"), ("NoiDung", "Nội dung"), ("ThoiGianBatDau", "Bắt đầu"),
             ("ThoiGianKetThuc", "Kết thúc"), ("DiaDiem", "Địa điểm"));
-        Ui.HideColumns(_gridLh, "LichHocID", "LopHocID");
+        Ui.HideColumns(_gridLh, "LopHocID");
+
+        if (_gridLh.Columns.Contains("LichHocID"))
+        {
+            _gridLh.Columns["LichHocID"]!.FillWeight = 50;
+            _gridLh.Columns["LichHocID"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridLh.Columns.Contains("NoiDung")) _gridLh.Columns["NoiDung"]!.FillWeight = 250;
+        if (_gridLh.Columns.Contains("ThoiGianBatDau"))
+        {
+            _gridLh.Columns["ThoiGianBatDau"]!.FillWeight = 120;
+            _gridLh.Columns["ThoiGianBatDau"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+            _gridLh.Columns["ThoiGianBatDau"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridLh.Columns.Contains("ThoiGianKetThuc"))
+        {
+            _gridLh.Columns["ThoiGianKetThuc"]!.FillWeight = 120;
+            _gridLh.Columns["ThoiGianKetThuc"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+            _gridLh.Columns["ThoiGianKetThuc"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
+        if (_gridLh.Columns.Contains("DiaDiem")) _gridLh.Columns["DiaDiem"]!.FillWeight = 140;
     }
 
     private int IdLichHocChon() => GridId(_gridLh, "LichHocID");
@@ -799,6 +893,60 @@ public class frmDaoTao : Form
     }
 
     // ------------------------------------------------------------------ helpers
+    private static TableLayoutPanel TaoPaneBang(Label title, DataGridView grid)
+    {
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.White };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        title.AutoSize = false;
+        title.Dock = DockStyle.Fill;
+        title.Margin = Padding.Empty;
+        grid.Dock = DockStyle.Fill;
+        grid.Margin = Padding.Empty;
+        layout.Controls.Add(title, 0, 0);
+        layout.Controls.Add(grid, 0, 1);
+        return layout;
+    }
+
+    private static void ChiaDoiKhiHienThi(SplitContainer split)
+    {
+        var initialized = false;
+        split.SizeChanged += (_, _) =>
+        {
+            if (initialized || split.ClientSize.Width < 600) return;
+            split.SplitterDistance = split.ClientSize.Width / 2;
+            initialized = true;
+        };
+    }
+
+    private static void DatBoCucBang(TabPage page, Control toolbar, DataGridView grid, Control footer, int footerHeight)
+    {
+        var layout = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            Margin = Padding.Empty,
+            Padding = Padding.Empty,
+            BackColor = Color.White,
+        };
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, footerHeight));
+        foreach (var control in new Control[] { toolbar, grid, footer })
+        {
+            control.Dock = DockStyle.Fill;
+            control.Margin = Padding.Empty;
+        }
+        if (footer is Label label) label.AutoSize = false;
+        layout.Controls.Add(toolbar, 0, 0);
+        layout.Controls.Add(grid, 0, 1);
+        layout.Controls.Add(footer, 0, 2);
+        page.Controls.Add(layout);
+    }
+
     private static FlowLayoutPanel TaoToolbar(Control[] controls)
     {
         var toolbar = new FlowLayoutPanel

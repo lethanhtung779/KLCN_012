@@ -39,30 +39,21 @@
       "page": "web-library-desktop",
       "status": 200,
       "overflow": false,
-      "unlabelled": [
-        "khoDeSearchInput",
-        "khoDeSortSelect"
-      ],
+      "unlabelled": [],
       "brokenImages": []
     },
     {
       "page": "web-history-desktop",
       "status": 200,
       "overflow": false,
-      "unlabelled": [
-        "searchHistory"
-      ],
+      "unlabelled": [],
       "brokenImages": []
     },
     {
       "page": "web-learning-desktop",
       "status": 200,
       "overflow": false,
-      "unlabelled": [
-        "lop",
-        "tu",
-        "den"
-      ],
+      "unlabelled": [],
       "brokenImages": []
     },
     {
@@ -76,7 +67,7 @@
     },
     {
       "test": "Stored HTML execution",
-      "executed": true
+      "executed": false
     },
     {
       "test": "Timer initialized",
@@ -84,7 +75,7 @@
     },
     {
       "test": "Autosave online",
-      "text": "Đã lưu 12:14:54"
+      "text": "Đã lưu 21:36:03"
     },
     {
       "test": "Autosave offline",
@@ -92,7 +83,7 @@
     },
     {
       "test": "Autosave recovery",
-      "text": "Đã lưu 12:14:57"
+      "text": "Đã lưu 21:36:06"
     },
     {
       "page": "web-taking-mobile",
@@ -102,10 +93,7 @@
       "page": "web-library-mobile",
       "status": 200,
       "overflow": false,
-      "unlabelled": [
-        "khoDeSearchInput",
-        "khoDeSortSelect"
-      ],
+      "unlabelled": [],
       "brokenImages": []
     },
     {
@@ -124,8 +112,8 @@
     },
     {
       "test": "Teacher web login",
-      "url": "http://127.0.0.1:64774/",
-      "hasStudentSchedule": 1
+      "url": "http://127.0.0.1:50341/",
+      "hasStudentSchedule": 0
     }
   ],
   "pageErrors": []
