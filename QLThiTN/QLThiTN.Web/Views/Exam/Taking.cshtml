@@ -242,6 +242,7 @@
 </section>
 
 @section Scripts {
+    <script src="~/js/exam-autosave.js" asp-append-version="true"></script>
     <script>
         $(function () {
             var remainingSeconds = @Model.RemainingSeconds;
@@ -402,12 +403,32 @@
             // ------------------------------------------------------------------
             // Tu dong luu tien trinh ve server (de cuong: phong su co)
             // ------------------------------------------------------------------
-            var dirtySinceSave = false;
             var saveTimerId = null;
+            var debounceSaveId = null;
+            var autosave = new ExamAutosave(function () {
+                return new Promise(function (resolve, reject) {
+                    $.ajax({
+                        url: '@Url.Action("LuuTam", "Exam")',
+                        type: 'POST', contentType: 'application/json; charset=utf-8', dataType: 'json',
+                        timeout: 10000,
+                        headers: { 'RequestVerificationToken': antiForgeryToken },
+                        data: JSON.stringify({ ExamId: examId, BaiLamID: baiLamId, Answers: collectAnswers() }),
+                        success: resolve,
+                        error: function () { reject(new Error('Chưa đồng bộ được. Hãy giữ trang mở; hệ thống sẽ thử lại.')); }
+                    });
+                });
+            }, function (state, detail) {
+                var text = state === 'saved' ? 'Đã lưu ' + (detail || '')
+                    : state === 'saving' ? 'Đang lưu...'
+                    : state === 'pending' ? 'Có thay đổi chưa lưu'
+                    : detail || 'Mất kết nối — còn thay đổi chưa lưu';
+                $('#autosaveStatus').text(text).toggleClass('text-danger', state === 'error');
+            });
 
             function markDirty() {
-                dirtySinceSave = true;
-                $('#autosaveStatus').html('<span class="spinner-border spinner-border-sm me-1" role="status"></span><span>Đang lưu...</span>');
+                autosave.markDirty();
+                window.clearTimeout(debounceSaveId);
+                debounceSaveId = window.setTimeout(luuTam, 800);
             }
 
             function collectAnswers() {
@@ -437,29 +458,17 @@
                 return answers;
             }
 
-            function luuTam(whenDone) {
-                if (!dirtySinceSave || submitting) {
-                    if (whenDone) whenDone();
-                    return;
-                }
-                dirtySinceSave = false;
-                $.ajax({
-                    url: '@Url.Action("LuuTam", "Exam")',
-                    type: 'POST',
-                    contentType: 'application/json; charset=utf-8',
-                    dataType: 'json',
-                    headers: { 'RequestVerificationToken': antiForgeryToken },
-                    data: JSON.stringify({ ExamId: examId, BaiLamID: baiLamId, Answers: collectAnswers() }),
-                    success: function (res) {
-                        if (res.success) {
-                            $('#autosaveStatus').html('<i class="bi bi-cloud-check text-success me-1"></i><span>Đã lưu ' + res.luuLuc + '</span>');
-                        } else if (res.message) {
-                            $('#autosaveStatus').html('<i class="bi bi-exclamation-triangle text-danger me-1"></i><span>' + res.message + '</span>');
-                        }
-                    },
-                    complete: function () { if (whenDone) whenDone(); }
-                });
+            function luuTam() {
+                if (!submitting) return autosave.flush();
             }
+
+            window.addEventListener('online', luuTam);
+            window.addEventListener('beforeunload', function (event) {
+                if (!submitting && autosave.dirty) {
+                    event.preventDefault();
+                    event.returnValue = '';
+                }
+            });
 
             saveTimerId = window.setInterval(function () { luuTam(); }, 15000);
 
@@ -474,7 +483,7 @@
                     $('.option-item').removeClass('selected');
                     $('input[type="radio"]').prop('checked', false);
                     $('.tln-input').val('');
-                    dirtySinceSave = true;
+                    markDirty();
                     updatePalette();
                 }
             });
@@ -491,7 +500,7 @@
                     if (!confirm(msg)) return false;
                 }
                 submitting = true;
-                dirtySinceSave = false;
+                window.clearTimeout(debounceSaveId);
                 window.clearInterval(saveTimerId);
                 $('#btnSubmit, #btnReset').prop('disabled', true);
                 return true;

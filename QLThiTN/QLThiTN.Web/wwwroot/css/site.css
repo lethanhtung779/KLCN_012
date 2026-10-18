@@ -50,21 +50,78 @@ main {
     flex: 1;
 }
 
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.4);
+    border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(100, 116, 139, 0.7);
+}
+
 /* ---------- Navbar ---------- */
 .main-nav {
-    background: var(--gradient-dark);
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .main-nav .navbar-brand .brand-icon {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 12px;
     background: var(--gradient);
     color: #fff;
-    font-size: 1.25rem;
+    font-size: 1.3rem;
+    box-shadow: 0 4px 14px rgba(1, 180, 255, 0.35);
+}
+
+.badge-pro {
+    background: linear-gradient(135deg, #01b4ff 0%, #7c4dff 100%);
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 800;
+    padding: 0.2rem 0.45rem;
+    border-radius: 6px;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    box-shadow: 0 2px 6px rgba(124, 77, 255, 0.35);
+}
+
+.badge-vip {
+    background: linear-gradient(135deg, #ffe082 0%, #ffb300 100%);
+    color: #4a3400;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(255, 179, 0, 0.3);
+    border: 1px solid rgba(255, 235, 153, 0.6);
+    font-size: 0.75rem;
+}
+
+.badge-free {
+    background: rgba(1, 180, 255, 0.15);
+    color: #0284c7;
+    font-weight: 600;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+}
+
+[data-bs-theme="dark"] .badge-free {
+    background: rgba(56, 189, 248, 0.18);
+    color: #38bdf8;
 }
 
 .main-nav .nav-link {
@@ -84,15 +141,17 @@ main {
 .btn-user {
     background: rgba(255, 255, 255, .12);
     color: #fff;
-    border: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 30px;
-    padding: .3rem .9rem .3rem .4rem;
+    padding: .35rem 1rem .35rem .5rem;
     font-weight: 500;
+    transition: all .2s ease;
 }
 
 .btn-user:hover {
-    background: rgba(255, 255, 255, .2);
+    background: rgba(255, 255, 255, .22);
     color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
 }
 
 .user-avatar {
@@ -106,6 +165,7 @@ main {
     font-weight: 700;
     color: #fff;
     font-size: .85rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
 /* ---------- Buttons ---------- */
@@ -127,85 +187,213 @@ main {
 }
 
 .btn-outline-custom {
-    border: 2px solid rgba(255, 255, 255, .7);
-    color: #fff;
+    border: 1.5px solid var(--accent);
+    color: #0284c7;
+    background: transparent;
     border-radius: 30px;
     font-weight: 600;
     padding: .5rem 1.4rem;
+    transition: all .2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
 }
 
 .btn-outline-custom:hover {
+    background: var(--gradient);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 15px rgba(1, 180, 255, .3);
+}
+
+[data-bs-theme="dark"] .btn-outline-custom {
+    color: #38bdf8;
+    border-color: #38bdf8;
+}
+
+[data-bs-theme="dark"] .btn-outline-custom:hover {
+    color: #fff;
+}
+
+/* Rieng nut outline ben trong Hero nen toi */
+.hero .btn-outline-custom {
+    border: 2px solid rgba(255, 255, 255, .75);
+    color: #fff;
+}
+
+.hero .btn-outline-custom:hover {
     background: #fff;
     color: var(--primary);
     border-color: #fff;
+    box-shadow: 0 6px 20px rgba(255, 255, 255, .25);
+}
+
+/* Nut VIP bi khoa: hien thi tuong phan ro rang o ca Light va Dark Mode */
+.btn-locked-vip {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1.5px solid rgba(245, 158, 11, 0.45);
+    color: #b45309;
+    border-radius: 30px;
+    font-weight: 600;
+    padding: .5rem 1.4rem;
+    transition: all .2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.btn-locked-vip:hover {
+    background: linear-gradient(135deg, #ffe082 0%, #ffb300 100%);
+    color: #4a3400;
+    border-color: transparent;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+}
+
+[data-bs-theme="dark"] .btn-locked-vip {
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(251, 191, 36, 0.5);
+    color: #fcd34d;
+}
+
+[data-bs-theme="dark"] .btn-locked-vip:hover {
+    background: linear-gradient(135deg, #ffe082 0%, #ffb300 100%);
+    color: #3e2723;
+}
+
+/* Nut vien chinh trong the bai */
+.btn-outline-primary-custom {
+    border: 1.5px solid var(--accent);
+    color: #0284c7;
+    background: transparent;
+    border-radius: 30px;
+    font-weight: 600;
+    padding: .5rem 1.4rem;
+    transition: all .2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.btn-outline-primary-custom:hover {
+    background: var(--gradient);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 4px 15px rgba(1, 180, 255, .3);
+}
+
+[data-bs-theme="dark"] .btn-outline-primary-custom {
+    color: #38bdf8;
+    border-color: #38bdf8;
+}
+
+[data-bs-theme="dark"] .btn-outline-primary-custom:hover {
+    color: #fff;
+}
+
+/* Nut dang nhap Google chuan phong cach Google */
+.btn-google-login {
+    background: #ffffff;
+    border: 1px solid #dadce0;
+    color: #3c4043 !important;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-google-login:hover {
+    background: #f8fafd;
+    border-color: #c2e7ff;
+    box-shadow: 0 2px 8px rgba(60, 64, 67, 0.15);
+    color: #1f1f1f !important;
+}
+
+[data-bs-theme="dark"] .btn-google-login {
+    background: #1e293b;
+    border-color: #334155;
+    color: #f1f5f9 !important;
+}
+
+[data-bs-theme="dark"] .btn-google-login:hover {
+    background: #334155;
+    color: #ffffff !important;
 }
 
 /* ---------- Hero ---------- */
 .hero {
-    background: var(--gradient-dark);
+    background: radial-gradient(circle at 85% 15%, rgba(1, 180, 255, .2) 0%, transparent 45%),
+                radial-gradient(circle at 10% 85%, rgba(124, 77, 255, .2) 0%, transparent 45%),
+                linear-gradient(135deg, #0b132b 0%, #172445 60%, #111a33 100%);
     color: #fff;
-    padding: 4.5rem 0;
+    padding: 5rem 0;
     position: relative;
     overflow: hidden;
 }
 
-.hero::before {
-    content: '';
-    position: absolute;
-    top: -40%;
-    right: -10%;
-    width: 500px;
-    height: 500px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(1, 180, 255, .25), transparent 70%);
-}
-
-.hero::after {
-    content: '';
-    position: absolute;
-    bottom: -30%;
-    left: -5%;
-    width: 400px;
-    height: 400px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(124, 77, 255, .25), transparent 70%);
-}
-
 .hero .badge-gradient {
     background: var(--gradient);
-    padding: .45rem 1.1rem;
+    padding: .5rem 1.25rem;
     border-radius: 30px;
     font-size: .85rem;
     font-weight: 600;
-    /* inline-block de mb-2/mb-3 tren the span co tac dung,
-       tao khoang cach that voi tieu de ben duoi */
     display: inline-block;
+    box-shadow: 0 4px 15px rgba(1, 180, 255, .3);
+    letter-spacing: 0.3px;
 }
 
 .hero h1 {
-    font-size: 2.6rem;
+    font-size: 2.75rem;
     font-weight: 800;
-    /* 1.25 de du cho cho dau thanh tren chu cai (e^, o^...) khong cham phan tu phia tren */
     line-height: 1.25;
+    letter-spacing: -0.5px;
+    background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.85) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .hero p {
-    color: rgba(255, 255, 255, .85);
+    color: rgba(255, 255, 255, .88);
+}
+
+.hero-social-pill {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 0.4rem 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
 }
 
 /* ---------- Cards ---------- */
 .card-exam {
-    border: none;
-    border-radius: 16px;
-    box-shadow: 0 4px 20px rgba(27, 42, 78, .06);
-    transition: transform .2s ease, box-shadow .2s ease;
-    border-top: 3px solid transparent;
-    border-top-color: var(--accent);
+    border: 1px solid var(--border-soft);
+    border-radius: 18px;
+    background: var(--bg-card);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, .05);
+    transition: transform .25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .25s cubic-bezier(0.16, 1, 0.3, 1), border-color .25s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.card-exam::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient);
+    opacity: 0.8;
 }
 
 .card-exam:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 30px rgba(27, 42, 78, .12);
+    transform: translateY(-6px);
+    box-shadow: 0 16px 35px -8px rgba(15, 23, 42, .12), 0 0 0 1px rgba(1, 180, 255, 0.25);
+    border-color: rgba(1, 180, 255, 0.3);
 }
 
 .card-exam .subject-badge {
@@ -1192,6 +1380,16 @@ mjx-container[jax="CHTML"][display="true"] {
 }
 
 /* Badge Dark Mode Overrides (đảm bảo độ tương phản cao) */
+[data-bs-theme="dark"] .badge.bg-warning,
+[data-bs-theme="dark"] .badge.bg-warning *,
+[data-bs-theme="dark"] .badge-status.bg-warning,
+[data-bs-theme="dark"] .badge-vip,
+[data-bs-theme="dark"] .badge-vip *,
+[data-bs-theme="dark"] .btn-warning,
+[data-bs-theme="dark"] .btn-warning * {
+    color: #1c1917 !important;
+}
+
 [data-bs-theme="dark"] .badge.bg-light,
 [data-bs-theme="dark"] .badge-status-muted {
     background-color: #334155 !important;

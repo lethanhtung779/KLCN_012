@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
+using QLThiTN.API.Services;
 
 namespace QLThiTN.API.Controllers;
 
+[Authorize(Roles = "HocVien")]
 [ApiController]
 [Route("api/[controller]")]
 public class BaiLamController : ControllerBase
@@ -20,6 +22,7 @@ public class BaiLamController : ControllerBase
     [HttpGet("history/{hocVienId:int}")]
     public async Task<IActionResult> GetHistory(int hocVienId)
     {
+        if (hocVienId != User.StudentId()) return Forbid();
         var list = await _db.BaiLams
             .Where(b => b.HocVienID == hocVienId && b.TrangThai != "DangLam")
             .Include(b => b.DotThi)
@@ -49,7 +52,7 @@ public class BaiLamController : ControllerBase
                 LoaiDeText = LoaiDeTextHelper.LoaiDeText(loaiDe),
                 LanThi = b.LanThi,
                 ThoiGianNop = b.ThoiGianNop ?? b.ThoiGianBatDau,
-                TongDiem = b.TongDiem ?? 0m,
+                TongDiem = congBoDiem ? b.TongDiem ?? 0m : 0m,
                 ThoiLuongLamBai = b.DotThi?.ThoiLuongLamBai ?? 45,
                 TrangThai = b.TrangThai,
                 ScorePublished = congBoDiem
@@ -65,8 +68,10 @@ public class BaiLamController : ControllerBase
     [HttpGet("stats/{hocVienId:int}")]
     public async Task<IActionResult> GetStudentStats(int hocVienId)
     {
+        if (hocVienId != User.StudentId()) return Forbid();
         var completed = await _db.BaiLams
-            .Where(b => b.HocVienID == hocVienId && b.TongDiem.HasValue)
+            .Where(b => b.HocVienID == hocVienId && b.TongDiem.HasValue && b.TrangThai != "DangLam"
+                && (b.DotThi!.CongBoDiemSom || b.DotThi.ThoiGianDongCong <= DateTime.Now))
             .ToListAsync();
 
         if (completed.Count == 0)
@@ -109,7 +114,7 @@ public class BaiLamController : ControllerBase
                     .ThenInclude(c => c!.HinhAnhs)
             .Include(b => b.ChiTietBaiLams)
                 .ThenInclude(ct => ct.LuaChonBaiLams)
-            .FirstOrDefaultAsync(b => b.BaiLamID == id);
+            .FirstOrDefaultAsync(b => b.BaiLamID == id && b.HocVienID == User.StudentId() && b.TrangThai != "DangLam");
 
         if (baiLam is null) return NotFound();
 
@@ -296,7 +301,7 @@ public class BaiLamController : ControllerBase
             }
         }
 
-        return Ok(new SubmitExamResultDto
+        return Ok(ExamRules.ForPublication(new SubmitExamResultDto
         {
             BaiLamID = baiLam.BaiLamID,
             DeThiID = deThiId,
@@ -311,7 +316,7 @@ public class BaiLamController : ControllerBase
             DurationUsed = durationUsed,
             ScorePublished = scorePublished,
             Results = results
-        });
+        }));
     }
 
     private static List<HinhAnhDto> ToHinhAnhDto(IEnumerable<HinhAnh> list) =>

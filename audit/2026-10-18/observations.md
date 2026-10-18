@@ -1,0 +1,39 @@
+- **U01**: Start exam marked DaDong while dates are open: HTTP 200 (expected rejection).
+- **U02**: Start TheoLop exam with no class membership: HTTP 200 (expected rejection).
+- **U03**: Re-register previously cancelled seat after another student fills capacity: HTTP 200; active registrations 2/1.
+- **U04**: Same exam has old closed and new open sessions; start HTTP 400: {"message":"De thi da dong cong, het han lam bai"}
+- **PASS-VIP**: Free account starting paid exam: HTTP 403 (expected 403).
+- **U05**: Autosave non-existent answer ID: HTTP 500 (expected validation 400).
+- **PASS-BLANK**: Blank submission HTTP 200; score 0.
+- **PASS-LIMIT**: Second attempt after one-attempt limit: HTTP 409 (expected 409).
+- **U06**: Production registration with SMTP disabled and one-character password: HTTP 200; pending record exists=True.
+- **U07**: Confirm one-character-password account: HTTP 200; login HTTP 200.
+- **PASS-TOKEN**: Reusing consumed confirmation token: HTTP 400 (expected 400).
+- **PASS-GRADING**: Three question types: MC correct, 3/4 true-false correct, decimal comma accepted; score=9.0 (expected 9 under current linear partial-credit rule).
+- **PASS-TEACHER-API**: Question bank unassigned HTTP 403; after subject assignment HTTP 200 (expected 403/200).
+- **UI-teacher-main**: Constructed and rendered 1100x680.
+- **UI-teacher-questions**: Constructed and rendered 1216x839.
+- **UI-teacher-statistics**: Constructed and rendered 1216x839.
+- **T01**: Teacher reads 9 sessions across system, without assignment filtering.
+- **T02**: Teacher directly calls admin AccountService.Them: success=True, new admin ID=6.
+- **T03**: Teacher can construct admin account-management form directly; sidebar hiding is not a service permission boundary.
+- **T04**: Teacher creates question in unassigned subject successfully: question ID=4.
+- **T05**: Different teacher identity edits another teacher's unused question successfully.
+- **PASS-TEACHER-EXAM**: Teacher creation of exam is denied by service.
+- **UI-admin-main**: Constructed and rendered 1100x680.
+- **UI-admin-accounts**: Constructed and rendered 1216x839.
+- **UI-admin-training**: Constructed and rendered 1216x839.
+- **UI-admin-exams**: Constructed and rendered 1216x839.
+- **UI-admin-session-edit**: Constructed and rendered 576x509.
+- **A01**: Delete existing exam throws: Invalid column name 'DeThiID'.
+Invalid column name 'DeThiID'.
+Invalid column name 'DeThiID'.
+- **A02**: Create course ending before start: success=True, ID=1.
+- **A03**: Create student with invalid email through service: success=True.
+- **A04**: Admin can lock own account through service (normal UI has a guard).
+- **PASS-TRAINING**: Course/class/enrollment successes=True/True/True; repeated enrollment accepted=False.
+- **A05**: Two overlapping class sessions accepted: True/True.
+- **A06**: Duplicate assignment rejected=True, but candidate teacher acquired subject mapping=True.
+- **A07**: Oversized profile name leaves account without student profile: 1 orphan record.
+- **A08**: Duplicate question creation leaves inconsistent partial exam: 1 record.
+- **BROWSER**: Browser checks exit code 1.

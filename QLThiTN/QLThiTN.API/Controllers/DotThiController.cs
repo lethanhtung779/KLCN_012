@@ -18,6 +18,7 @@ public class DotThiController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int? hocVienId)
     {
+        hocVienId = User.StudentId() > 0 ? User.StudentId() : null;
         var list = await _db.DotThis
             .Include(d => d.DeThi)
                 .ThenInclude(d => d!.MonHoc)
@@ -61,6 +62,7 @@ public class DotThiController : ControllerBase
         return Ok(ToDto(dot));
     }
 
+    [Authorize(Roles = "QuanTriVien")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] DotThiDto request)
     {
@@ -86,6 +88,7 @@ public class DotThiController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = dot.DotThiID }, dot);
     }
 
+    [Authorize(Roles = "QuanTriVien")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -97,9 +100,11 @@ public class DotThiController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Roles = "HocVien")]
     [HttpPost("{id:int}/dangky")]
     public async Task<IActionResult> DangKy(int id, [FromBody] DangKyDotThiRequestDto request)
     {
+        if (request.HocVienID != User.StudentId()) return Forbid();
         var dot = await _db.DotThis.FirstOrDefaultAsync(d => d.DotThiID == id);
         if (dot is null) return NotFound(new { message = "Khong tim thay dot thi" });
 
@@ -145,9 +150,11 @@ public class DotThiController : ControllerBase
         return Ok(new { message = "Dang ky dot thi thanh cong" });
     }
 
+    [Authorize(Roles = "HocVien")]
     [HttpDelete("{id:int}/dangky/{hocVienId:int}")]
     public async Task<IActionResult> HuyDangKy(int id, int hocVienId)
     {
+        if (hocVienId != User.StudentId()) return Forbid();
         var dk = await _db.DangKyDotThis
             .FirstOrDefaultAsync(k => k.DotThiID == id && k.HocVienID == hocVienId && k.TrangThai != "DaHuy");
         if (dk is null) return NotFound(new { message = "Ban chua dang ky dot thi nay" });

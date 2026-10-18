@@ -28,8 +28,20 @@ public class RegisterRequestDto
     public string VaiTro { get; set; } = "HocVien";
 }
 
+public class GoogleLoginRequestDto
+{
+    [Required, EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    public string FullName { get; set; } = string.Empty;
+
+    public string? GoogleId { get; set; }
+}
+
 public class AuthResponseDto
 {
+    public string AccessToken { get; set; } = string.Empty;
+    public DateTimeOffset TokenExpiresAt { get; set; }
     public int TaiKhoanID { get; set; }
     public string TenDangNhap { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

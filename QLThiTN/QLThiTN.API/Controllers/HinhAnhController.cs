@@ -26,6 +26,7 @@ public class HinhAnhController : ControllerBase
     }
 
     /// <summary>Tra ve danh sach duong dan cua mot cau hoi (de canh bao file mat).</summary>
+    [Authorize(Roles = "QuanTriVien")]
     [HttpGet("cauhoi/{cauHoiId:int}")]
     public async Task<IActionResult> ByQuestion(int cauHoiId)
     {

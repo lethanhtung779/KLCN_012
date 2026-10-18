@@ -1,0 +1,80 @@
+@{
+    ViewData["Title"] = "Cấu hình đăng nhập Google";
+    var returnUrl = ViewBag.ReturnUrl as string;
+}
+
+<section class="auth-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-sm border-0 rounded-4 p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <div class="d-inline-flex p-3 rounded-circle bg-light mb-3">
+                            <svg width="40" height="40" viewBox="0 0 48 48">
+                                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                                <path fill="none" d="M0 0h48v48H0z"/>
+                            </svg>
+                        </div>
+                        <h3 class="fw-bold">Đăng nhập Google cho học viên vãng lai</h3>
+                        <p class="text-muted">Chưa cấu hình Google Client ID & Secret trên môi trường chạy thử</p>
+                    </div>
+
+                    @if (!ViewData.ModelState.IsValid)
+                    {
+                        <div class="alert alert-danger" asp-validation-summary="All"></div>
+                    }
+
+                    <div class="alert alert-info border-0 d-flex gap-3 align-items-start mb-4">
+                        <i class="bi bi-info-circle-fill fs-4 text-primary flex-shrink-0 mt-1"></i>
+                        <div>
+                            <strong>Cách cấu hình Google OAuth chính thức:</strong>
+                            <ol class="small mb-2 ps-3 mt-1">
+                                <li>Truy cập <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="fw-semibold">Google Cloud Console</a>.</li>
+                                <li>Tạo <strong>OAuth 2.0 Client ID</strong> loại <em>Web application</em>.</li>
+                                <li>Thêm <strong>Authorized redirect URIs</strong>: <code>http://localhost:7245/signin-google</code></li>
+                                <li>Tạo file <code>QLThiTN\QLThiTN.Web\appsettings.Google.json</code>:</li>
+                            </ol>
+                            <pre class="bg-dark text-light p-2 rounded small mb-0"><code>{
+  "Authentication": {
+    "Google": {
+      "ClientId": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+      "ClientSecret": "YOUR_CLIENT_SECRET"
+    }
+  }
+}</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="card bg-light border-0 rounded-3 p-4 mb-3">
+                        <h5 class="fw-bold mb-2"><i class="bi bi-play-circle-fill text-success me-2"></i>Thử nghiệm nhanh luồng học viên vãng lai</h5>
+                        <p class="small text-muted mb-3">Bạn có thể nhập email Google bất kỳ dưới đây để kiểm tra hệ thống tự động nhận diện / tạo tài khoản <strong>Học viên tự do (TuDo)</strong> và cấp quyền làm đề thi miễn phí:</p>
+
+                        <form asp-controller="Account" asp-action="SimulateGoogleLogin" method="post">
+                            <input type="hidden" name="returnUrl" value="@returnUrl" />
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Email Google</label>
+                                <input type="email" name="email" class="form-control" placeholder="vidu.hocvien@gmail.com" value="hocvien.vanglai@gmail.com" required />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Họ và tên hiển thị</label>
+                                <input type="text" name="fullName" class="form-control" placeholder="Nguyễn Văn A" value="Học Viên Vãng Lai (Demo Google)" />
+                            </div>
+                            <button type="submit" class="btn btn-success w-100 py-2 fw-semibold">
+                                <i class="bi bi-box-arrow-in-right me-1"></i>Đăng nhập giả lập Google ngay
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="text-center mt-3">
+                        <a asp-action="Login" class="text-decoration-none small text-muted">
+                            <i class="bi bi-arrow-left me-1"></i>Quay lại trang đăng nhập thông thường
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

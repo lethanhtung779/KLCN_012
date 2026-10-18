@@ -5,6 +5,7 @@ using QLThiTN.API.DTOs;
 namespace QLThiTN.API.Controllers;
 
 /// <summary>Thoi khoa bieu (LichHoc) theo lop hoc — phuc vu website hoc vien.</summary>
+[Authorize(Roles = "HocVien")]
 [ApiController]
 [Route("api/[controller]")]
 public class LichHocController : ControllerBase
@@ -25,6 +26,7 @@ public class LichHocController : ControllerBase
         [FromQuery] DateTime? tuNgay = null,
         [FromQuery] DateTime? denNgay = null)
     {
+        if (hocVienId != User.StudentId()) return Forbid();
         if (!await _db.HocViens.AnyAsync(h => h.HocVienID == hocVienId))
             return NotFound(new { Message = "Không tìm thấy học viên." });
 

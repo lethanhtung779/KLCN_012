@@ -147,6 +147,11 @@ function Copy-AppSettingsToOutput {
     if ((Test-Path $emailSrc) -and (Test-Path (Split-Path $emailDst -Parent))) {
         Copy-Item $emailSrc $emailDst -Force
     }
+    $googleSrc = Join-Path $Root "QLThiTN\QLThiTN.Web\appsettings.Google.json"
+    $googleDst = Join-Path $Root "QLThiTN\QLThiTN.Web\bin\Debug\net10.0\appsettings.Google.json"
+    if ((Test-Path $googleSrc) -and (Test-Path (Split-Path $googleDst -Parent))) {
+        Copy-Item $googleSrc $googleDst -Force
+    }
 }
 
 function Wait-Url {

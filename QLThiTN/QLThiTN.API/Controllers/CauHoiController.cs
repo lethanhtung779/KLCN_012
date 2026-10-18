@@ -6,6 +6,7 @@ using QLThiTN.API.Mappings;
 
 namespace QLThiTN.API.Controllers;
 
+[Authorize(Roles = "QuanTriVien,GiaoVien")]
 [ApiController]
 [Route("api/[controller]")]
 public class CauHoiController : ControllerBase
@@ -22,6 +23,9 @@ public class CauHoiController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
+        if (User.IsInRole("GiaoVien") && (!monHocId.HasValue ||
+            !await _db.GiaoVien_MonHocs.AnyAsync(g => g.GiaoVienID == User.TeacherId() && g.MonHocID == monHocId.Value)))
+            return Forbid();
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 200) pageSize = 50;
 
@@ -64,6 +68,8 @@ public class CauHoiController : ControllerBase
             .FirstOrDefaultAsync(c => c.CauHoiID == id);
 
         if (cauHoi is null) return NotFound();
+        if (User.IsInRole("GiaoVien") && !await _db.GiaoVien_MonHocs.AnyAsync(g =>
+            g.GiaoVienID == User.TeacherId() && g.MonHocID == cauHoi.ChuDe!.MonHocID)) return Forbid();
         return Ok(cauHoi.ToDto());
     }
 }

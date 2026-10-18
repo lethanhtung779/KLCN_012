@@ -13,6 +13,7 @@ obj/
 [Ll]og/
 [Dd]ebug/
 [Rr]elease/
+*.log
 
 # NuGet
 *.nupkg
@@ -41,3 +42,6 @@ logs/
 
 # SMTP (Brevo) — copy tu appsettings.Email.example.json
 QLThiTN/QLThiTN.API/appsettings.Email.json
+
+# Google OAuth credentials
+QLThiTN/QLThiTN.Web/appsettings.Google.json

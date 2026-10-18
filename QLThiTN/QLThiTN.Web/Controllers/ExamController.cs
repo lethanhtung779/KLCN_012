@@ -262,6 +262,17 @@ public class ExamController : Controller
             return RedirectToAction(nameof(Detail), new { id });
         }
 
+        if (batDau.RemainingSeconds <= 0)
+        {
+            var (closed, closeError) = await _api.NopBaiSafeAsync(new ApiNopBaiRequest
+            {
+                DeThiID = id, HocVienID = hocVienId, BaiLamID = batDau.BaiLamID
+            });
+            if (closed?.BaiLamID is int closedId) return RedirectToAction(nameof(Result), new { id = closedId });
+            TempData["ErrorMessage"] = closeError;
+            return RedirectToAction(nameof(Detail), new { id });
+        }
+
         var questions = await _api.GetCauHoiAsync(id, batDau.MaDeID, hocVienId);
         var model = new TakingExamViewModel
         {
@@ -283,6 +294,7 @@ public class ExamController : Controller
     /// <summary>Autosave: web goi dinh ky (JSON) de luu tien trinh lam bai ve server.</summary>
     [HttpPost]
     [RequireLogin]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> LuuTam([FromBody] SubmitExamViewModel model)
     {
         if (HocVienId is not int hocVienId || model.BaiLamID <= 0)

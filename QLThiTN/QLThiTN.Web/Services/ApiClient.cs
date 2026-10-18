@@ -12,7 +12,13 @@ namespace QLThiTN.Web.Services;
 
         private readonly HttpClient _http;
 
-        public ApiClient(HttpClient http) => _http = http;
+        public ApiClient(HttpClient http, IHttpContextAccessor context)
+        {
+            _http = http;
+            var token = context.HttpContext?.Session.GetString("ApiAccessToken");
+            if (!string.IsNullOrWhiteSpace(token))
+                _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
 
         /// <summary>Dia chi API dang dung, de ghep duong dan anh tuong doi thanh URL day du.</summary>
         public string BaseUrl => _http.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
@@ -168,6 +174,15 @@ namespace QLThiTN.Web.Services;
         return await response.Content.ReadFromJsonAsync<ApiLoginResult>(JsonOptions);
     }
 
+    public async Task<ApiLoginResult?> LoginWithGoogleAsync(ApiGoogleLoginRequest request)
+    {
+        var response = await _http.PostAsJsonAsync("/api/auth/google", request, JsonOptions);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        return await response.Content.ReadFromJsonAsync<ApiLoginResult>(JsonOptions);
+    }
+
     public async Task<(bool Success, string Message, string? DevConfirmUrl)> RegisterAsync(ApiRegisterRequest request)
     {
         var response = await _http.PostAsJsonAsync("/api/auth/register", request, JsonOptions);
@@ -211,7 +226,10 @@ namespace QLThiTN.Web.Services;
 
     public async Task<ApiKetQua?> GetBaiLamDetailAsync(int baiLamId)
     {
-        return await _http.GetFromJsonAsync<ApiKetQua>($"/api/bailam/{baiLamId}", JsonOptions);
+        using var response = await _http.GetAsync($"/api/bailam/{baiLamId}");
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound || response.StatusCode == System.Net.HttpStatusCode.Forbidden) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<ApiKetQua>(JsonOptions);
     }
 
     public async Task<ApiStudentStats?> GetStudentStatsAsync(int hocVienId)

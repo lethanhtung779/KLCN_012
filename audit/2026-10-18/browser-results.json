@@ -1,0 +1,132 @@
+{
+  "results": [
+    {
+      "page": "web-home-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": []
+    },
+    {
+      "page": "web-register-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": []
+    },
+    {
+      "page": "web-login-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": []
+    },
+    {
+      "page": "web-profile-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": []
+    },
+    {
+      "page": "web-schedule-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": []
+    },
+    {
+      "page": "web-library-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [
+        "khoDeSearchInput",
+        "khoDeSortSelect"
+      ],
+      "brokenImages": []
+    },
+    {
+      "page": "web-history-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [
+        "searchHistory"
+      ],
+      "brokenImages": []
+    },
+    {
+      "page": "web-learning-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [
+        "lop",
+        "tu",
+        "den"
+      ],
+      "brokenImages": []
+    },
+    {
+      "page": "web-taking-desktop",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": [
+        "/audit-missing"
+      ]
+    },
+    {
+      "test": "Stored HTML execution",
+      "executed": true
+    },
+    {
+      "test": "Timer initialized",
+      "text": "45:00"
+    },
+    {
+      "test": "Autosave online",
+      "text": "Đã lưu 12:14:54"
+    },
+    {
+      "test": "Autosave offline",
+      "text": "Chưa đồng bộ được. Hãy giữ trang mở; hệ thống sẽ thử lại."
+    },
+    {
+      "test": "Autosave recovery",
+      "text": "Đã lưu 12:14:57"
+    },
+    {
+      "page": "web-taking-mobile",
+      "overflow": false
+    },
+    {
+      "page": "web-library-mobile",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [
+        "khoDeSearchInput",
+        "khoDeSortSelect"
+      ],
+      "brokenImages": []
+    },
+    {
+      "page": "web-profile-mobile",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": []
+    },
+    {
+      "page": "web-teacher-home",
+      "status": 200,
+      "overflow": false,
+      "unlabelled": [],
+      "brokenImages": []
+    },
+    {
+      "test": "Teacher web login",
+      "url": "http://127.0.0.1:64774/",
+      "hasStudentSchedule": 1
+    }
+  ],
+  "pageErrors": []
+}

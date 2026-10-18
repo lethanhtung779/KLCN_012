@@ -275,6 +275,8 @@ public class ApiKetQuaOption
 
 public class ApiLoginResult
 {
+    public string AccessToken { get; set; } = string.Empty;
+    public DateTimeOffset TokenExpiresAt { get; set; }
     public int TaiKhoanID { get; set; }
     public string TenDangNhap { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
@@ -289,6 +291,13 @@ public class ApiLoginRequest
 {
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+public class ApiGoogleLoginRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? GoogleId { get; set; }
 }
 
 public class ApiRegisterRequest

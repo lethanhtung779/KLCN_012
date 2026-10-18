@@ -43,7 +43,7 @@ public class DeThiController : ControllerBase
         var raw = await _db.BaiLams
             .Where(b => b.TrangThai != "DangLam")
             .Join(_db.DotThis, b => b.DotThiID, d => d.DotThiID,
-                (b, d) => new { d.DeThiID, Diem = b.TongDiem })
+                (b, d) => new { d.DeThiID, Diem = d.CongBoDiemSom || d.ThoiGianDongCong <= DateTime.Now ? b.TongDiem : null })
             .ToListAsync();
 
         var theoDe = raw.GroupBy(x => x.DeThiID).Select(g =>
@@ -82,6 +82,7 @@ public class DeThiController : ControllerBase
         return Ok(ToListItemDto(de));
     }
 
+    [Authorize(Roles = "QuanTriVien")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateDeThiRequestDto request)
     {
@@ -138,6 +139,7 @@ public class DeThiController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = de.DeThiID }, ToListItemDto(created));
     }
 
+    [Authorize(Roles = "QuanTriVien")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -149,9 +151,16 @@ public class DeThiController : ControllerBase
         return NoContent();
     }
 
+    [Authorize(Roles = "HocVien")]
     [HttpGet("{id:int}/cauhoi")]
     public async Task<IActionResult> GetQuestions(int id, [FromQuery] int? maDeId, [FromQuery] int? hocVienId)
     {
+        hocVienId = User.StudentId();
+        var attempt = await _db.BaiLams.Include(b => b.DotThi).FirstOrDefaultAsync(b =>
+            b.HocVienID == hocVienId && b.DotThi!.DeThiID == id && b.TrangThai == "DangLam");
+        if (attempt is null || DateTime.Now >= ExamRules.Deadline(attempt, attempt.DotThi!)) return Forbid();
+        if (maDeId.HasValue && maDeId.Value != attempt.MaDeID) return Forbid();
+        maDeId = attempt.MaDeID;
         var duocLam = await GoiThi.DuocLamAsync(_db, id, hocVienId);
         if (duocLam is null) return NotFound();
         if (duocLam == false) return StatusCode(403, new { message = GoiThi.ThongBao });
@@ -272,9 +281,12 @@ public class DeThiController : ControllerBase
     /// <summary>Bat dau (hoac phuc hoi) bai thi: kiem tra cua so thoi gian, so lan thi,
     /// dang ky dot thi; tao BaiLam trang thai DangLam va tra ve so giay con lai
     /// tinh theo dong ho server (F5 khong duoc them thoi gian).</summary>
+    [Authorize(Roles = "HocVien")]
     [HttpPost("{id:int}/batdau")]
     public async Task<IActionResult> BatDau(int id, [FromBody] BatDauRequestDto request)
     {
+        if (request.HocVienID != User.StudentId()) return Forbid();
+        await using var transaction = await ExamTransaction.BeginAsync(_db, $"start:{id}:{User.StudentId()}");
         var de = await _db.DeThis
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
@@ -295,7 +307,8 @@ public class DeThiController : ControllerBase
 
         if (dot.ThoiGianMoCong > now)
             return BadRequest(new { message = "De thi chua mo cong, vui long quay lai dung han" });
-        if (dot.ThoiGianDongCong < now)
+        if (dot.ThoiGianDongCong < now && !await _db.BaiLams.AnyAsync(b => b.DotThiID == dot.DotThiID
+            && b.HocVienID == User.StudentId() && b.TrangThai == "DangLam"))
             return BadRequest(new { message = "De thi da dong cong, het han lam bai" });
 
         // SoLanThiToiDa <= 0 = khong gioi han (du lieu cu co the de 0)
@@ -371,7 +384,7 @@ public class DeThiController : ControllerBase
             isResume = false;
         }
 
-        var remainingSeconds = Math.Max(0, thoiLuong * 60 - (int)(now - baiLam.ThoiGianBatDau).TotalSeconds);
+        var remainingSeconds = Math.Max(0, (int)(ExamRules.Deadline(baiLam, dot) - now).TotalSeconds);
 
         // Phuc hoi dap an da luu (neu co) de web khoi phuc form
         var savedAnswers = new List<SavedAnswerDto>();
@@ -411,6 +424,7 @@ public class DeThiController : ControllerBase
             }
         }
 
+        await transaction.CommitAsync();
         return Ok(new BatDauResponseDto
         {
             BaiLamID = baiLam.BaiLamID,
@@ -428,9 +442,12 @@ public class DeThiController : ControllerBase
     }
 
     /// <summary>Luu tam dap an vao DB cho bai thi DangLam (goi dinh ky tu web).</summary>
+    [Authorize(Roles = "HocVien")]
     [HttpPost("{id:int}/luutam")]
     public async Task<IActionResult> LuuTam(int id, [FromBody] LuuTamRequestDto request)
     {
+        if (request.HocVienID != User.StudentId()) return Forbid();
+        await using var transaction = await ExamTransaction.BeginAsync(_db, $"attempt:{request.BaiLamID}");
         var baiLam = await _db.BaiLams
             .Include(b => b.ChiTietBaiLams)
                 .ThenInclude(ct => ct.LuaChonBaiLams)
@@ -448,15 +465,25 @@ public class DeThiController : ControllerBase
         if (await GoiThi.DuocLamAsync(_db, deThiIdLuu, baiLam.HocVienID) == false)
             return StatusCode(403, new { message = GoiThi.ThongBao });
 
+        var session = await _db.DotThis.SingleAsync(d => d.DotThiID == baiLam.DotThiID);
+        if (session.DeThiID != id) return BadRequest(new { message = "Bài làm không thuộc đề thi này." });
+        if (DateTime.Now >= ExamRules.Deadline(baiLam, session))
+            return Conflict(new { message = "Đã hết thời gian làm bài. Các đáp án đã lưu được giữ nguyên." });
+        if (request.Answers.Select(a => a.CauHoiID).Distinct().Count() != request.Answers.Count)
+            return BadRequest(new { message = "Câu trả lời bị trùng." });
         var items = await LoadExamItemsAsync(id);
         var soCau = await LuuDapAnTamAsync(baiLam, items, request.Answers);
 
+        await transaction.CommitAsync();
         return Ok(new LuuTamResponseDto { LuuLuc = DateTime.Now, SoCauDaLuu = soCau });
     }
 
+    [Authorize(Roles = "HocVien")]
     [HttpPost("{id:int}/nopbai")]
     public async Task<IActionResult> Submit(int id, [FromBody] SubmitExamRequestDto request)
     {
+        if (request.HocVienID != User.StudentId()) return Forbid();
+        await using var transaction = await ExamTransaction.BeginAsync(_db, $"attempt:{request.BaiLamID}");
         var de = await _db.DeThis
             .Include(d => d.MonHoc)
             .Include(d => d.DotThis)
@@ -473,23 +500,21 @@ public class DeThiController : ControllerBase
         }
 
         var now = DateTime.Now;
-        var dotThi = de.DotThis.FirstOrDefault();
-        if (dotThi is null)
-        {
-            dotThi = TaoDotThiFallback(de);
-            await _db.SaveChangesAsync();
-        }
-
-        // Chi chan nop thu cong ngoai cua so thoi gian; tu dong nop khi het gio
-        // (HetGio) van duoc chap nhan de chot bai thi sinh dang lam truoc do.
-        if (!request.HetGio)
-        {
-            if (dotThi.ThoiGianMoCong > now)
-                return BadRequest(new { message = "De thi chua mo cong, khong the nop bai" });
-            if (dotThi.ThoiGianDongCong < now)
-                return BadRequest(new { message = "De thi da dong cong, khong the nop bai" });
-        }
-
+        if (request.BaiLamID is null or <= 0)
+            return BadRequest(new { message = "Bạn phải bắt đầu bài thi trước khi nộp." });
+        var submittedAttempt = await _db.BaiLams.Include(b => b.DotThi)
+            .Include(b => b.ChiTietBaiLams).ThenInclude(c => c.LuaChonBaiLams)
+            .FirstOrDefaultAsync(b => b.BaiLamID == request.BaiLamID && b.HocVienID == User.StudentId());
+        if (submittedAttempt is null || submittedAttempt.DotThi?.DeThiID != id) return NotFound();
+        if (submittedAttempt.TrangThai != "DangLam")
+            return Ok(new SubmitExamResultDto { BaiLamID = submittedAttempt.BaiLamID, DeThiID = id,
+                ScorePublished = false });
+        var dotThi = submittedAttempt.DotThi;
+        if (now < dotThi.ThoiGianMoCong) return BadRequest(new { message = "Đợt thi chưa mở." });
+        request.HetGio = now >= ExamRules.Deadline(submittedAttempt, dotThi);
+        if (request.HetGio) request.Answers = ExamRules.SavedAnswers(submittedAttempt);
+        if (request.Answers.Select(a => a.CauHoiID).Distinct().Count() != request.Answers.Count)
+            return BadRequest(new { message = "Câu trả lời bị trùng." });
         var items = await LoadExamItemsAsync(id);
         if (items.Count == 0) return NotFound();
 
@@ -619,67 +644,10 @@ public class DeThiController : ControllerBase
             ? Math.Round(tongDiemDat / tongDiemToiDa * 10, 2, MidpointRounding.AwayFromZero)
             : 0m;
 
-        // Lưu bài làm vào Database
-        int hocVienId = request.HocVienID ?? 0;
-        if (hocVienId <= 0 || !await _db.HocViens.AnyAsync(h => h.HocVienID == hocVienId))
-        {
-            var guest = await _db.HocViens.Include(h => h.TaiKhoan)
-                .FirstOrDefaultAsync(h => h.TaiKhoan!.TenDangNhap == "khach")
-                ?? await _db.HocViens.OrderBy(h => h.HocVienID).FirstOrDefaultAsync();
-            hocVienId = guest?.HocVienID ?? 1;
-        }
-
-        var maDe = await _db.MaDeThis.FirstOrDefaultAsync(m => m.DeThiID == id);
-        if (maDe == null)
-        {
-            maDe = new MaDeThi { DeThiID = id, TenMaDe = "101" };
-            _db.MaDeThis.Add(maDe);
-            await _db.SaveChangesAsync();
-        }
-
-        BaiLam baiLam;
-        if (request.BaiLamID is int baiLamId && baiLamId > 0)
-        {
-            // Luong chuan: web da goi batdau truoc khi lam bai, cap nhat bai DangLam
-            var existing = await _db.BaiLams
-                .Include(b => b.ChiTietBaiLams)
-                    .ThenInclude(ct => ct.LuaChonBaiLams)
-                .FirstOrDefaultAsync(b => b.BaiLamID == baiLamId);
-            if (existing is null)
-                return BadRequest(new { message = "Bai lam khong ton tai hoac da het han" });
-            if (existing.HocVienID != hocVienId || existing.DotThiID != dotThi.DotThiID)
-                return BadRequest(new { message = "Bai lam khong hop le voi dot thi nay" });
-            if (existing.TrangThai != "DangLam")
-                return BadRequest(new { message = "Bai thi da duoc nop truoc do" });
-
-            baiLam = existing;
-            baiLam.ThoiGianNop = now;
-            baiLam.TongDiem = score;
-            baiLam.TrangThai = request.HetGio ? "HetGio" : "DaNop";
-        }
-        else
-        {
-            // Luong du phong: goi nopbai truc tiep ma khong qua batdau
-            var maxLanThi = await _db.BaiLams
-                .Where(b => b.HocVienID == hocVienId && b.DotThiID == dotThi.DotThiID)
-                .Select(b => (int?)b.LanThi)
-                .MaxAsync() ?? 0;
-
-            baiLam = new BaiLam
-            {
-                HocVienID = hocVienId,
-                DotThiID = dotThi.DotThiID,
-                MaDeID = maDe.MaDeID,
-                LanThi = maxLanThi + 1,
-                ThoiGianBatDau = request.ThoiGianBatDau
-                    ?? now.AddMinutes(-(dotThi.ThoiLuongLamBai > 0 ? dotThi.ThoiLuongLamBai : 45)),
-                ThoiGianNop = now,
-                TongDiem = score,
-                TrangThai = request.HetGio ? "HetGio" : "DaNop"
-            };
-            _db.BaiLams.Add(baiLam);
-            await _db.SaveChangesAsync();
-        }
+        var baiLam = submittedAttempt;
+        baiLam.ThoiGianNop = now;
+        baiLam.TongDiem = score;
+        baiLam.TrangThai = request.HetGio ? "HetGio" : "DaNop";
 
         var startTime = baiLam.ThoiGianBatDau;
         var durationUsed = (int)Math.Max(1, Math.Round((now - startTime).TotalMinutes));
@@ -710,7 +678,8 @@ public class DeThiController : ControllerBase
         // Ghi lua chon cua thi sinh (thay the toan bo lua chon cu neu co)
         await LuuDapAnTamAsync(baiLam, items, request.Answers);
 
-        return Ok(new SubmitExamResultDto
+        await transaction.CommitAsync();
+        return Ok(ExamRules.ForPublication(new SubmitExamResultDto
         {
             BaiLamID = baiLam.BaiLamID,
             DeThiID = id,
@@ -725,7 +694,7 @@ public class DeThiController : ControllerBase
             DurationUsed = durationUsed,
             ScorePublished = dotThi.CongBoDiemSom || dotThi.ThoiGianDongCong <= now,
             Results = results
-        });
+        }));
     }
 
     private async Task<List<DeThi_CauHoi>> LoadExamItemsAsync(int id) =>

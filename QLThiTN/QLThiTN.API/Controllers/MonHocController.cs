@@ -43,6 +43,7 @@ public class MonHocController : ControllerBase
         return Ok(mon.ToDto());
     }
 
+    [Authorize(Roles = "QuanTriVien")]
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] string tenMon)
     {
@@ -57,6 +58,7 @@ public class MonHocController : ControllerBase
         return CreatedAtAction(nameof(GetById), new { id = mon.MonHocID }, mon.ToDto());
     }
 
+    [Authorize(Roles = "QuanTriVien")]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {

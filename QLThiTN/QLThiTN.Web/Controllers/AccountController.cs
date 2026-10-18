@@ -1,3 +1,7 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
 using QLThiTN.Web.Services;
 using QLThiTN.Web.ViewModels;
@@ -13,8 +17,30 @@ public class AccountController : Controller
     private const string SessionEmail = "UserEmail";
 
     private readonly ApiClient _api;
+    private readonly IConfiguration _configuration;
 
-    public AccountController(ApiClient api) => _api = api;
+    public AccountController(ApiClient api, IConfiguration configuration)
+    {
+        _api = api;
+        _configuration = configuration;
+    }
+
+    private void SetUserSession(ApiLoginResult user)
+    {
+        HttpContext.Session.Clear();
+        HttpContext.Session.SetString("ApiAccessToken", user.AccessToken);
+        HttpContext.Session.SetString("ApiTokenExpiresAt", user.TokenExpiresAt.ToString("O"));
+        HttpContext.Session.SetString(SessionUser, user.HoTen);
+        HttpContext.Session.SetString(SessionUsername, user.TenDangNhap);
+        HttpContext.Session.SetInt32(SessionUserId, user.TaiKhoanID);
+        HttpContext.Session.SetString(SessionUserRole, user.VaiTro);
+        HttpContext.Session.SetString(SessionEmail, user.Email);
+        if (user.HocVienID.HasValue)
+        {
+            HttpContext.Session.SetInt32("HocVienId", user.HocVienID.Value);
+            GoiSession.Luu(HttpContext.Session, user.LoaiGoi);
+        }
+    }
 
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
@@ -39,16 +65,112 @@ public class AccountController : Controller
             return View(model);
         }
 
-        HttpContext.Session.SetString(SessionUser, user.HoTen);
-        HttpContext.Session.SetString(SessionUsername, user.TenDangNhap);
-        HttpContext.Session.SetInt32(SessionUserId, user.TaiKhoanID);
-        HttpContext.Session.SetString(SessionUserRole, user.VaiTro);
-        HttpContext.Session.SetString(SessionEmail, user.Email);
-        if (user.HocVienID.HasValue)
+        SetUserSession(user);
+
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+
+        return RedirectToAction("Index", "Home");
+    }
+
+    [HttpGet]
+    public IActionResult ExternalLogin(string provider = "Google", string? returnUrl = null)
+    {
+        var googleClientId = _configuration["Authentication:Google:ClientId"];
+        var googleClientSecret = _configuration["Authentication:Google:ClientSecret"];
+        var isConfigured = !string.IsNullOrWhiteSpace(googleClientId)
+                           && !string.IsNullOrWhiteSpace(googleClientSecret)
+                           && googleClientId != "YOUR_GOOGLE_CLIENT_ID";
+
+        if (!isConfigured)
         {
-            HttpContext.Session.SetInt32("HocVienId", user.HocVienID.Value);
-            GoiSession.Luu(HttpContext.Session, user.LoaiGoi);
+            TempData["ReturnUrl"] = returnUrl;
+            return RedirectToAction(nameof(GoogleConfigNotice));
         }
+
+        var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Account", new { returnUrl });
+        var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
+        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null)
+    {
+        var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        if (!result.Succeeded || result.Principal == null)
+        {
+            TempData["ErrorMessage"] = "Đăng nhập bằng Google không thành công hoặc bạn đã hủy xác thực.";
+            return RedirectToAction(nameof(Login));
+        }
+
+        var email = result.Principal.FindFirstValue(ClaimTypes.Email);
+        var name = result.Principal.FindFirstValue(ClaimTypes.Name)
+                   ?? result.Principal.FindFirstValue(ClaimTypes.GivenName)
+                   ?? email;
+        var googleId = result.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            TempData["ErrorMessage"] = "Không thể lấy thông tin email từ tài khoản Google của bạn.";
+            return RedirectToAction(nameof(Login));
+        }
+
+        var user = await _api.LoginWithGoogleAsync(new ApiGoogleLoginRequest
+        {
+            Email = email,
+            FullName = name ?? email,
+            GoogleId = googleId
+        });
+
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "Đăng nhập Google thất bại hoặc tài khoản đã bị khóa.";
+            return RedirectToAction(nameof(Login));
+        }
+
+        SetUserSession(user);
+
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+
+        return RedirectToAction("Index", "Home");
+    }
+
+    [HttpGet]
+    public IActionResult GoogleConfigNotice()
+    {
+        ViewBag.ReturnUrl = TempData["ReturnUrl"] as string;
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SimulateGoogleLogin(string email, string fullName, string? returnUrl = null)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            ModelState.AddModelError(string.Empty, "Vui lòng nhập địa chỉ email Google.");
+            ViewBag.ReturnUrl = returnUrl;
+            return View("GoogleConfigNotice");
+        }
+
+        var user = await _api.LoginWithGoogleAsync(new ApiGoogleLoginRequest
+        {
+            Email = email.Trim(),
+            FullName = string.IsNullOrWhiteSpace(fullName) ? email.Split('@')[0] : fullName.Trim(),
+            GoogleId = "simulated_" + Guid.NewGuid().ToString("N")[..8]
+        });
+
+        if (user == null)
+        {
+            ModelState.AddModelError(string.Empty, "Đăng nhập thử nghiệm thất bại hoặc tài khoản đã bị khóa.");
+            ViewBag.ReturnUrl = returnUrl;
+            return View("GoogleConfigNotice");
+        }
+
+        SetUserSession(user);
 
         if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
             return Redirect(returnUrl);
@@ -190,11 +312,12 @@ public class AccountController : Controller
         if (!ModelState.IsValid)
             return await ReloadProfileStatsAsync(model);
 
-        var userId = HttpContext.Session.GetInt32(SessionUserId) ?? model.Id;
+        var userId = HttpContext.Session.GetInt32(SessionUserId);
+        if (!userId.HasValue) return RedirectToAction(nameof(Login));
 
         var (success, message) = await _api.UpdateProfileAsync(new ApiUpdateProfileRequest
         {
-            TaiKhoanID = userId,
+            TaiKhoanID = userId.Value,
             HoTen = model.FullName,
             Email = model.Email ?? string.Empty,
             NgaySinh = model.NgaySinh,
@@ -258,7 +381,13 @@ public class AccountController : Controller
             MatKhauMoi = model.MatKhauMoi
         });
 
-        TempData[success ? "SuccessMessage" : "ErrorMessage"] = message;
+        if (success)
+        {
+            HttpContext.Session.Clear();
+            TempData["SuccessMessage"] = "Đã đổi mật khẩu. Vui lòng đăng nhập lại.";
+            return RedirectToAction(nameof(Login));
+        }
+        TempData["ErrorMessage"] = message;
         return RedirectToAction(nameof(Profile));
     }
 
