@@ -13,9 +13,14 @@ public class ExamController : Controller
 
     private int? HocVienId => HttpContext.Session.GetInt32("HocVienId");
 
+    private Task RefreshGoiAsync() => GoiSession.RefreshAsync(HttpContext, _api);
+
+    private bool BiKhoaGoi(bool laMienPhi) => !laMienPhi && !GoiSession.LaDongPhi(HttpContext);
+
     [HttpGet]
     public async Task<IActionResult> Schedule()
     {
+        await RefreshGoiAsync();
         var exams = await _api.GetDeThisAsync();
         var dotThis = await _api.GetDotThisAsync(HocVienId);
         var dotByDeThi = dotThis
@@ -43,6 +48,7 @@ public class ExamController : Controller
     [HttpGet]
     public async Task<IActionResult> KhoDe(int? mon)
     {
+        await RefreshGoiAsync();
         var monHocs = await _api.GetMonHocsAsync();
         var stats = await _api.GetExamStatsAsync();
         var statsByDe = (stats?.TheoDe ?? new()).ToDictionary(x => x.DeThiID);
@@ -89,6 +95,7 @@ public class ExamController : Controller
                 ExamKind = vm.ExamKind,
                 IsAssignedToMe = vm.IsAssignedToMe,
                 ScorePublished = vm.ScorePublished,
+                LaMienPhi = vm.LaMienPhi,
                 DotThiID = vm.DotThiID,
                 SoDangKy = vm.SoDangKy,
                 SoChoConLai = vm.SoChoConLai,
@@ -144,6 +151,7 @@ public class ExamController : Controller
     [HttpGet]
     public async Task<IActionResult> Detail(int id)
     {
+        await RefreshGoiAsync();
         var exam = await _api.GetDeThiAsync(id);
         if (exam == null)
             return NotFound();
@@ -168,7 +176,9 @@ public class ExamController : Controller
             QuestionCount = exam.SoLuongCauHoi,
             HasRegistered = false,
             CanStart = exam.ThoiGianMoCong <= now && exam.ThoiGianDongCong >= now,
-            StatusText = statusText
+            StatusText = statusText,
+            LaMienPhi = exam.LaMienPhi,
+            BiKhoaGoi = BiKhoaGoi(exam.LaMienPhi)
         };
 
         // Thong tin dot thi: trang thai dang ky, so cho con lai
@@ -232,9 +242,16 @@ public class ExamController : Controller
         if (HocVienId is not int hocVienId)
             return RedirectToAction("Login", "Account");
 
+        await RefreshGoiAsync();
         var exam = await _api.GetDeThiAsync(id);
         if (exam == null)
             return NotFound();
+
+        if (BiKhoaGoi(exam.LaMienPhi))
+        {
+            TempData["ErrorMessage"] = "Đề thi này chỉ dành cho tài khoản đã đóng phí (VIP). Tài khoản miễn phí chỉ được làm các đề miễn phí.";
+            return RedirectToAction(nameof(Detail), new { id });
+        }
 
         // Bat dau (hoac phuc hoi) bai thi: server kiem tra thoi gian/so lan thi/
         // dang ky va tra ve so giay con lai tinh theo dong ho server.
@@ -245,7 +262,7 @@ public class ExamController : Controller
             return RedirectToAction(nameof(Detail), new { id });
         }
 
-        var questions = await _api.GetCauHoiAsync(id, batDau.MaDeID);
+        var questions = await _api.GetCauHoiAsync(id, batDau.MaDeID, hocVienId);
         var model = new TakingExamViewModel
         {
             ExamId = exam.DeThiID,

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
+using QLThiTN.API.Services;
 
 namespace QLThiTN.API.Controllers;
 
@@ -149,8 +150,12 @@ public class DeThiController : ControllerBase
     }
 
     [HttpGet("{id:int}/cauhoi")]
-    public async Task<IActionResult> GetQuestions(int id, [FromQuery] int? maDeId)
+    public async Task<IActionResult> GetQuestions(int id, [FromQuery] int? maDeId, [FromQuery] int? hocVienId)
     {
+        var duocLam = await GoiThi.DuocLamAsync(_db, id, hocVienId);
+        if (duocLam is null) return NotFound();
+        if (duocLam == false) return StatusCode(403, new { message = GoiThi.ThongBao });
+
         // Neu co maDeId va ma de co cau hoi duoc tron theo chuan THPT QG
         if (maDeId.HasValue)
         {
@@ -277,6 +282,8 @@ public class DeThiController : ControllerBase
 
         var hv = await _db.HocViens.FindAsync(request.HocVienID);
         if (hv is null) return Unauthorized(new { message = "Ban can dang nhap de lam bai thi" });
+        if (!de.LaMienPhi && hv.LoaiGoi != GoiThi.DongPhi)
+            return StatusCode(403, new { message = GoiThi.ThongBao });
 
         var now = DateTime.Now;
         var dot = de.DotThis.FirstOrDefault();
@@ -434,6 +441,13 @@ public class DeThiController : ControllerBase
         if (baiLam.TrangThai != "DangLam")
             return BadRequest(new { message = "Bai thi da duoc nop, khong the luu tiep" });
 
+        var deThiIdLuu = await _db.DotThis
+            .Where(d => d.DotThiID == baiLam.DotThiID)
+            .Select(d => d.DeThiID)
+            .FirstOrDefaultAsync();
+        if (await GoiThi.DuocLamAsync(_db, deThiIdLuu, baiLam.HocVienID) == false)
+            return StatusCode(403, new { message = GoiThi.ThongBao });
+
         var items = await LoadExamItemsAsync(id);
         var soCau = await LuuDapAnTamAsync(baiLam, items, request.Answers);
 
@@ -448,6 +462,15 @@ public class DeThiController : ControllerBase
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
         if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
+        if (!de.LaMienPhi)
+        {
+            var goi = await _db.HocViens
+                .Where(h => h.HocVienID == (request.HocVienID ?? 0))
+                .Select(h => h.LoaiGoi)
+                .FirstOrDefaultAsync();
+            if (goi != GoiThi.DongPhi)
+                return StatusCode(403, new { message = GoiThi.ThongBao });
+        }
 
         var now = DateTime.Now;
         var dotThi = de.DotThis.FirstOrDefault();
@@ -904,7 +927,8 @@ public class DeThiController : ControllerBase
             ThoiGianMoCong = dot?.ThoiGianMoCong,
             ThoiGianDongCong = dot?.ThoiGianDongCong,
             ThoiLuongLamBai = dot?.ThoiLuongLamBai,
-            TrangThai = trangThai
+            TrangThai = trangThai,
+            LaMienPhi = d.LaMienPhi
         };
     }
 }

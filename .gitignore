@@ -34,3 +34,10 @@ Desktop.ini
 # User-specific files
 *.rsuser
 *.local
+
+# LocalDB data (restore tu .bak bang run.ps1)
+Database/Data/
+logs/
+
+# SMTP (Brevo) — copy tu appsettings.Email.example.json
+QLThiTN/QLThiTN.API/appsettings.Email.json

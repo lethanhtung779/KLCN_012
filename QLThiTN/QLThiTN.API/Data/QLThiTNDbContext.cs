@@ -35,6 +35,7 @@ public class QLThiTNDbContext : DbContext
     public DbSet<BaiLam> BaiLams => Set<BaiLam>();
     public DbSet<ChiTietBaiLam> ChiTietBaiLams => Set<ChiTietBaiLam>();
     public DbSet<LuaChonBaiLam> LuaChonBaiLams => Set<LuaChonBaiLam>();
+    public DbSet<DangKyXacMinhEmail> DangKyXacMinhEmails => Set<DangKyXacMinhEmail>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -111,6 +112,12 @@ public class QLThiTNDbContext : DbContext
             e.HasIndex(x => new { x.HocVienID, x.DotThiID }).IsUnique();
             e.HasOne(x => x.HocVien).WithMany().HasForeignKey(x => x.HocVienID);
             e.HasOne(x => x.DotThi).WithMany().HasForeignKey(x => x.DotThiID);
+        });
+
+        modelBuilder.Entity<DangKyXacMinhEmail>(e =>
+        {
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasIndex(x => x.Email);
         });
 
         modelBuilder.Entity<BaiLam>(e =>

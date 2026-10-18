@@ -72,6 +72,17 @@
                             <button class="btn btn-user dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown">
                                 <span class="user-avatar me-2">@(_fullName!.Substring(0, 1))</span>
                                 <span>@_fullName</span>
+                                @if (Context.Session.GetInt32("HocVienId") != null)
+                                {
+                                    if (Context.Session.GetString("LoaiGoi") == "DongPhi")
+                                    {
+                                        <span class="badge ms-2" style="background:#f4e4b3;color:#7a5b00;">VIP</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge ms-2 bg-light text-dark">Miễn phí</span>
+                                    }
+                                }
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 rounded-3">
                                 <li><a class="dropdown-item py-2" asp-controller="Account" asp-action="Profile"><i class="bi bi-person me-2"></i>Hồ sơ cá nhân</a></li>

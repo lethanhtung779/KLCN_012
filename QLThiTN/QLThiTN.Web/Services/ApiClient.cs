@@ -54,9 +54,13 @@ namespace QLThiTN.Web.Services;
         return await _http.GetFromJsonAsync<ApiDeThi>($"/api/dethi/{id}", JsonOptions);
     }
 
-    public async Task<List<ApiCauHoi>> GetCauHoiAsync(int deThiId, int? maDeId = null)
+    public async Task<List<ApiCauHoi>> GetCauHoiAsync(int deThiId, int? maDeId = null, int? hocVienId = null)
     {
-        var url = maDeId.HasValue ? $"/api/dethi/{deThiId}/cauhoi?maDeId={maDeId.Value}" : $"/api/dethi/{deThiId}/cauhoi";
+        var query = new List<string>();
+        if (maDeId.HasValue) query.Add($"maDeId={maDeId.Value}");
+        if (hocVienId.HasValue) query.Add($"hocVienId={hocVienId.Value}");
+        var url = $"/api/dethi/{deThiId}/cauhoi";
+        if (query.Count > 0) url += "?" + string.Join("&", query);
         return await _http.GetFromJsonAsync<List<ApiCauHoi>>(url, JsonOptions) ?? new();
     }
 
@@ -164,14 +168,30 @@ namespace QLThiTN.Web.Services;
         return await response.Content.ReadFromJsonAsync<ApiLoginResult>(JsonOptions);
     }
 
-    public async Task<(bool Success, string Message)> RegisterAsync(ApiRegisterRequest request)
+    public async Task<(bool Success, string Message, string? DevConfirmUrl)> RegisterAsync(ApiRegisterRequest request)
     {
         var response = await _http.PostAsJsonAsync("/api/auth/register", request, JsonOptions);
         if (response.IsSuccessStatusCode)
-            return (true, "Đăng ký tài khoản thành công! Vui lòng đăng nhập.");
+        {
+            var body = await response.Content.ReadFromJsonAsync<ApiRegisterPendingResult>(JsonOptions);
+            return (true, body?.Message ?? "Vui lòng kiểm tra email để xác minh.", body?.ConfirmationUrl);
+        }
 
         var err = await ReadErrorMessageAsync(response);
-        return (false, err ?? "Đăng ký thất bại.");
+        return (false, err ?? "Đăng ký thất bại.", null);
+    }
+
+    public async Task<(bool Success, string Message)> ConfirmEmailAsync(string token)
+    {
+        var response = await _http.PostAsJsonAsync("/api/auth/confirm-email", new { Token = token }, JsonOptions);
+        if (response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadFromJsonAsync<ApiMessage>(JsonOptions);
+            return (true, body?.Message ?? "Xác minh email thành công!");
+        }
+
+        var err = await ReadErrorMessageAsync(response);
+        return (false, err ?? "Xác minh email thất bại.");
     }
 
     public async Task<List<ApiMonHoc>> GetMonHocsAsync()

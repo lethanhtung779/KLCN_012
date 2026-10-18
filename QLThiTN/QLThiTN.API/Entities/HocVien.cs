@@ -17,6 +17,10 @@ public class HocVien
     [Required, MaxLength(50)]
     public string LoaiHocVien { get; set; } = string.Empty;
 
+    /// <summary>MienPhi: chi lam de mien phi. DongPhi: lam duoc moi de.</summary>
+    [Required, MaxLength(20)]
+    public string LoaiGoi { get; set; } = "MienPhi";
+
     public DateTime? NgaySinh { get; set; }
 
     public DateTime NgayDangKy { get; set; } = DateTime.Now;

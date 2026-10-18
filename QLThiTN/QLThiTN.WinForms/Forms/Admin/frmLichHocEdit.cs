@@ -69,12 +69,13 @@ public class frmLichHocEdit : Form
     {
         _cboLop.DisplayMember = "TenHienThi";
         _cboLop.ValueMember = "LopHocID";
-        _cboLop.DataSource = _service.LayComboLopHoc();
-        if (_cboLop.Items.Count == 0)
+        var lopHoc = _service.LayComboLopHoc();
+        if (lopHoc.Rows.Count == 0)
         {
             MessageBox.Show("Chưa có lớp học. Hãy mở lớp trước.", "Thông báo");
             return;
         }
+        _cboLop.DataSource = lopHoc;
         if (selectedId > 0) _cboLop.SelectedValue = selectedId;
     }
 

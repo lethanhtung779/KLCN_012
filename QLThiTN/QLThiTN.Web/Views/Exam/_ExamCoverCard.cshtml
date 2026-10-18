@@ -3,12 +3,21 @@
     var now = DateTime.Now;
     var isOpen = Model.StartTime <= now && Model.EndTime >= now;
     var loaiDe = Model.ExamKind.ToDisplayName();
+    var khoaGoi = !Model.LaMienPhi && Context.Session.GetString("LoaiGoi") != "DongPhi";
 }
 <div class="card exam-cover-card h-100 exam-item" data-loaide="@Model.ExamKind" data-trangthai="@(Model.StartTime > now ? "SapMo" : Model.EndTime < now ? "DaDong" : "DangMo")">
     <partial name="_ExamCover" model="Model" />
     <div class="card-body p-3 d-flex flex-column">
         <div class="d-flex align-items-center gap-2 mb-2 small text-muted">
             <span class="text-nowrap">@loaiDe • @Model.Nam</span>
+            @if (Model.LaMienPhi)
+            {
+                <span class="badge-status badge-status-success py-1 px-2 text-nowrap"><i class="bi bi-unlock me-1"></i>Miễn phí</span>
+            }
+            else
+            {
+                <span class="badge-status py-1 px-2 text-nowrap" style="background:#f4e4b3;color:#7a5b00;"><i class="bi bi-star-fill me-1"></i>VIP</span>
+            }
             <span class="ms-auto flex-shrink-0">
                 @if (Model.StartTime > now)
                 {
@@ -36,7 +45,13 @@
                 <span class="ms-2"><i class="bi bi-person-plus me-1"></i>còn @Model.SoChoConLai.Value chỗ</span>
             }
         </div>
-        @if (Model.HasRegistered && isOpen)
+        @if (khoaGoi)
+        {
+            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" class="btn btn-outline-custom w-100 mt-auto">
+                <i class="bi bi-lock me-1"></i>Cần gói đóng phí
+            </a>
+        }
+        else if (Model.HasRegistered && isOpen)
         {
             <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 mt-auto">
                 <i class="bi bi-play-fill me-1"></i>Vào thi ngay

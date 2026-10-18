@@ -26,4 +26,9 @@ public class ExamDetailViewModel
 
     /// <summary>Dang ky la bat buoc khi dot thi co gioi han so luong.</summary>
     public bool CanRegister { get; set; }
+
+    public bool LaMienPhi { get; set; }
+
+    /// <summary>Tai khoan hien tai khong duoc vao de dong phi.</summary>
+    public bool BiKhoaGoi { get; set; }
 }

@@ -26,4 +26,7 @@ public class ExamScheduleViewModel
 
     /// <summary>So cho con lai (null = khong gioi han — thi thu cong khai).</summary>
     public int? SoChoConLai { get; set; }
+
+    /// <summary>De mo cho moi tai khoan. De dong phi chi tai khoan VIP moi lam duoc.</summary>
+    public bool LaMienPhi { get; set; }
 }

@@ -11,6 +11,12 @@ public class AccountService
         var sql = @"
             SELECT tk.TaiKhoanID, tk.TenDangNhap, tk.Email, tk.VaiTro, tk.TrangThai,
                    COALESCE(gv.HoTen, hv.HoTen, qtv.HoTen, N'') AS HoTen,
+                   COALESCE(hv.LoaiGoi, N'') AS LoaiGoi,
+                   CASE
+                       WHEN tk.VaiTro <> N'HocVien' THEN N'—'
+                       WHEN hv.LoaiGoi = N'DongPhi' THEN N'Đóng phí'
+                       ELSE N'Miễn phí'
+                   END AS TrangThaiGoi,
                    tk.NgayTao
             FROM TaiKhoan tk
             LEFT JOIN GiaoVien gv ON gv.TaiKhoanID = tk.TaiKhoanID
@@ -90,8 +96,8 @@ public class AccountService
             "QuanTriVien" => "QuanTriVienID",
             _ => "HocVienID"
         };
-        var loaiHocVien = vaiTro == "HocVien" ? ", LoaiHocVien" : "";
-        var giaTriHocVien = vaiTro == "HocVien" ? ", N'HocSinh'" : "";
+        var loaiHocVien = vaiTro == "HocVien" ? ", LoaiHocVien, LoaiGoi" : "";
+        var giaTriHocVien = vaiTro == "HocVien" ? ", N'HocSinh', N'MienPhi'" : "";
 
         Database.Execute(
             $"INSERT INTO {profileTable} (TaiKhoanID, HoTen{loaiHocVien}) VALUES (@id, @h{giaTriHocVien})",
@@ -127,6 +133,49 @@ public class AccountService
     {
         Database.Execute("UPDATE TaiKhoan SET MatKhau = @p WHERE TaiKhoanID = @id",
             p => { p.AddWithValue("@p", PasswordHelper.Hash(matKhauMoi)); p.AddWithValue("@id", taiKhoanId); });
+    }
+
+    /// <summary>Cap goi cho hoc vien. Khi chuyen sang DongPhi lan dau se gui email VIP.</summary>
+    public (bool Ok, string Message) CapQuyenGoi(int taiKhoanId, string loaiGoi)
+    {
+        if (loaiGoi is not ("MienPhi" or "DongPhi"))
+            return (false, "Gói không hợp lệ.");
+
+        var row = Database.Query(@"
+            SELECT tk.VaiTro, tk.Email, hv.HoTen, hv.LoaiGoi
+            FROM TaiKhoan tk
+            LEFT JOIN HocVien hv ON hv.TaiKhoanID = tk.TaiKhoanID
+            WHERE tk.TaiKhoanID = @id",
+            p => p.AddWithValue("@id", taiKhoanId));
+        if (row.Rows.Count == 0)
+            return (false, "Không tìm thấy tài khoản.");
+        if (row.Rows[0]["VaiTro"]?.ToString() != "HocVien")
+            return (false, "Chỉ học viên mới được cấp gói miễn phí hoặc đóng phí.");
+
+        var cu = row.Rows[0]["LoaiGoi"]?.ToString();
+        if (string.IsNullOrWhiteSpace(cu)) cu = "MienPhi";
+
+        Database.Execute("UPDATE HocVien SET LoaiGoi = @g WHERE TaiKhoanID = @id",
+            p =>
+            {
+                p.AddWithValue("@g", loaiGoi);
+                p.AddWithValue("@id", taiKhoanId);
+            });
+
+        if (loaiGoi != "DongPhi")
+            return (true, "Đã chuyển tài khoản về gói miễn phí.");
+
+        // Chi gui email VIP khi chuyen tu mien phi sang dong phi (khong gui khi dang ky web).
+        if (cu == "DongPhi")
+            return (true, "Tài khoản đã ở gói đóng phí (VIP). Không gửi lại email VIP.");
+
+        var email = row.Rows[0]["Email"]?.ToString() ?? "";
+        var hoTen = row.Rows[0]["HoTen"]?.ToString() ?? "";
+        var (sent, error) = VipEmailSender.GuiNangVip(email, hoTen);
+        if (!sent)
+            return (true, "Đã cấp quyền đóng phí, nhưng chưa gửi được email.\n" + error);
+
+        return (true, $"Đã nâng VIP và gửi email tới {email}.");
     }
 
     /// <summary>Khoa / mo tai khoan.</summary>

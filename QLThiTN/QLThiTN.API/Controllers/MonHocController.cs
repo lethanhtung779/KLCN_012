@@ -18,12 +18,17 @@ public class MonHocController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var list = await _db.MonHocs
-            .Include(m => m.ChuDes)
-                .ThenInclude(c => c.CauHois)
             .OrderBy(m => m.TenMon)
+            .Select(m => new MonHocDto
+            {
+                MonHocID = m.MonHocID,
+                TenMon = m.TenMon,
+                SoChuDe = m.ChuDes.Count,
+                SoCauHoi = m.ChuDes.Sum(c => c.CauHois.Count)
+            })
             .ToListAsync();
 
-        return Ok(list.Select(m => m.ToDto()));
+        return Ok(list);
     }
 
     [HttpGet("{id:int}")]

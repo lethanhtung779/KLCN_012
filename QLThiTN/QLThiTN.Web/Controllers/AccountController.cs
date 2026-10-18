@@ -47,6 +47,7 @@ public class AccountController : Controller
         if (user.HocVienID.HasValue)
         {
             HttpContext.Session.SetInt32("HocVienId", user.HocVienID.Value);
+            GoiSession.Luu(HttpContext.Session, user.LoaiGoi);
         }
 
         if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
@@ -70,7 +71,7 @@ public class AccountController : Controller
         if (!ModelState.IsValid)
             return View(model);
 
-        var (success, message) = await _api.RegisterAsync(new ApiRegisterRequest
+        var (success, message, devUrl) = await _api.RegisterAsync(new ApiRegisterRequest
         {
             UserName = model.Username,
             Email = model.Email,
@@ -85,8 +86,61 @@ public class AccountController : Controller
             return View(model);
         }
 
-        TempData["SuccessMessage"] = message;
-        return RedirectToAction("Login");
+        TempData["RegisterEmail"] = model.Email;
+        TempData["RegisterMessage"] = message;
+        if (!string.IsNullOrWhiteSpace(devUrl))
+            TempData["DevConfirmUrl"] = devUrl;
+
+        return RedirectToAction(nameof(RegisterCheckEmail));
+    }
+
+    [HttpGet]
+    public IActionResult RegisterCheckEmail()
+    {
+        var email = TempData["RegisterEmail"]?.ToString();
+        if (string.IsNullOrEmpty(email))
+            return RedirectToAction(nameof(Register));
+
+        ViewBag.Email = email;
+        ViewBag.Message = TempData["RegisterMessage"]?.ToString();
+        ViewBag.DevConfirmUrl = TempData["DevConfirmUrl"]?.ToString();
+        return View();
+    }
+
+    /// <summary>Email chi mo trang xac nhan; chi POST moi goi API (tranh link cu trong Gmail bi vo hieu sau dang ky lai).</summary>
+    [HttpGet]
+    public IActionResult ConfirmEmail(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            ViewBag.Mode = "result";
+            ViewBag.Success = false;
+            ViewBag.Message = "Liên kết xác minh không hợp lệ.";
+            return View();
+        }
+
+        ViewBag.Mode = "confirm";
+        ViewBag.Token = token.Trim();
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [ActionName("ConfirmEmail")]
+    public async Task<IActionResult> ConfirmEmailSubmit(string token)
+    {
+        ViewBag.Mode = "result";
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            ViewBag.Success = false;
+            ViewBag.Message = "Liên kết xác minh không hợp lệ.";
+            return View("ConfirmEmail");
+        }
+
+        var (success, message) = await _api.ConfirmEmailAsync(token.Trim());
+        ViewBag.Success = success;
+        ViewBag.Message = message;
+        return View("ConfirmEmail");
     }
 
     [HttpGet]
@@ -109,8 +163,11 @@ public class AccountController : Controller
             Email = profile?.Email ?? HttpContext.Session.GetString(SessionEmail) ?? string.Empty,
             Phone = profile?.SoDienThoai,
             NgaySinh = profile?.NgaySinh,
-            NgayDangKy = profile?.NgayDangKy
+            NgayDangKy = profile?.NgayDangKy,
+            LoaiGoi = string.IsNullOrWhiteSpace(profile?.LoaiGoi) ? "MienPhi" : profile!.LoaiGoi
         };
+        if (hocVienId.HasValue)
+            GoiSession.Luu(HttpContext.Session, model.LoaiGoi);
 
         if (hocVienId.HasValue)
         {

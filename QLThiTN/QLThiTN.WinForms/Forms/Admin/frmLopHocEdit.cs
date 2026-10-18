@@ -45,13 +45,14 @@ public class frmLopHocEdit : Form
     {
         _cboKhoa.DisplayMember = "TenHienThi";
         _cboKhoa.ValueMember = "KhoaHocID";
-        _cboKhoa.DataSource = _service.LayComboKhoaHoc();
-        if (_cboKhoa.Items.Count == 0)
+        var khoaHoc = _service.LayComboKhoaHoc();
+        if (khoaHoc.Rows.Count == 0)
         {
             MessageBox.Show("Chưa có khóa học nào. Hãy tạo khóa học trước khi mở lớp.", "Thông báo",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
+        _cboKhoa.DataSource = khoaHoc;
         if (selectedId > 0) _cboKhoa.SelectedValue = selectedId;
     }
 

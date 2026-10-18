@@ -10,6 +10,18 @@ internal static class Program
     {
         ApplicationConfiguration.Initialize();
         Database.LoadConfig(AppContext.BaseDirectory);
+        try
+        {
+            Database.EnsureGoiColumns();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "Không cập nhật được cột gói tài khoản / đề miễn phí.\n" + ex.Message,
+                "Cơ sở dữ liệu",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        }
 
         if (args is ["--hash", var plain, ..])
         {

@@ -15,6 +15,7 @@ public class ApiDeThi
     public DateTime? ThoiGianDongCong { get; set; }
     public int? ThoiLuongLamBai { get; set; }
     public string TrangThai { get; set; } = string.Empty;
+    public bool LaMienPhi { get; set; }
 }
 
 public class ApiHinhAnh
@@ -171,6 +172,7 @@ public class ApiProfile
     public string? SoDienThoai { get; set; }
     public DateTime? NgayDangKy { get; set; }
     public int? HocVienID { get; set; }
+    public string LoaiGoi { get; set; } = string.Empty;
 }
 
 public class ApiUpdateProfileRequest
@@ -280,6 +282,7 @@ public class ApiLoginResult
     public string HoTen { get; set; } = string.Empty;
     public int? HocVienID { get; set; }
     public int? GiaoVienID { get; set; }
+    public string LoaiGoi { get; set; } = string.Empty;
 }
 
 public class ApiLoginRequest
@@ -295,6 +298,13 @@ public class ApiRegisterRequest
     public string FullName { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string VaiTro { get; set; } = "HocVien";
+}
+
+public class ApiRegisterPendingResult
+{
+    public string Message { get; set; } = string.Empty;
+    public bool RequiresEmailConfirmation { get; set; }
+    public string? ConfirmationUrl { get; set; }
 }
 
 public class ApiMonHoc

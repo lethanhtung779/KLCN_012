@@ -17,6 +17,14 @@
                             <span class="badge-status" style="background: rgba(255,255,255,.18); color: #fff;">
                                 <i class="bi bi-mortarboard me-1"></i>Học viên
                             </span>
+                            @if (Model.LaVip)
+                            {
+                                <span class="badge-status ms-1" style="background:#f4e4b3;color:#7a5b00;"><i class="bi bi-star-fill me-1"></i>Đóng phí (VIP)</span>
+                            }
+                            else
+                            {
+                                <span class="badge-status ms-1" style="background: rgba(255,255,255,.18); color: #fff;"><i class="bi bi-unlock me-1"></i>Miễn phí</span>
+                            }
                         </div>
                         <div class="p-4 text-muted small">
                             <div class="d-flex align-items-center mb-2">
@@ -31,9 +39,13 @@
                                 <i class="bi bi-calendar-event me-2" style="width: 1.2rem;"></i>
                                 <span>@(Model.NgaySinh?.ToString("dd/MM/yyyy") ?? "Chưa cập nhật ngày sinh")</span>
                             </div>
-                            <div class="d-flex align-items-center">
+                            <div class="d-flex align-items-center mb-2">
                                 <i class="bi bi-person-plus me-2" style="width: 1.2rem;"></i>
                                 <span>Thành viên từ @(Model.NgayDangKy?.ToString("MM/yyyy") ?? "—")</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-patch-check me-2" style="width: 1.2rem;"></i>
+                                <span>@(Model.LaVip ? "Được thi toàn bộ đề" : "Chỉ được làm các đề miễn phí")</span>
                             </div>
                         </div>
                     </div>

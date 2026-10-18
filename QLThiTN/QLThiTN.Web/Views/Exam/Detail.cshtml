@@ -6,6 +6,7 @@
 
     // Đợt thi có giới hạn số lượng => bắt buộc đăng ký; không giới hạn => thi thử công khai
     bool requireRegister = Model.DotThiID.HasValue && Model.SoChoConLai.HasValue && !Model.HasRegistered;
+    var daDangNhap = Context.Session.GetString("UserFullName") != null;
 }
 <section class="hero py-4">
     <div class="container position-relative">
@@ -15,6 +16,14 @@
                 <h1 class="fw-bold mb-3">@Model.Title</h1>
                 <p class="text-white-50 fs-5 mb-2">@Model.Description</p>
                 <span class="badge-status" style="background: rgba(255, 255, 255, .15); color: #fff;">@Model.StatusText</span>
+                @if (Model.LaMienPhi)
+                {
+                    <span class="badge-status ms-1" style="background: rgba(255, 255, 255, .15); color: #fff;"><i class="bi bi-unlock me-1"></i>Đề miễn phí</span>
+                }
+                else
+                {
+                    <span class="badge-status ms-1" style="background:#f4e4b3;color:#7a5b00;"><i class="bi bi-star-fill me-1"></i>Đề VIP</span>
+                }
             </div>
             <div class="col-lg-4">
                 <div class="card border-0 rounded-4 shadow">
@@ -49,7 +58,29 @@
                             </span>
                         </div>
 
-                        @if (Model.HasRegistered)
+                        @if (TempData["ErrorMessage"] != null)
+                        {
+                            <div class="alert alert-warning mt-3 mb-0 small">@TempData["ErrorMessage"]</div>
+                        }
+                        @if (Model.BiKhoaGoi)
+                        {
+                            <div class="alert alert-warning mt-3 mb-0 small">
+                                <i class="bi bi-lock me-1"></i>
+                                @if (!daDangNhap)
+                                {
+                                    <text>Đề này chỉ mở cho tài khoản đã đóng phí. Hãy đăng nhập bằng tài khoản VIP.</text>
+                                }
+                                else
+                                {
+                                    <text>Tài khoản miễn phí chỉ được làm các đề miễn phí. Admin cấp quyền đóng phí thì tài khoản được thi toàn bộ đề.</text>
+                                }
+                            </div>
+                            @if (!daDangNhap)
+                            {
+                                <a asp-controller="Account" asp-action="Login" class="btn btn-primary-custom w-100 mt-3">Đăng nhập</a>
+                            }
+                        }
+                        else if (Model.HasRegistered)
                         {
                             @if (isOpen)
                             {

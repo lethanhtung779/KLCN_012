@@ -4,6 +4,7 @@ using QLThiTN.API.Common;
 using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
+using QLThiTN.API.Services;
 
 namespace QLThiTN.API.Controllers;
 
@@ -12,8 +13,13 @@ namespace QLThiTN.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly QLThiTNDbContext _db;
+    private readonly RegistrationEmailService _registrationEmail;
 
-    public AuthController(QLThiTNDbContext db) => _db = db;
+    public AuthController(QLThiTNDbContext db, RegistrationEmailService registrationEmail)
+    {
+        _db = db;
+        _registrationEmail = registrationEmail;
+    }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
@@ -28,39 +34,29 @@ public class AuthController : ControllerBase
         return Ok(await BuildResponse(tk));
     }
 
+    /// <summary>Gui email xac minh; tai khoan chi duoc tao sau khi bam lien ket.</summary>
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
     {
-        if (await _db.TaiKhoans.AnyAsync(t => t.TenDangNhap == request.UserName))
-            return Conflict(new { message = "Ten dang nhap da ton tai" });
+        var (ok, message, devUrl) = await _registrationEmail.RequestRegistrationAsync(request);
+        if (!ok)
+            return Conflict(new { message });
 
-        if (await _db.TaiKhoans.AnyAsync(t => t.Email == request.Email))
-            return Conflict(new { message = "Email da duoc su dung" });
-
-        // Website chi danh cho thi sinh: moi dang ky tu do deu la HocVien,
-        // tai khoan GiaoVien/QuanTriVien do quan tri vien tao truc tiep trong DB.
-        var tk = new TaiKhoan
+        return Ok(new RegisterPendingResponseDto
         {
-            TenDangNhap = request.UserName,
-            MatKhau = PasswordHelper.Hash(request.Password),
-            Email = request.Email,
-            VaiTro = "HocVien",
-            TrangThai = "HoatDong",
-            NgayTao = DateTime.Now
-        };
-        _db.TaiKhoans.Add(tk);
-        await _db.SaveChangesAsync();
-
-        _db.HocViens.Add(new HocVien
-        {
-            TaiKhoanID = tk.TaiKhoanID,
-            HoTen = request.FullName,
-            LoaiHocVien = "HocSinh",
-            NgayDangKy = DateTime.Now
+            Message = message,
+            RequiresEmailConfirmation = true,
+            ConfirmationUrl = devUrl
         });
-        await _db.SaveChangesAsync();
+    }
 
-        return CreatedAtAction(nameof(Login), await BuildResponse(tk));
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequestDto request)
+    {
+        var (ok, message, auth) = await _registrationEmail.ConfirmAsync(request.Token);
+        if (!ok)
+            return BadRequest(new { message });
+        return Ok(new { message, user = auth });
     }
 
     [HttpGet("profile/{taiKhoanId:int}")]
@@ -82,7 +78,8 @@ public class AuthController : ControllerBase
             NgaySinh = hv?.NgaySinh,
             SoDienThoai = hv?.SoDienThoai,
             NgayDangKy = hv?.NgayDangKy ?? tk.NgayTao,
-            HocVienID = hv?.HocVienID
+            HocVienID = hv?.HocVienID,
+            LoaiGoi = hv?.LoaiGoi ?? string.Empty
         });
     }
 
@@ -141,7 +138,8 @@ public class AuthController : ControllerBase
             VaiTro = tk.VaiTro,
             HoTen = gv?.HoTen ?? hv?.HoTen ?? tk.TenDangNhap,
             HocVienID = hv?.HocVienID,
-            GiaoVienID = gv?.GiaoVienID
+            GiaoVienID = gv?.GiaoVienID,
+            LoaiGoi = hv?.LoaiGoi ?? string.Empty
         };
     }
 }

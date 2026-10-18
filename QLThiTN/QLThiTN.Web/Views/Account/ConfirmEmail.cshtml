@@ -1,0 +1,48 @@
+@{
+    ViewData["Title"] = "Xác minh email";
+    var mode = ViewBag.Mode as string ?? "result";
+    var success = ViewBag.Success as bool? ?? false;
+    var message = ViewBag.Message as string ?? "";
+    var token = ViewBag.Token as string ?? "";
+}
+
+<section class="auth-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-xl-6">
+                <div class="card auth-card border-0 p-4 p-md-5 text-center">
+                    @if (mode == "confirm")
+                    {
+                        <div class="mb-3 text-primary" style="font-size:3rem;"><i class="bi bi-envelope-check"></i></div>
+                        <h3 class="fw-bold mb-2">Xác minh đăng ký</h3>
+                        <p class="text-muted mb-4">
+                            Bấm nút bên dưới để hoàn tất tạo tài khoản (gói miễn phí).
+                            Nếu bạn vừa đăng ký lại, hãy dùng link trong <strong>email mới nhất</strong> hoặc link trên trang «Kiểm tra email».
+                        </p>
+                        <form asp-action="ConfirmEmail" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="token" value="@token" />
+                            <button type="submit" class="btn btn-primary-custom px-5">Xác minh email của tôi</button>
+                        </form>
+                    }
+                    else if (success)
+                    {
+                        <div class="mb-3 text-success" style="font-size:3rem;"><i class="bi bi-check-circle-fill"></i></div>
+                        <h3 class="fw-bold mb-2">Xác minh email thành công</h3>
+                        <p class="small text-muted">Tài khoản của bạn đã được tạo với gói <strong>miễn phí</strong>. Email nâng VIP (nếu có) sẽ do trung tâm gửi riêng khi bạn được cấp quyền đóng phí.</p>
+                        <p class="text-muted mb-4">@message</p>
+                        <a asp-action="Login" class="btn btn-primary-custom px-4">Đăng nhập ngay</a>
+                    }
+                    else
+                    {
+                        <div class="mb-3 text-danger" style="font-size:3rem;"><i class="bi bi-x-circle-fill"></i></div>
+                        <h3 class="fw-bold mb-2">Không xác minh được</h3>
+                        <p class="text-muted mb-4">@message</p>
+                        <a asp-action="Register" class="btn btn-outline-secondary px-4 me-2">Đăng ký lại</a>
+                        <a asp-action="Login" class="btn btn-primary-custom px-4">Đăng nhập</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

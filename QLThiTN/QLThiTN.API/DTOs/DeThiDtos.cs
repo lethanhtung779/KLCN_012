@@ -15,6 +15,7 @@ public class DeThiListItemDto
     public DateTime? ThoiGianDongCong { get; set; }
     public int? ThoiLuongLamBai { get; set; }
     public string TrangThai { get; set; } = string.Empty;
+    public bool LaMienPhi { get; set; }
 }
 
 public class DeThiDetailDto
@@ -32,6 +33,7 @@ public class DeThiDetailDto
     public DateTime? ThoiGianDongCong { get; set; }
     public int? ThoiLuongLamBai { get; set; }
     public string TrangThai { get; set; } = string.Empty;
+    public bool LaMienPhi { get; set; }
 }
 
 public class CreateDeThiRequestDto

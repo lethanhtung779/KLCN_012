@@ -13,6 +13,7 @@ public class HomeController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        await GoiSession.RefreshAsync(HttpContext, _api);
         var exams = await _api.GetDeThisAsync();
         var schedules = exams.Select(ExamMapping.ToSchedule).ToList();
         var stats = await _api.GetExamStatsAsync();
@@ -60,6 +61,7 @@ public class HomeController : Controller
                         ExamKind = s.ExamKind,
                         IsAssignedToMe = s.IsAssignedToMe,
                         ScorePublished = s.ScorePublished,
+                        LaMienPhi = s.LaMienPhi,
                         DotThiID = s.DotThiID,
                         SoDangKy = s.SoDangKy,
                         SoChoConLai = s.SoChoConLai,

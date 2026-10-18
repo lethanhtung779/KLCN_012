@@ -29,11 +29,13 @@ public class ExamService(int? giaoVienPhuTrachId = null)
     {
         return Database.Query(@"
             SELECT d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao,
+                   d.LaMienPhi,
+                   CASE WHEN d.LaMienPhi = 1 THEN N'Miễn phí' ELSE N'Đóng phí (VIP)' END AS QuyenThi,
                    COUNT(dt.DotThiID) AS SoDotThi
             FROM DeThi d
             JOIN MonHoc m ON m.MonHocID = d.MonHocID
             LEFT JOIN DotThi dt ON dt.DeThiID = d.DeThiID
-            GROUP BY d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao
+            GROUP BY d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao, d.LaMienPhi
             ORDER BY d.DeThiID DESC");
     }
 
@@ -111,6 +113,18 @@ public class ExamService(int? giaoVienPhuTrachId = null)
         Database.Execute("INSERT INTO MaDeThi (DeThiID, TenMaDe) VALUES (@d, N'101')",
             p => p.AddWithValue("@d", id));
         return id;
+    }
+
+    /// <summary>Danh dau de mo cho tai khoan mien phi, hoac chi danh cho tai khoan dong phi.</summary>
+    public void DatMienPhi(int deThiId, bool mienPhi)
+    {
+        YeuCauQuanTriVien();
+        Database.Execute("UPDATE DeThi SET LaMienPhi = @v WHERE DeThiID = @id",
+            p =>
+            {
+                p.AddWithValue("@v", mienPhi);
+                p.AddWithValue("@id", deThiId);
+            });
     }
 
     public void XoaDe(int deThiId)

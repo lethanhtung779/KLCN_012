@@ -27,6 +27,11 @@ public class ProfileViewModel
 
     public DateTime? NgayDangKy { get; set; }
 
+    /// <summary>DongPhi = VIP, con lai la mien phi.</summary>
+    public string LoaiGoi { get; set; } = "MienPhi";
+
+    public bool LaVip => LoaiGoi == "DongPhi";
+
     // Thống kê học tập (từ /api/bailam/stats)
     public int TotalExams { get; set; }
     public decimal AverageScore { get; set; }

@@ -1,0 +1,38 @@
+@{
+    ViewData["Title"] = "Xác minh email";
+    var email = ViewBag.Email as string ?? "";
+    var message = ViewBag.Message as string ?? "Vui lòng kiểm tra hộp thư.";
+    var devUrl = ViewBag.DevConfirmUrl as string;
+}
+
+<section class="auth-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 col-xl-6">
+                <div class="card auth-card border-0 p-4 p-md-5 text-center">
+                    <div class="mb-3">
+                        <span class="auth-logo d-inline-flex align-items-center justify-content-center" style="width:64px;height:64px;border-radius:50%;background:var(--navy, #1b2a4e);color:#fff;font-size:1.75rem;">
+                            <i class="bi bi-envelope-check"></i>
+                        </span>
+                    </div>
+                    <h3 class="fw-bold mb-2">Kiểm tra email của bạn</h3>
+                    <p class="text-muted mb-3">@message</p>
+                    <p class="fw-semibold text-dark mb-4">@email</p>
+                    <p class="small text-muted mb-4">
+                        Mở email có tiêu đề <strong>[QLThiTN] Vui lòng xác minh email đăng ký</strong> và bấm <strong>Xác minh email của tôi</strong>.
+                        Đây chỉ là bước xác nhận email — <strong>không</strong> phải email nâng VIP. Sau khi xác minh, tài khoản mới là gói miễn phí và bạn mới đăng nhập được (liên kết 24 giờ).
+                        <strong class="d-block mt-2">Nếu bạn đăng ký lại nhiều lần, chỉ link trong lần đăng ký cuối mới dùng được — email cũ trong Gmail sẽ báo lỗi.</strong>
+                    </p>
+                    @if (!string.IsNullOrWhiteSpace(devUrl))
+                    {
+                        <div class="alert alert-warning text-start small mb-4">
+                            <strong>Không thấy email?</strong> Kiểm tra <em>Spam / Quảng cáo / Thư rác</em>. Trên máy dev, bạn có thể bấm liên kết xác minh trực tiếp (không cần đợi email):
+                            <div class="mt-2 text-break"><a href="@devUrl">Xác minh ngay</a></div>
+                        </div>
+                    }
+                    <a asp-action="Login" class="btn btn-primary-custom px-4">Đến trang đăng nhập</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

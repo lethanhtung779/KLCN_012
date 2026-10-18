@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
+using QLThiTN.API.Services;
 
 namespace QLThiTN.API.Controllers;
 
@@ -107,6 +108,8 @@ public class DotThiController : ControllerBase
 
         var hv = await _db.HocViens.FindAsync(request.HocVienID);
         if (hv is null) return BadRequest(new { message = "Hoc vien khong ton tai" });
+        if (await GoiThi.DuocLamAsync(_db, dot.DeThiID, hv.HocVienID) == false)
+            return StatusCode(403, new { message = GoiThi.ThongBao });
 
         var existing = await _db.DangKyDotThis
             .FirstOrDefaultAsync(k => k.DotThiID == id && k.HocVienID == request.HocVienID);

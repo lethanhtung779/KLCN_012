@@ -10,9 +10,19 @@ namespace QLThiTN.WinForms.Services;
 public static class Database
 {
     private static string _connectionString =
-        "Server=.\\SQLEXPRESS;Database=ThiTracNghiem;Trusted_Connection=True;TrustServerCertificate=True";
+        "Server=(localdb)\\MSSQLLocalDB;Database=ThiTracNghiem;Trusted_Connection=True;TrustServerCertificate=True";
 
     public static string ConnectionString => _connectionString;
+
+    /// <summary>Them cot goi tai khoan va cot de mien phi neu co so du lieu cu chua co.</summary>
+    public static void EnsureGoiColumns()
+    {
+        Execute(@"
+IF COL_LENGTH('HocVien', 'LoaiGoi') IS NULL
+    ALTER TABLE HocVien ADD LoaiGoi NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi';
+IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
+    ALTER TABLE DeThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DeThi_LaMienPhi DEFAULT 0;");
+    }
 
     public static void LoadConfig(string baseDir)
     {

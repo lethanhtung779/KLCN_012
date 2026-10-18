@@ -24,6 +24,9 @@ public class DeThi
     [Required, MaxLength(50)]
     public string HinhThucTao { get; set; } = string.Empty;
 
+    /// <summary>true = moi tai khoan deu lam duoc; false = chi tai khoan dong phi.</summary>
+    public bool LaMienPhi { get; set; }
+
     public MonHoc? MonHoc { get; set; }
 
     public GiaoVien? GiaoVien { get; set; }

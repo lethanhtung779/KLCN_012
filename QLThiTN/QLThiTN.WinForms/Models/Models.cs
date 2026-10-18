@@ -44,6 +44,40 @@ public class LopHoc
     public string TenMon { get; set; } = "";
 }
 
+/// <summary>Mo ta hoc vien trong cay tong hop dao tao.</summary>
+public class TongHopHocVienLop
+{
+    public string HoTen { get; set; } = "";
+    public string TenDangNhap { get; set; } = "";
+    public string TrangThai { get; set; } = "";
+}
+
+/// <summary>Mo ta giao vien phan cong trong cay tong hop.</summary>
+public class TongHopGiaoVienLop
+{
+    public string TenMon { get; set; } = "";
+    public string TenGiaoVien { get; set; } = "";
+}
+
+/// <summary>Lop hoc trong cay tong hop (hoc vien + giao vien).</summary>
+public class TongHopLopHoc
+{
+    public int LopHocID { get; set; }
+    public string TenLop { get; set; } = "";
+    public List<TongHopGiaoVienLop> GiaoViens { get; set; } = [];
+    public List<TongHopHocVienLop> HocViens { get; set; } = [];
+}
+
+/// <summary>Khoa hoc va cac lop con trong cay tong hop.</summary>
+public class TongHopKhoaHoc
+{
+    public int KhoaHocID { get; set; }
+    public string TenKhoaHoc { get; set; } = "";
+    public string TenMon { get; set; } = "";
+    public string TrangThai { get; set; } = "";
+    public List<TongHopLopHoc> LopHocs { get; set; } = [];
+}
+
 /// <summary>Trang thai khoa hoc (khop CHECK KhoaHoc.TrangThai).</summary>
 public static class TrangThaiKhoaHoc
 {

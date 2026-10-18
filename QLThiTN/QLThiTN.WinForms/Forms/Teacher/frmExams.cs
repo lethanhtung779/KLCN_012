@@ -38,8 +38,10 @@ public class frmExams : Form
         btnTronDe.Click += (s, e) => MoManHinhTronDe();
         var btnXoaDe = Ui.ButtonDanger("🗑 Xóa đề", 110);
         btnXoaDe.Click += (s, e) => XoaDe();
+        var btnGoiDe = Ui.ButtonAccent("★ Miễn phí / VIP", 170);
+        btnGoiDe.Click += (s, e) => DoiGoiDe();
 
-        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnXoaDe })
+        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnGoiDe, btnXoaDe })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);
@@ -117,8 +119,9 @@ public class frmExams : Form
         _gridDe.DataSource = _service.LayDanhSachDe();
         Ui.RenameColumns(_gridDe,
             ("DeThiID", "ID"), ("TenDe", "Tên đề"), ("TenMon", "Môn"), ("LoaiDe", "Loại đề"),
-            ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Cách tạo"), ("SoDotThi", "Số đợt thi"));
-        Ui.HideColumns(_gridDe, "DeThiID");
+            ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Cách tạo"), ("QuyenThi", "Quyền thi"),
+            ("SoDotThi", "Số đợt thi"));
+        Ui.HideColumns(_gridDe, "DeThiID", "LaMienPhi");
         if (_gridDe.Columns.Contains("LoaiDe"))
             foreach (DataGridViewRow row in _gridDe.Rows)
                 row.Cells["LoaiDe"].Value = row.Cells["LoaiDe"].Value switch
@@ -172,6 +175,29 @@ public class frmExams : Form
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         _service.CapNhatTrangThaiDot(id, "DaDong");
         TaiDotThi();
+    }
+
+    private static bool LaDeMienPhi(object? value)
+    {
+        if (value is bool b) return b;
+        if (value is null || value == DBNull.Value) return false;
+        return Convert.ToInt32(value) != 0;
+    }
+
+    private void DoiGoiDe()
+    {
+        var id = DeIdDangChon();
+        if (id == 0) { MessageBox.Show("Hãy chọn một đề thi.", "Thông báo"); return; }
+        var ten = _gridDe.CurrentRow!.Cells["TenDe"].Value?.ToString() ?? "";
+        var dangMienPhi = LaDeMienPhi(_gridDe.CurrentRow.Cells["LaMienPhi"].Value);
+        var sangMienPhi = !dangMienPhi;
+        var hoi = sangMienPhi
+            ? $"Đánh dấu đề '{ten}' là MIỄN PHÍ?\nMọi tài khoản đều làm được đề này."
+            : $"Đánh dấu đề '{ten}' là ĐÓNG PHÍ (VIP)?\nChỉ tài khoản đã đóng phí mới làm được.";
+        if (MessageBox.Show(hoi, "Quyền thi", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return;
+        _service.DatMienPhi(id, sangMienPhi);
+        TaiLai();
     }
 
     private void XoaDe()

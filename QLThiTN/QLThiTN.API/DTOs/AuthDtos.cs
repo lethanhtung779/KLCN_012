@@ -37,6 +37,9 @@ public class AuthResponseDto
     public string HoTen { get; set; } = string.Empty;
     public int? HocVienID { get; set; }
     public int? GiaoVienID { get; set; }
+
+    /// <summary>MienPhi hoac DongPhi. Rong neu khong phai hoc vien.</summary>
+    public string LoaiGoi { get; set; } = string.Empty;
 }
 
 public class UpdateProfileRequestDto
@@ -66,6 +69,20 @@ public class ProfileResponseDto
     public string? SoDienThoai { get; set; }
     public DateTime? NgayDangKy { get; set; }
     public int? HocVienID { get; set; }
+    public string LoaiGoi { get; set; } = string.Empty;
+}
+
+public class ConfirmEmailRequestDto
+{
+    [Required]
+    public string Token { get; set; } = string.Empty;
+}
+
+public class RegisterPendingResponseDto
+{
+    public string Message { get; set; } = string.Empty;
+    public bool RequiresEmailConfirmation { get; set; } = true;
+    public string? ConfirmationUrl { get; set; }
 }
 
 public class ChangePasswordRequestDto

@@ -329,4 +329,127 @@ public class TrainingService
         Database.Execute("DELETE FROM LichHoc WHERE LichHocID = @id", p => p.AddWithValue("@id", lichHocId));
         return (true, "");
     }
+
+    /// <summary>Cay khoa hoc → lop → giao vien + hoc vien (loc theo tu khoa neu co).</summary>
+    public List<TongHopKhoaHoc> LayTongHopDaoTao(string? tuKhoa)
+    {
+        var key = tuKhoa?.Trim() ?? "";
+
+        var dtKhoa = Database.Query(@"
+            SELECT kh.KhoaHocID, kh.TenKhoaHoc, mh.TenMon, kh.TrangThai
+            FROM KhoaHoc kh
+            INNER JOIN MonHoc mh ON mh.MonHocID = kh.MonHocID
+            ORDER BY kh.TenKhoaHoc");
+
+        var dtLop = Database.Query(@"
+            SELECT lh.LopHocID, lh.TenLop, lh.KhoaHocID
+            FROM LopHoc lh
+            ORDER BY lh.TenLop");
+
+        var dtGv = Database.Query(@"
+            SELECT pc.LopHocID, mh.TenMon, gv.HoTen AS TenGiaoVien
+            FROM PhanCongGiangDay pc
+            INNER JOIN MonHoc mh ON mh.MonHocID = pc.MonHocID
+            INNER JOIN GiaoVien gv ON gv.GiaoVienID = pc.GiaoVienID
+            ORDER BY mh.TenMon, gv.HoTen");
+
+        var dtHv = Database.Query(@"
+            SELECT hvl.LopHocID, hv.HoTen, tk.TenDangNhap, hvl.TrangThai
+            FROM HocVien_Lop hvl
+            INNER JOIN HocVien hv ON hv.HocVienID = hvl.HocVienID
+            INNER JOIN TaiKhoan tk ON tk.TaiKhoanID = hv.TaiKhoanID
+            ORDER BY hv.HoTen");
+
+        var gvByLop = new Dictionary<int, List<TongHopGiaoVienLop>>();
+        foreach (DataRow r in dtGv.Rows)
+        {
+            var lopId = Convert.ToInt32(r["LopHocID"]);
+            if (!gvByLop.TryGetValue(lopId, out var list))
+            {
+                list = [];
+                gvByLop[lopId] = list;
+            }
+            list.Add(new TongHopGiaoVienLop
+            {
+                TenMon = r["TenMon"]?.ToString() ?? "",
+                TenGiaoVien = r["TenGiaoVien"]?.ToString() ?? ""
+            });
+        }
+
+        var hvByLop = new Dictionary<int, List<TongHopHocVienLop>>();
+        foreach (DataRow r in dtHv.Rows)
+        {
+            var lopId = Convert.ToInt32(r["LopHocID"]);
+            if (!hvByLop.TryGetValue(lopId, out var list))
+            {
+                list = [];
+                hvByLop[lopId] = list;
+            }
+            list.Add(new TongHopHocVienLop
+            {
+                HoTen = r["HoTen"]?.ToString() ?? "",
+                TenDangNhap = r["TenDangNhap"]?.ToString() ?? "",
+                TrangThai = r["TrangThai"]?.ToString() ?? ""
+            });
+        }
+
+        var lopByKhoa = new Dictionary<int, List<TongHopLopHoc>>();
+        foreach (DataRow r in dtLop.Rows)
+        {
+            var khoaId = Convert.ToInt32(r["KhoaHocID"]);
+            var lopId = Convert.ToInt32(r["LopHocID"]);
+            if (!lopByKhoa.TryGetValue(khoaId, out var list))
+            {
+                list = [];
+                lopByKhoa[khoaId] = list;
+            }
+            list.Add(new TongHopLopHoc
+            {
+                LopHocID = lopId,
+                TenLop = r["TenLop"]?.ToString() ?? "",
+                GiaoViens = gvByLop.GetValueOrDefault(lopId, []),
+                HocViens = hvByLop.GetValueOrDefault(lopId, [])
+            });
+        }
+
+        var result = new List<TongHopKhoaHoc>();
+        foreach (DataRow r in dtKhoa.Rows)
+        {
+            var khoaId = Convert.ToInt32(r["KhoaHocID"]);
+            var khoa = new TongHopKhoaHoc
+            {
+                KhoaHocID = khoaId,
+                TenKhoaHoc = r["TenKhoaHoc"]?.ToString() ?? "",
+                TenMon = r["TenMon"]?.ToString() ?? "",
+                TrangThai = r["TrangThai"]?.ToString() ?? "",
+                LopHocs = lopByKhoa.GetValueOrDefault(khoaId, [])
+            };
+
+            if (key.Length == 0 || KhoaHopTuKhoaTongHop(khoa, key))
+                result.Add(khoa);
+        }
+
+        return result;
+    }
+
+    private static bool KhoaHopTuKhoaTongHop(TongHopKhoaHoc khoa, string key)
+    {
+        if (ChuaChuoi(khoa.TenKhoaHoc, key) || ChuaChuoi(khoa.TenMon, key) || ChuaChuoi(TrangThaiKhoaHoc.Display(khoa.TrangThai), key))
+            return true;
+
+        foreach (var lop in khoa.LopHocs)
+        {
+            if (ChuaChuoi(lop.TenLop, key))
+                return true;
+            if (lop.GiaoViens.Any(g => ChuaChuoi(g.TenGiaoVien, key) || ChuaChuoi(g.TenMon, key)))
+                return true;
+            if (lop.HocViens.Any(h => ChuaChuoi(h.HoTen, key) || ChuaChuoi(h.TenDangNhap, key)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool ChuaChuoi(string? haystack, string needle) =>
+        (haystack ?? "").Contains(needle, StringComparison.OrdinalIgnoreCase);
 }

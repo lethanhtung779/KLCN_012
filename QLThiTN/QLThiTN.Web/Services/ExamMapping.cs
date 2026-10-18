@@ -97,7 +97,8 @@ public static class ExamMapping
         CanRegister = d.TrangThai != "DaDong",
         ExamKind = ToExamKind(d.LoaiDe),
         IsAssignedToMe = d.DotThiID.HasValue,
-        ScorePublished = true
+        ScorePublished = true,
+        LaMienPhi = d.LaMienPhi
     };
 
     public static List<QuestionViewModel> ToQuestions(List<ApiCauHoi> items, string apiBaseUrl)
