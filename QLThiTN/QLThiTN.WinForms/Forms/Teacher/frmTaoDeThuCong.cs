@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using QLThiTN.WinForms.Models;
 using QLThiTN.WinForms.Services;
 
@@ -55,10 +55,44 @@ public class frmTaoDeThuCong : Form
         Ui.StyleGrid(_grid);
         _grid.Location = new Point(20, 200);
         _grid.Size = new Size(980, 380);
+        _grid.ReadOnly = false;
         _grid.CellValueChanged += (s, e) => { if (e.ColumnIndex == 0) CapNhatDem(); };
         _grid.CurrentCellDirtyStateChanged += (s, e) =>
         {
-            if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            if (_grid.IsCurrentCellDirty)
+            {
+                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                CapNhatDem();
+            }
+        };
+        _grid.CellContentClick += (s, e) =>
+        {
+            if (e.RowIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "Chon")
+            {
+                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                CapNhatDem();
+            }
+        };
+        _grid.CellDoubleClick += (s, e) =>
+        {
+            if (e.RowIndex >= 0 && _grid.Columns.Contains("Chon"))
+            {
+                var cur = Convert.ToBoolean(_grid.Rows[e.RowIndex].Cells["Chon"].Value ?? false);
+                _grid.Rows[e.RowIndex].Cells["Chon"].Value = !cur;
+                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                CapNhatDem();
+            }
+        };
+        _grid.KeyDown += (s, e) =>
+        {
+            if (e.KeyCode == Keys.Space && _grid.CurrentRow != null && _grid.Columns.Contains("Chon"))
+            {
+                var cur = Convert.ToBoolean(_grid.CurrentRow.Cells["Chon"].Value ?? false);
+                _grid.CurrentRow.Cells["Chon"].Value = !cur;
+                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                CapNhatDem();
+                e.Handled = true;
+            }
         };
 
         var btnTao = Ui.ButtonAccent("✔ Tạo đề thi", 170, 42);
@@ -104,6 +138,10 @@ public class frmTaoDeThuCong : Form
         dt.Columns["Chon"].SetOrdinal(0);
 
         _grid.DataSource = dt;
+        _grid.ReadOnly = false;
+        foreach (DataGridViewColumn col in _grid.Columns)
+            col.ReadOnly = col.Name != "Chon";
+
         Ui.RenameColumns(_grid,
             ("CauHoiID", "ID"), ("NoiDung", "Nội dung"), ("LoaiCauHoi", "Loại"),
             ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TenChuDe", "Chủ đề"));
@@ -111,8 +149,9 @@ public class frmTaoDeThuCong : Form
         // Dat AutoSizeMode=None truoc Width: dat Width tren cot Fill khi grid chua co handle bi NullReferenceException.
         var colChon = _grid.Columns["Chon"]!;
         colChon.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-        colChon.Width = 50;
+        colChon.Width = 65;
         colChon.HeaderText = "Chọn";
+        colChon.ReadOnly = false;
         _grid.Columns["NoiDung"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
         _dangTaiDuLieu = false;
         CapNhatDem();
