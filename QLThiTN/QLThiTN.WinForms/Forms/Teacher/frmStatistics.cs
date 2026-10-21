@@ -248,7 +248,7 @@ public class frmStatistics : Form
         _gridCauHoi.DataSource = data;
         Ui.RenameColumns(_gridCauHoi,
             ("CauHoiID", "ID"), ("ThuTu", "Câu"), ("NoiDung", "Nội dung câu hỏi"),
-            ("SoLanTraLoi", "Số lần trả lời"), ("SoLanDung", "Số lần đúng"), ("TiLeDung", "% đúng"));
+            ("SoLanTraLoi", "Lượt trả lời ghi nhận"), ("SoLanDung", "Số lần đúng"), ("TiLeDung", "% đúng"));
         Ui.HideColumns(_gridCauHoi, "CauHoiID", "NoiDung");
         if (_gridCauHoi.Columns.Contains("TiLeDung"))
         {

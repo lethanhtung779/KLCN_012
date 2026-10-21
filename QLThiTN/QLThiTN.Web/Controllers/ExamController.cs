@@ -17,30 +17,32 @@ public class ExamController : Controller
 
     private bool BiKhoaGoi(bool laMienPhi) => !laMienPhi && !GoiSession.LaDongPhi(HttpContext);
 
+    private static ExamScheduleViewModel ToSchedule(ApiDeThi exam, ApiDotThi dot)
+    {
+        var vm = ExamMapping.ToSchedule(exam);
+        vm.Description = dot.TenDotThi;
+        vm.Duration = dot.ThoiLuongLamBai;
+        vm.StartTime = dot.ThoiGianMoCong;
+        vm.EndTime = dot.ThoiGianDongCong;
+        vm.DotThiID = dot.DotThiID;
+        vm.SoDangKy = dot.SoDangKy;
+        vm.SoChoConLai = dot.SoChoConLai;
+        vm.HasRegistered = dot.DaDangKy;
+        vm.IsOpen = dot.TrangThai != "DaDong" && dot.ThoiGianMoCong <= DateTime.Now && dot.ThoiGianDongCong >= DateTime.Now;
+        vm.CanRegister = dot.TrangThai != "DaDong" && !dot.DaDangKy
+            && dot.ThoiGianDongCong >= DateTime.Now
+            && (!dot.SoChoConLai.HasValue || dot.SoChoConLai.Value > 0);
+        return vm;
+    }
+
     [HttpGet]
     public async Task<IActionResult> Schedule()
     {
         await RefreshGoiAsync();
         var exams = await _api.GetDeThisAsync();
         var dotThis = await _api.GetDotThisAsync(HocVienId);
-        var dotByDeThi = dotThis
-            .GroupBy(d => d.DeThiID)
-            .ToDictionary(g => g.Key, g => g.First());
-
-        return View(exams.Select(e =>
-        {
-            var vm = ExamMapping.ToSchedule(e);
-            if (dotByDeThi.TryGetValue(e.DeThiID, out var dot))
-            {
-                vm.DotThiID = dot.DotThiID;
-                vm.SoDangKy = dot.SoDangKy;
-                vm.SoChoConLai = dot.SoChoConLai;
-                vm.HasRegistered = dot.DaDangKy;
-                vm.CanRegister = dot.TrangThai != "DaDong" && !dot.DaDangKy
-                    && (!dot.SoChoConLai.HasValue || dot.SoChoConLai.Value > 0);
-            }
-            return vm;
-        }).ToList());
+        return View(exams.SelectMany(e => dotThis.Where(d => d.DeThiID == e.DeThiID)
+            .Select(dot => ToSchedule(e, dot))).ToList());
     }
 
     /// <summary>Trang Kho de: duyet de thi theo mon hoc, kem thong ke cong dong
@@ -64,20 +66,9 @@ public class ExamController : Controller
 
         var exams = await _api.GetDeThisAsync(monId);
         var dotThis = await _api.GetDotThisAsync(HocVienId);
-        var dotByDeThi = dotThis.GroupBy(d => d.DeThiID).ToDictionary(g => g.Key, g => g.First());
-
-        var items = exams.Select(e =>
+        var items = exams.SelectMany(e => dotThis.Where(d => d.DeThiID == e.DeThiID).Select(dot =>
         {
-            var vm = ExamMapping.ToSchedule(e);
-            if (dotByDeThi.TryGetValue(e.DeThiID, out var dot))
-            {
-                vm.DotThiID = dot.DotThiID;
-                vm.SoDangKy = dot.SoDangKy;
-                vm.SoChoConLai = dot.SoChoConLai;
-                vm.HasRegistered = dot.DaDangKy;
-                vm.CanRegister = dot.TrangThai != "DaDong" && !dot.DaDangKy
-                    && (!dot.SoChoConLai.HasValue || dot.SoChoConLai.Value > 0);
-            }
+            var vm = ToSchedule(e, dot);
 
             var item = new KhoDeExamItem
             {
@@ -108,7 +99,7 @@ public class ExamController : Controller
                 item.DiemTrungBinh = st.DiemTrungBinh;
             }
             return item;
-        })
+        }))
         .OrderByDescending(e => e.SoLuotThi)
         .ThenBy(e => e.Id)
         .ToList();
@@ -118,8 +109,8 @@ public class ExamController : Controller
             MonHocs = monHocs,
             MonHocId = monId,
             TenMon = monHocs.FirstOrDefault(m => m.MonHocID == monId)?.TenMon ?? string.Empty,
-            SoDe = items.Count,
-            SoCau = items.Sum(e => e.QuestionCount),
+            SoDe = items.Select(e => e.Id).Distinct().Count(),
+            SoCau = items.GroupBy(e => e.Id).Sum(g => g.First().QuestionCount),
             DeThis = items
         };
 
@@ -149,7 +140,7 @@ public class ExamController : Controller
     }
 
     [HttpGet]
-    public async Task<IActionResult> Detail(int id)
+    public async Task<IActionResult> Detail(int id, int? dotThiId)
     {
         await RefreshGoiAsync();
         var exam = await _api.GetDeThiAsync(id);
@@ -157,9 +148,16 @@ public class ExamController : Controller
             return NotFound();
 
         var now = DateTime.Now;
-        var statusText = exam.ThoiGianMoCong > now
+        var sessions = (await _api.GetDotThisAsync(HocVienId)).Where(d => d.DeThiID == id).ToList();
+        var selected = dotThiId.HasValue
+            ? sessions.FirstOrDefault(d => d.DotThiID == dotThiId.Value)
+            : sessions.Where(d => d.TrangThai != "DaDong" && d.ThoiGianMoCong <= now && d.ThoiGianDongCong >= now)
+                .OrderBy(d => d.ThoiGianMoCong).FirstOrDefault() ?? sessions.OrderBy(d => d.ThoiGianMoCong).FirstOrDefault();
+        if (dotThiId.HasValue && selected == null) return NotFound();
+        var statusText = selected == null ? "Chưa có đợt thi"
+            : selected.ThoiGianMoCong > now
             ? "Sắp diễn ra"
-            : exam.ThoiGianDongCong < now
+            : selected.TrangThai == "DaDong" || selected.ThoiGianDongCong < now
                 ? "Đã kết thúc"
                 : "Đang mở — đăng ký ngay";
 
@@ -167,34 +165,29 @@ public class ExamController : Controller
         {
             Id = exam.DeThiID,
             Title = exam.TenDe,
-            Description = string.IsNullOrWhiteSpace(exam.TenDotThi) ? exam.LoaiDeText : exam.TenDotThi,
-            Duration = exam.ThoiLuongLamBai ?? 45,
-            StartTime = exam.ThoiGianMoCong,
-            EndTime = exam.ThoiGianDongCong,
+            Description = selected == null ? exam.LoaiDeText : selected.TenDotThi,
+            Duration = selected?.ThoiLuongLamBai ?? exam.ThoiLuongLamBai ?? 45,
+            StartTime = selected?.ThoiGianMoCong,
+            EndTime = selected?.ThoiGianDongCong,
             MaxStudents = null,
             SubjectName = exam.TenMon,
             QuestionCount = exam.SoLuongCauHoi,
             HasRegistered = false,
-            CanStart = exam.ThoiGianMoCong <= now && exam.ThoiGianDongCong >= now,
+            CanStart = selected != null && selected.TrangThai != "DaDong" && selected.ThoiGianMoCong <= now && selected.ThoiGianDongCong >= now,
             StatusText = statusText,
             LaMienPhi = exam.LaMienPhi,
             BiKhoaGoi = BiKhoaGoi(exam.LaMienPhi)
         };
 
         // Thong tin dot thi: trang thai dang ky, so cho con lai
-        if (HocVienId.HasValue)
+        if (selected != null)
         {
-            var dot = (await _api.GetDotThisAsync(HocVienId))
-                .FirstOrDefault(d => d.DeThiID == id);
-            if (dot != null)
-            {
-                model.DotThiID = dot.DotThiID;
-                model.SoDangKy = dot.SoDangKy;
-                model.SoChoConLai = dot.SoChoConLai;
-                model.HasRegistered = dot.DaDangKy;
-                model.CanRegister = dot.TrangThai != "DaDong" && dot.ThoiGianDongCong >= now
-                    && (!dot.SoChoConLai.HasValue || dot.SoChoConLai.Value > 0);
-            }
+            model.DotThiID = selected.DotThiID;
+            model.SoDangKy = selected.SoDangKy;
+            model.SoChoConLai = selected.SoChoConLai;
+            model.HasRegistered = selected.DaDangKy;
+            model.CanRegister = selected.TrangThai != "DaDong" && selected.ThoiGianDongCong >= now
+                && (!selected.SoChoConLai.HasValue || selected.SoChoConLai.Value > 0);
         }
 
         return View(model);
@@ -212,7 +205,7 @@ public class ExamController : Controller
         TempData[success ? "SuccessMessage" : "ErrorMessage"] = message;
 
         if (deThiId > 0)
-            return RedirectToAction(nameof(Detail), new { id = deThiId });
+            return RedirectToAction(nameof(Detail), new { id = deThiId, dotThiId = id });
 
         // Khong biet DeThiID -> tra ve lich thi
         return RedirectToAction(nameof(Schedule));
@@ -230,14 +223,14 @@ public class ExamController : Controller
         TempData[success ? "SuccessMessage" : "ErrorMessage"] = message;
 
         if (deThiId > 0)
-            return RedirectToAction(nameof(Detail), new { id = deThiId });
+            return RedirectToAction(nameof(Detail), new { id = deThiId, dotThiId = id });
 
         return RedirectToAction(nameof(Schedule));
     }
 
     [HttpGet]
     [RequireLogin]
-    public async Task<IActionResult> Taking(int id)
+    public async Task<IActionResult> Taking(int id, int? dotThiId)
     {
         if (HocVienId is not int hocVienId)
             return RedirectToAction("Login", "Account");
@@ -250,16 +243,16 @@ public class ExamController : Controller
         if (BiKhoaGoi(exam.LaMienPhi))
         {
             TempData["ErrorMessage"] = "Đề thi này chỉ dành cho tài khoản đã đóng phí (VIP). Tài khoản miễn phí chỉ được làm các đề miễn phí.";
-            return RedirectToAction(nameof(Detail), new { id });
+            return RedirectToAction(nameof(Detail), new { id, dotThiId });
         }
 
         // Bat dau (hoac phuc hoi) bai thi: server kiem tra thoi gian/so lan thi/
         // dang ky va tra ve so giay con lai tinh theo dong ho server.
-        var (batDau, error) = await _api.BatDauAsync(id, hocVienId);
+        var (batDau, error) = await _api.BatDauAsync(id, hocVienId, dotThiId);
         if (batDau == null)
         {
             TempData["ErrorMessage"] = error;
-            return RedirectToAction(nameof(Detail), new { id });
+            return RedirectToAction(nameof(Detail), new { id, dotThiId });
         }
 
         if (batDau.RemainingSeconds <= 0)
@@ -270,7 +263,7 @@ public class ExamController : Controller
             });
             if (closed?.BaiLamID is int closedId) return RedirectToAction(nameof(Result), new { id = closedId });
             TempData["ErrorMessage"] = closeError;
-            return RedirectToAction(nameof(Detail), new { id });
+            return RedirectToAction(nameof(Detail), new { id, dotThiId });
         }
 
         var questions = await _api.GetCauHoiAsync(id, batDau.MaDeID, hocVienId);

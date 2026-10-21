@@ -19,7 +19,7 @@ public class frmTaoDeTuDong : Form
     public frmTaoDeTuDong(int? giaoVienId = null)
     {
         _examService = new ExamService(giaoVienId);
-        Text = "Tạo đề thi tự động";
+        Text = "Tạo đề thi ngẫu nhiên (không dùng ma trận)";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
@@ -47,7 +47,7 @@ public class frmTaoDeTuDong : Form
         var lblTen = Ui.Label("Tên đề thi *", Ui.H2, Ui.Navy);
         _txtTenDe.Text = $"Đề thi thử - {DateTime.Now:dd/MM/yyyy}";
 
-        var lblGoiY = Ui.Label("Hệ thống chọn ngẫu nhiên từ ngân hàng câu hỏi\nđang hoạt động theo môn (và độ khó nếu chọn).",
+        var lblGoiY = Ui.Label("Chọn ngẫu nhiên theo môn/độ khó; không kiểm soát tỷ lệ chủ đề.\nMuốn cân bằng chủ đề và mức độ, hãy dùng Tạo đề chuẩn THPTQG.",
             Ui.Small, Ui.TextMuted);
 
         var btnTao = Ui.ButtonAccent("⚡ Tạo đề", 160, 42);

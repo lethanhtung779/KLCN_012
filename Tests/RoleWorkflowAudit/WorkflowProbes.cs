@@ -42,7 +42,19 @@ static class WorkflowProbes
             ThoiGianMoCong = DateTime.Now.AddMinutes(-1), ThoiGianDongCong = DateTime.Now.AddHours(1), ThoiLuongLamBai = 30, SoLanThiToiDa = 1 };
         db.Add(latest); await db.SaveChangesAsync();
         using var multiStart = await a.PostAsJsonAsync($"/api/dethi/{multi.Exam.DeThiID}/batdau", new { HocVienID = student.HocVienID });
-        Record("U04", $"Same exam has old closed and new open sessions; start HTTP {(int)multiStart.StatusCode}: {await multiStart.Content.ReadAsStringAsync()}");
+        using var selectedStart = await a.PostAsJsonAsync($"/api/dethi/{multi.Exam.DeThiID}/batdau",
+            new { HocVienID = student.HocVienID, DotThiID = latest.DotThiID });
+        if (multiStart.StatusCode != HttpStatusCode.BadRequest || selectedStart.StatusCode != HttpStatusCode.OK)
+            throw new Exception("Multiple exam sessions were not disambiguated by DotThiID.");
+        Record("U04", $"Multiple sessions require DotThiID: omitted HTTP {(int)multiStart.StatusCode}, selected HTTP {(int)selectedStart.StatusCode}.");
+        var draft = new DeThi { TenDe = "Draft without session", MonHocID = original.MonHocID,
+            GiaoVienID = original.GiaoVienID, LoaiDe = "ThiThu", HinhThucTao = "ThuCong", LaMienPhi = true,
+            SoLuongCauHoi = 1, DeThi_CauHois = [new() { CauHoiID = question.CauHoiID, ThuTu = 1 }] };
+        db.Add(draft); await db.SaveChangesAsync();
+        using var draftStart = await a.PostAsJsonAsync($"/api/dethi/{draft.DeThiID}/batdau", new { HocVienID = student.HocVienID });
+        if (draftStart.StatusCode != HttpStatusCode.BadRequest || await db.DotThis.AnyAsync(d => d.DeThiID == draft.DeThiID))
+            throw new Exception("A draft exam opened a fallback session.");
+        Record("DRAFT", "Draft exam without an admin-created session cannot be started.");
         var vip = await Fixture("VIP only");
         vip.Exam.LaMienPhi = false; await db.SaveChangesAsync();
         using var vipStart = await a.PostAsJsonAsync($"/api/dethi/{vip.Exam.DeThiID}/batdau", new { HocVienID = student.HocVienID });

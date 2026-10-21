@@ -64,6 +64,12 @@ public class TrainingService
         if (ngayBd.HasValue && ngayKt.HasValue && ngayKt.Value < ngayBd.Value)
             return (false, "Ngày kết thúc phải diễn ra sau ngày bắt đầu.");
 
+        if (Database.ExecuteScalarInt(@"SELECT COUNT(*) FROM KhoaHoc kh
+            WHERE kh.KhoaHocID=@id AND kh.MonHocID<>@mon
+              AND EXISTS (SELECT 1 FROM LopHoc lh WHERE lh.KhoaHocID=kh.KhoaHocID)",
+            p => { p.AddWithValue("@id", id); p.AddWithValue("@mon", monHocId); }) > 0)
+            return (false, "Khóa học đã có lớp; không thể đổi môn. Hãy tạo khóa học mới.");
+
         Database.Execute(@"
             UPDATE KhoaHoc SET TenKhoaHoc = @ten, MonHocID = @mon, NgayBatDau = @bd, NgayKetThuc = @kt, TrangThai = @tt
             WHERE KhoaHocID = @id",
@@ -213,6 +219,14 @@ public class TrainingService
         Session.YeuCauQuanTriVien();
         tenLop = tenLop.Trim();
         if (string.IsNullOrWhiteSpace(tenLop)) return (false, "Chưa nhập tên lớp.");
+        if (Database.ExecuteScalarInt(@"SELECT COUNT(*) FROM LopHoc lh
+            WHERE lh.LopHocID=@id AND lh.KhoaHocID<>@kh AND (
+                EXISTS (SELECT 1 FROM HocVien_Lop h WHERE h.LopHocID=lh.LopHocID) OR
+                EXISTS (SELECT 1 FROM PhanCongGiangDay p WHERE p.LopHocID=lh.LopHocID) OR
+                EXISTS (SELECT 1 FROM LichHoc l WHERE l.LopHocID=lh.LopHocID) OR
+                EXISTS (SELECT 1 FROM DotThi_LopHoc d WHERE d.LopHocID=lh.LopHocID))",
+            p => { p.AddWithValue("@id", id); p.AddWithValue("@kh", khoaHocId); }) > 0)
+            return (false, "Lớp đã có học viên, giáo viên, lịch hoặc đợt thi; không thể chuyển khóa học.");
         Database.Execute("UPDATE LopHoc SET TenLop = @ten, KhoaHocID = @kh WHERE LopHocID = @id",
             p => { p.AddWithValue("@ten", tenLop); p.AddWithValue("@kh", khoaHocId); p.AddWithValue("@id", id); });
         return (true, "");
@@ -318,20 +332,12 @@ public class TrainingService
 
     public DataTable LayGiaoVienTheoMon(int monHocId) =>
         Database.Query(@"
-            SELECT gv.GiaoVienID, 
-                   CASE 
-                       WHEN gvm.MonHocID IS NOT NULL AND tk.TenDangNhap IS NOT NULL 
-                           THEN gv.HoTen + N' (' + tk.TenDangNhap + N') [Đúng chuyên môn]'
-                       WHEN tk.TenDangNhap IS NOT NULL 
-                           THEN gv.HoTen + N' (' + tk.TenDangNhap + N')'
-                       ELSE gv.HoTen 
-                   END AS HoTen,
-                   CASE WHEN gvm.MonHocID IS NOT NULL THEN 0 ELSE 1 END AS ThuTu
+            SELECT gv.GiaoVienID, gv.HoTen + N' (' + tk.TenDangNhap + N')' AS HoTen
             FROM GiaoVien gv
-            LEFT JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
-            LEFT JOIN GiaoVien_MonHoc gvm ON gvm.GiaoVienID = gv.GiaoVienID AND gvm.MonHocID = @mon
-            WHERE tk.TrangThai = N'HoatDong' OR tk.TrangThai IS NULL
-            ORDER BY ThuTu, gv.HoTen",
+            JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
+            JOIN GiaoVien_MonHoc gvm ON gvm.GiaoVienID = gv.GiaoVienID AND gvm.MonHocID = @mon
+            WHERE tk.TrangThai = N'HoatDong' AND tk.VaiTro=N'GiaoVien'
+            ORDER BY gv.HoTen",
             p => p.AddWithValue("@mon", monHocId));
 
     public DataTable LayTatCaGiaoVien() =>
@@ -360,12 +366,33 @@ public class TrainingService
         using var tx = conn.BeginTransaction();
         try
         {
-            using var cmd1 = new SqlCommand(@"
-                IF NOT EXISTS (SELECT 1 FROM GiaoVien_MonHoc WHERE GiaoVienID = @gv AND MonHocID = @mon)
-                    INSERT INTO GiaoVien_MonHoc (GiaoVienID, MonHocID) VALUES (@gv, @mon)", conn, tx);
-            cmd1.Parameters.AddWithValue("@gv", giaoVienId);
-            cmd1.Parameters.AddWithValue("@mon", monHocId);
-            cmd1.ExecuteNonQuery();
+            using var eligible = new SqlCommand(@"SELECT COUNT(*) FROM GiaoVien_MonHoc gm
+                JOIN GiaoVien gv ON gv.GiaoVienID=gm.GiaoVienID
+                JOIN TaiKhoan tk ON tk.TaiKhoanID=gv.TaiKhoanID
+                WHERE gm.GiaoVienID=@gv AND gm.MonHocID=@mon AND tk.TrangThai=N'HoatDong'", conn, tx);
+            eligible.Parameters.AddWithValue("@gv", giaoVienId);
+            eligible.Parameters.AddWithValue("@mon", monHocId);
+            if (Convert.ToInt32(eligible.ExecuteScalar()) == 0)
+                return (false, "Giáo viên chưa được khai báo chuyên môn này. Hãy cập nhật hồ sơ giáo viên trước.");
+
+            using var lopMon = new SqlCommand(@"SELECT COUNT(*) FROM LopHoc l
+                JOIN KhoaHoc k ON k.KhoaHocID=l.KhoaHocID
+                WHERE l.LopHocID=@lop AND k.MonHocID=@mon", conn, tx);
+            lopMon.Parameters.AddWithValue("@lop", lopHocId);
+            lopMon.Parameters.AddWithValue("@mon", monHocId);
+            if (Convert.ToInt32(lopMon.ExecuteScalar()) == 0)
+                return (false, "Môn phân công không khớp môn của lớp học.");
+
+            using var conflict = new SqlCommand(@"SELECT COUNT(*) FROM LichHoc lichLop
+                JOIN LichHoc lichKhac ON lichKhac.LopHocID<>lichLop.LopHocID
+                    AND lichKhac.ThoiGianBatDau<lichLop.ThoiGianKetThuc
+                    AND lichKhac.ThoiGianKetThuc>lichLop.ThoiGianBatDau
+                JOIN PhanCongGiangDay pc ON pc.LopHocID=lichKhac.LopHocID AND pc.GiaoVienID=@gv
+                WHERE lichLop.LopHocID=@lop", conn, tx);
+            conflict.Parameters.AddWithValue("@gv", giaoVienId);
+            conflict.Parameters.AddWithValue("@lop", lopHocId);
+            if (Convert.ToInt32(conflict.ExecuteScalar()) > 0)
+                return (false, "Giáo viên đã có lịch dạy trùng giờ ở lớp khác.");
 
             using var cmd2 = new SqlCommand(sua ? @"
                 UPDATE PhanCongGiangDay SET GiaoVienID = @gv
@@ -375,7 +402,8 @@ public class TrainingService
             cmd2.Parameters.AddWithValue("@gv", giaoVienId);
             cmd2.Parameters.AddWithValue("@lop", lopHocId);
             cmd2.Parameters.AddWithValue("@mon", monHocId);
-            cmd2.ExecuteNonQuery();
+            if (cmd2.ExecuteNonQuery() != 1)
+                return (false, "Không tìm thấy phân công cần sửa. Hãy tải lại lớp học.");
 
             tx.Commit();
             return (true, "");
@@ -411,7 +439,10 @@ public class TrainingService
 
         var trungLich = Database.ExecuteScalarInt(@"
             SELECT COUNT(1) FROM LichHoc
-            WHERE (LopHocID = @lop OR (@dd IS NOT NULL AND @dd <> N'' AND DiaDiem = @dd))
+            WHERE (LopHocID = @lop OR (@dd IS NOT NULL AND @dd <> N'' AND DiaDiem = @dd)
+                OR EXISTS (SELECT 1 FROM PhanCongGiangDay pc1
+                    JOIN PhanCongGiangDay pc2 ON pc2.GiaoVienID=pc1.GiaoVienID
+                    WHERE pc1.LopHocID=@lop AND pc2.LopHocID=LichHoc.LopHocID))
               AND (ThoiGianBatDau < @kt AND ThoiGianKetThuc > @bd)",
             p =>
             {
@@ -421,7 +452,7 @@ public class TrainingService
                 p.AddWithValue("@kt", ketThuc);
             }) > 0;
         if (trungLich)
-            return (false, "Lịch học bị trùng thời gian với lớp học hoặc phòng học khác.", 0);
+            return (false, "Lịch học bị trùng thời gian của lớp, phòng hoặc giáo viên.", 0);
 
         var id = Database.ExecuteScalarInt(@"
             INSERT INTO LichHoc (LopHocID, NoiDung, ThoiGianBatDau, ThoiGianKetThuc, DiaDiem)
@@ -446,7 +477,10 @@ public class TrainingService
         var trungLich = Database.ExecuteScalarInt(@"
             SELECT COUNT(1) FROM LichHoc
             WHERE LichHocID <> @id
-              AND (LopHocID = @lop OR (@dd IS NOT NULL AND @dd <> N'' AND DiaDiem = @dd))
+              AND (LopHocID = @lop OR (@dd IS NOT NULL AND @dd <> N'' AND DiaDiem = @dd)
+                  OR EXISTS (SELECT 1 FROM PhanCongGiangDay pc1
+                      JOIN PhanCongGiangDay pc2 ON pc2.GiaoVienID=pc1.GiaoVienID
+                      WHERE pc1.LopHocID=@lop AND pc2.LopHocID=LichHoc.LopHocID))
               AND (ThoiGianBatDau < @kt AND ThoiGianKetThuc > @bd)",
             p =>
             {
@@ -457,7 +491,7 @@ public class TrainingService
                 p.AddWithValue("@kt", ketThuc);
             }) > 0;
         if (trungLich)
-            return (false, "Lịch học bị trùng thời gian với lớp học hoặc phòng học khác.");
+            return (false, "Lịch học bị trùng thời gian của lớp, phòng hoặc giáo viên.");
 
         Database.Execute(@"
             UPDATE LichHoc SET LopHocID = @lop, NoiDung = @nd, ThoiGianBatDau = @bd, ThoiGianKetThuc = @kt, DiaDiem = @dd

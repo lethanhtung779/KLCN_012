@@ -8,12 +8,14 @@ public class StatisticsService
 {
     private static void KiemTraQuyenDotThi(int dotThiId)
     {
-        if (!Session.IsGiaoVien) return;
+        if (!Session.IsGiaoVien) { Session.YeuCauQuanTriVien(); return; }
+        if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
         var coQuyen = Database.ExecuteScalarInt(@"
             SELECT COUNT(1) FROM DotThi dt
             JOIN DeThi d ON d.DeThiID = dt.DeThiID
-            JOIN GiaoVien_MonHoc gm ON gm.MonHocID = d.MonHocID
-            WHERE dt.DotThiID = @dt AND gm.GiaoVienID = @gv",
+            WHERE dt.DotThiID = @dt AND (d.GiaoVienID=@gv OR EXISTS (
+                SELECT 1 FROM DotThi_LopHoc dl JOIN PhanCongGiangDay pc ON pc.LopHocID=dl.LopHocID
+                WHERE dl.DotThiID=dt.DotThiID AND pc.GiaoVienID=@gv AND pc.MonHocID=d.MonHocID))",
             p =>
             {
                 p.AddWithValue("@dt", dotThiId);
@@ -27,15 +29,18 @@ public class StatisticsService
     {
         if (Session.IsGiaoVien)
         {
+            if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
             return Database.Query(@"
                 SELECT dt.DotThiID, dt.TenDotThi + N' — ' + d.TenDe AS HienThi
                 FROM DotThi dt
                 JOIN DeThi d ON d.DeThiID = dt.DeThiID
-                JOIN GiaoVien_MonHoc gm ON gm.MonHocID = d.MonHocID
-                WHERE gm.GiaoVienID = @gv
+                WHERE d.GiaoVienID=@gv OR EXISTS (
+                    SELECT 1 FROM DotThi_LopHoc dl JOIN PhanCongGiangDay pc ON pc.LopHocID=dl.LopHocID
+                    WHERE dl.DotThiID=dt.DotThiID AND pc.GiaoVienID=@gv AND pc.MonHocID=d.MonHocID)
                 ORDER BY dt.ThoiGianMoCong DESC",
                 p => p.AddWithValue("@gv", Session.GiaoVienID));
         }
+        Session.YeuCauQuanTriVien();
         return Database.Query(@"
             SELECT dt.DotThiID, dt.TenDotThi + N' — ' + d.TenDe AS HienThi
             FROM DotThi dt

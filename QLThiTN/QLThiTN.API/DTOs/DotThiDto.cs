@@ -15,6 +15,7 @@ public class DotThiDto
     public string TrangThai { get; set; } = string.Empty;
     public string PhamVi { get; set; } = string.Empty;
     public int SoLanThiToiDa { get; set; }
+    public List<int> LopHocIds { get; set; } = new();
 
     // Thong tin dang ky (nap khi goi GET kem tham hocVienId)
     public int SoDangKy { get; set; }

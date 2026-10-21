@@ -2,7 +2,7 @@
 @{
     ViewData["Title"] = Model.Title;
     var now = DateTime.Now;
-    var isOpen = Model.StartTime <= now && Model.EndTime >= now;
+    var isOpen = Model.CanStart;
 
     // Đợt thi có giới hạn số lượng => bắt buộc đăng ký; không giới hạn => thi thử công khai
     bool requireRegister = Model.DotThiID.HasValue && Model.SoChoConLai.HasValue && !Model.HasRegistered;
@@ -84,7 +84,7 @@
                         {
                             @if (isOpen)
                             {
-                                <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 btn-lg mt-3">
+                                <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-primary-custom w-100 btn-lg mt-3">
                                     <i class="bi bi-pencil-square me-2"></i>Làm bài ngay
                                 </a>
                                 <form asp-controller="Exam" asp-action="HuyDangKy" asp-route-id="@Model.DotThiID" asp-route-deThiId="@Model.Id" method="post" class="mt-2">
@@ -126,7 +126,7 @@
                             // Thi thử công khai (không giới hạn số lượng): vào thi trực tiếp
                             if (isOpen)
                             {
-                                <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 btn-lg mt-3">
+                                <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-primary-custom w-100 btn-lg mt-3">
                                     <i class="bi bi-play-circle me-2"></i>Vào thi ngay
                                 </a>
                                 <small class="text-muted d-block text-center mt-2">Thi thử công khai — không cần đăng ký.</small>

@@ -294,6 +294,45 @@ try
     File.WriteAllLines(Path.Combine(auditOutput, "observations.md"), WorkflowProbes.Observations);
     await db.TaiKhoans.Where(x => x.TaiKhoanID == student.TaiKhoanID).ExecuteUpdateAsync(s => s.SetProperty(x => x.TrangThai, "BiKhoa"));
     Check((await a.GetAsync($"/api/auth/profile/{student.TaiKhoanID}")).StatusCode == HttpStatusCode.Unauthorized, "Locking account revokes existing token");
+    if (web is { HasExited: false }) { web.Kill(entireProcessTree: true); await web.WaitForExitAsync(); }
+    if (api is { HasExited: false }) { api.Kill(entireProcessTree: true); await api.WaitForExitAsync(); }
+    var backupFolder = Path.Combine(auditOutput, databaseName + "_restore_check");
+    Directory.CreateDirectory(backupFolder);
+    try
+    {
+        await using (var probeConnection = new SqlConnection(connection.ConnectionString))
+        {
+            await probeConnection.OpenAsync();
+            await using var probeCommand = new SqlCommand("CREATE TABLE AuditRestoreProbe(Id int NOT NULL PRIMARY KEY); INSERT AuditRestoreProbe(Id) VALUES(42);", probeConnection);
+            await probeCommand.ExecuteNonQueryAsync();
+        }
+        var adminId = await db.TaiKhoans.Where(t => t.VaiTro == "QuanTriVien").Select(t => t.TaiKhoanID).FirstAsync();
+        QLThiTN.WinForms.Services.Session.Set(new QLThiTN.WinForms.Models.TaiKhoan
+            { TaiKhoanID = adminId, VaiTro = "QuanTriVien" });
+        var backup = new QLThiTN.WinForms.Services.BackupService();
+        var backupFile = backup.SaoLuu(backupFolder);
+        await using (var probeConnection = new SqlConnection(connection.ConnectionString))
+        {
+            await probeConnection.OpenAsync();
+            await using var probeCommand = new SqlCommand("DELETE FROM AuditRestoreProbe", probeConnection);
+            await probeCommand.ExecuteNonQueryAsync();
+        }
+        backup.PhucHoi(backupFile);
+        await using (var probeConnection = new SqlConnection(connection.ConnectionString))
+        {
+            await probeConnection.OpenAsync();
+            await using var probeCommand = new SqlCommand("SELECT COUNT(*) FROM AuditRestoreProbe WHERE Id=42", probeConnection);
+            Check(Convert.ToInt32(await probeCommand.ExecuteScalarAsync()) == 1, "Backup restore recovers isolated database data");
+        }
+    }
+    finally
+    {
+        QLThiTN.WinForms.Services.Session.Clear();
+        var verifiedBackupFolder = Path.GetFullPath(backupFolder);
+        if (!verifiedBackupFolder.StartsWith(Path.GetFullPath(auditOutput) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Refusing to delete a backup folder outside the audit output.");
+        if (Directory.Exists(verifiedBackupFolder)) Directory.Delete(verifiedBackupFolder, recursive: true);
+    }
     Console.WriteLine($"All {passed} security/integrity checks passed.");
 }
 finally

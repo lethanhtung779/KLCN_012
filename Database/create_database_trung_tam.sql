@@ -223,10 +223,25 @@ BEGIN
         TenDe           NVARCHAR(200) NOT NULL,
         LoaiDe          NVARCHAR(50)  NOT NULL CHECK (LoaiDe IN (N'OnTap', N'ThiThu', N'ChinhThuc')),
         SoLuongCauHoi   INT           NOT NULL,
-        HinhThucTao     NVARCHAR(50)  NOT NULL CHECK (HinhThucTao IN (N'ThuCong', N'TuDong')),
+        HinhThucTao     NVARCHAR(50)  NOT NULL CHECK (HinhThucTao IN (N'ThuCong', N'TuDong', N'MaTranTHPTQG')),
         CONSTRAINT FK_DeThi_MonHoc   FOREIGN KEY (MonHocID)   REFERENCES MonHoc(MonHocID),
         CONSTRAINT FK_DeThi_GiaoVien FOREIGN KEY (GiaoVienID) REFERENCES GiaoVien(GiaoVienID)
     );
+END
+GO
+
+-- Cơ sở dữ liệu cũ cần cho phép đề tạo theo ma trận.
+DECLARE @oldExamCreationConstraint SYSNAME;
+SELECT TOP (1) @oldExamCreationConstraint = name
+FROM sys.check_constraints
+WHERE parent_object_id = OBJECT_ID(N'dbo.DeThi')
+  AND definition LIKE N'%HinhThucTao%'
+  AND definition NOT LIKE N'%MaTranTHPTQG%';
+IF @oldExamCreationConstraint IS NOT NULL
+BEGIN
+    EXEC(N'ALTER TABLE dbo.DeThi DROP CONSTRAINT ' + QUOTENAME(@oldExamCreationConstraint));
+    ALTER TABLE dbo.DeThi WITH CHECK ADD CONSTRAINT CK_DeThi_HinhThucTao
+        CHECK (HinhThucTao IN (N'ThuCong', N'TuDong', N'MaTranTHPTQG'));
 END
 GO
 

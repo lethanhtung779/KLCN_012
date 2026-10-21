@@ -72,6 +72,16 @@ public class ExamService(int? giaoVienPhuTrachId = null)
         return giaoVienPhuTrachId.Value;
     }
 
+    public DataTable LayLopChoDotThi(int deThiId)
+    {
+        YeuCauQuanTriVien();
+        return Database.Query(@"SELECT lh.LopHocID, lh.TenLop + N' — ' + kh.TenKhoaHoc AS TenHienThi
+            FROM DeThi d JOIN KhoaHoc kh ON kh.MonHocID=d.MonHocID
+            JOIN LopHoc lh ON lh.KhoaHocID=kh.KhoaHocID
+            WHERE d.DeThiID=@de AND kh.TrangThai<>N'DaKetThuc'
+            ORDER BY kh.TenKhoaHoc,lh.TenLop", p => p.AddWithValue("@de", deThiId));
+    }
+
     public DataTable LayDanhSachDe()
     {
         return Database.Query(@"
@@ -142,6 +152,24 @@ public class ExamService(int? giaoVienPhuTrachId = null)
         using var tx = conn.BeginTransaction();
         try
         {
+            using (var validate = new SqlCommand(@"SELECT COUNT(*) FROM GiaoVien_MonHoc
+                WHERE GiaoVienID=@gv AND MonHocID=@mon", conn, tx))
+            {
+                validate.Parameters.AddWithValue("@gv", gvId);
+                validate.Parameters.AddWithValue("@mon", monHocId);
+                if (Convert.ToInt32(validate.ExecuteScalar()) == 0)
+                    throw new InvalidOperationException("Giáo viên phụ trách chưa được khai báo chuyên môn của đề thi.");
+            }
+            using (var validate = new SqlCommand(@"SELECT COUNT(*) FROM CauHoi c
+                JOIN ChuDe cd ON cd.ChuDeID=c.ChuDeID
+                WHERE c.CauHoiID IN (SELECT value FROM STRING_SPLIT(@ids, ','))
+                  AND cd.MonHocID=@mon AND c.TrangThai=N'HoatDong'", conn, tx))
+            {
+                validate.Parameters.AddWithValue("@ids", string.Join(",", cauHoiIds));
+                validate.Parameters.AddWithValue("@mon", monHocId);
+                if (Convert.ToInt32(validate.ExecuteScalar()) != cauHoiIds.Count)
+                    throw new InvalidOperationException("Đề có câu hỏi khác môn, đã ẩn hoặc không còn tồn tại.");
+            }
             using var cmd1 = new SqlCommand(@"
                 INSERT INTO DeThi (MonHocID, GiaoVienID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
                 VALUES (@m, @gv, @t, @l, @s, @h);
@@ -240,34 +268,67 @@ public class ExamService(int? giaoVienPhuTrachId = null)
     }
 
     /// <summary>Tao dot thi moi. Trang thai duoc tinh tu thoi gian hien tai.</summary>
-    public int TaoDotThi(DotThi d)
+    public int TaoDotThi(DotThi d, IReadOnlyCollection<int>? lopHocIds = null)
     {
         YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(d.TenDotThi)) d.TenDotThi = "Đợt thi - " + d.TenDe;
         if (d.ThoiGianDongCong <= d.ThoiGianMoCong) throw new Exception("Giờ đóng công phải sau giờ mở công.");
         if (d.ThoiLuongLamBai <= 0) throw new Exception("Thời lượng làm bài phải > 0.");
+        if (d.GioiHanSoLuong is <= 0 || d.SoLanThiToiDa < 1)
+            throw new InvalidOperationException("Số chỗ và số lần thi phải lớn hơn 0.");
+        if (d.PhamVi is not ("ToanTruong" or "TheoLop"))
+            throw new InvalidOperationException("Phạm vi đợt thi không hợp lệ.");
+        var classes = (lopHocIds ?? Array.Empty<int>()).Distinct().ToArray();
+        if (d.PhamVi == "TheoLop" && classes.Length == 0)
+            throw new InvalidOperationException("Hãy chọn ít nhất một lớp cho đợt thi theo lớp.");
 
         var trangThai = DateTime.Now < d.ThoiGianMoCong ? "SapMo"
             : DateTime.Now > d.ThoiGianDongCong ? "DaDong" : "DangMo";
 
-        return Database.ExecuteScalarInt(@"
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            if (d.PhamVi == "TheoLop")
+            {
+                using var validate = new SqlCommand(@"SELECT COUNT(*) FROM LopHoc lh
+                    JOIN KhoaHoc kh ON kh.KhoaHocID=lh.KhoaHocID
+                    JOIN DeThi de ON de.MonHocID=kh.MonHocID
+                    WHERE de.DeThiID=@de AND lh.LopHocID IN (SELECT value FROM STRING_SPLIT(@ids, ','))
+                      AND kh.TrangThai<>N'DaKetThuc'", conn, tx);
+                validate.Parameters.AddWithValue("@de", d.DeThiID);
+                validate.Parameters.AddWithValue("@ids", string.Join(",", classes));
+                if (Convert.ToInt32(validate.ExecuteScalar()) != classes.Length)
+                    throw new InvalidOperationException("Có lớp không thuộc môn của đề hoặc khóa học đã kết thúc.");
+            }
+            using var create = new SqlCommand(@"
             INSERT INTO DotThi (DeThiID, TenDotThi, ThoiGianMoCong, ThoiGianDongCong, ThoiLuongLamBai,
                                 GioiHanSoLuong, CongBoDiemSom, TrangThai, PhamVi, SoLanThiToiDa)
             VALUES (@de, @ten, @mo, @dong, @luong, @han, @cong, @tt, @pv, @lan);
-            SELECT CAST(SCOPE_IDENTITY() AS INT);",
-            p =>
+            SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, tx);
+            create.Parameters.AddWithValue("@de", d.DeThiID);
+            create.Parameters.AddWithValue("@ten", d.TenDotThi.Trim());
+            create.Parameters.AddWithValue("@mo", d.ThoiGianMoCong);
+            create.Parameters.AddWithValue("@dong", d.ThoiGianDongCong);
+            create.Parameters.AddWithValue("@luong", d.ThoiLuongLamBai);
+            create.Parameters.AddWithValue("@han", (object?)d.GioiHanSoLuong ?? DBNull.Value);
+            create.Parameters.AddWithValue("@cong", d.CongBoDiemSom);
+            create.Parameters.AddWithValue("@tt", trangThai);
+            create.Parameters.AddWithValue("@pv", d.PhamVi);
+            create.Parameters.AddWithValue("@lan", d.SoLanThiToiDa);
+            var id = Convert.ToInt32(create.ExecuteScalar());
+            foreach (var lop in classes)
             {
-                p.AddWithValue("@de", d.DeThiID);
-                p.AddWithValue("@ten", d.TenDotThi.Trim());
-                p.AddWithValue("@mo", d.ThoiGianMoCong);
-                p.AddWithValue("@dong", d.ThoiGianDongCong);
-                p.AddWithValue("@luong", d.ThoiLuongLamBai);
-                p.AddWithValue("@han", (object?)d.GioiHanSoLuong ?? DBNull.Value);
-                p.AddWithValue("@cong", d.CongBoDiemSom);
-                p.AddWithValue("@tt", trangThai);
-                p.AddWithValue("@pv", d.PhamVi);
-                p.AddWithValue("@lan", Math.Max(1, d.SoLanThiToiDa));
-            });
+                if (d.PhamVi != "TheoLop") break;
+                using var link = new SqlCommand("INSERT INTO DotThi_LopHoc(DotThiID,LopHocID) VALUES(@dot,@lop)", conn, tx);
+                link.Parameters.AddWithValue("@dot", id);
+                link.Parameters.AddWithValue("@lop", lop);
+                link.ExecuteNonQuery();
+            }
+            tx.Commit();
+            return id;
+        }
+        catch { tx.Rollback(); throw; }
     }
 
     public void CapNhatTrangThaiDot(int dotThiId, string trangThai)
@@ -367,11 +428,6 @@ public class ExamService(int? giaoVienPhuTrachId = null)
                 return (false, $"Đề thi đã có {soBai} bài làm của thí sinh. Hãy chọn 'Sinh thêm mã đề mới' hoặc chọn 'Làm mới & Xóa bài làm cũ'.", new());
             }
 
-            if (xoaCu && xoaBaiLamCu)
-            {
-                // Xóa bài làm cũ trước để không vi phạm FK
-                XoaBaiLamCuaDe(deThiId);
-            }
         }
 
         // Lấy danh sách câu hỏi gốc của đề
@@ -449,6 +505,8 @@ public class ExamService(int? giaoVienPhuTrachId = null)
         using var tran = conn.BeginTransaction();
         try
         {
+            if (xoaCu && xoaBaiLamCu)
+                XoaBaiLamCuaDe(conn, tran, deThiId);
             if (xoaCu)
             {
                 using var cmdXoa = conn.CreateCommand();
@@ -744,7 +802,15 @@ public class ExamService(int? giaoVienPhuTrachId = null)
     public void XoaBaiLamCuaDe(int deThiId)
     {
         YeuCauQuanTriVien();
-        Database.Execute(@"
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try { XoaBaiLamCuaDe(conn, tx, deThiId); tx.Commit(); }
+        catch { tx.Rollback(); throw; }
+    }
+
+    private static void XoaBaiLamCuaDe(SqlConnection conn, SqlTransaction tx, int deThiId)
+    {
+        using var cmd = new SqlCommand(@"
             DELETE FROM LuaChonBaiLam WHERE ChiTietID IN (
                 SELECT ct.ChiTietID FROM ChiTietBaiLam ct
                 JOIN BaiLam bl ON bl.BaiLamID = ct.BaiLamID
@@ -755,8 +821,9 @@ public class ExamService(int? giaoVienPhuTrachId = null)
                 JOIN DotThi dt ON dt.DotThiID = bl.DotThiID
                 WHERE dt.DeThiID = @id);
             DELETE FROM BaiLam WHERE DotThiID IN (
-                SELECT DotThiID FROM DotThi WHERE DeThiID = @id);",
-            p => p.AddWithValue("@id", deThiId));
+                SELECT DotThiID FROM DotThi WHERE DeThiID = @id);", conn, tx);
+        cmd.Parameters.AddWithValue("@id", deThiId);
+        cmd.ExecuteNonQuery();
     }
 
     // ------------------------------------------------------------------ TẠO ĐỀ THEO MA TRẬN CHỦ ĐỀ CHUẨN THPTQG

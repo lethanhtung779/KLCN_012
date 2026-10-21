@@ -228,19 +228,37 @@ public class AccountService
         if (Session.Current?.TaiKhoanID == taiKhoanId)
             return (false, "Không thể xóa tài khoản đang đăng nhập.");
 
-        var soBaiThi = Database.ExecuteScalarInt(@"
-            SELECT COUNT(1) FROM BaiLam bl
-            JOIN HocVien hv ON hv.HocVienID = bl.HocVienID
-            WHERE hv.TaiKhoanID = @id", p => p.AddWithValue("@id", taiKhoanId));
-        if (soBaiThi > 0)
-            return (false, "Tài khoản này đã có bài thi, chỉ nên khóa thay vì xóa để giữ lịch sử.");
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            using var dependencies = new SqlCommand(@"
+                SELECT
+                    (SELECT COUNT(*) FROM BaiLam bl JOIN HocVien hv ON hv.HocVienID=bl.HocVienID WHERE hv.TaiKhoanID=@id)
+                  + (SELECT COUNT(*) FROM DangKyDotThi dk JOIN HocVien hv ON hv.HocVienID=dk.HocVienID WHERE hv.TaiKhoanID=@id)
+                  + (SELECT COUNT(*) FROM CauHoi c JOIN GiaoVien gv ON gv.GiaoVienID=c.GiaoVienID WHERE gv.TaiKhoanID=@id)
+                  + (SELECT COUNT(*) FROM DeThi d JOIN GiaoVien gv ON gv.GiaoVienID=d.GiaoVienID WHERE gv.TaiKhoanID=@id)
+                  + (SELECT COUNT(*) FROM PhanCongGiangDay pc JOIN GiaoVien gv ON gv.GiaoVienID=pc.GiaoVienID WHERE gv.TaiKhoanID=@id)", conn, tx);
+            dependencies.Parameters.AddWithValue("@id", taiKhoanId);
+            if (Convert.ToInt32(dependencies.ExecuteScalar()) > 0)
+                return (false, "Hồ sơ đã có bài thi, đăng ký thi, câu hỏi, đề thi hoặc phân công lớp. Hãy khóa tài khoản để giữ lịch sử.");
 
-        Database.Execute(@"
-            DELETE FROM GiaoVien WHERE TaiKhoanID = @id;
-            DELETE FROM HocVien WHERE TaiKhoanID = @id;
-            DELETE FROM QuanTriVien WHERE TaiKhoanID = @id;
-            DELETE FROM TaiKhoan WHERE TaiKhoanID = @id;",
-            p => p.AddWithValue("@id", taiKhoanId));
-        return (true, "");
+            using var delete = new SqlCommand(@"
+                DELETE hl FROM HocVien_Lop hl JOIN HocVien hv ON hv.HocVienID=hl.HocVienID WHERE hv.TaiKhoanID=@id;
+                DELETE gm FROM GiaoVien_MonHoc gm JOIN GiaoVien gv ON gv.GiaoVienID=gm.GiaoVienID WHERE gv.TaiKhoanID=@id;
+                DELETE FROM GiaoVien WHERE TaiKhoanID=@id;
+                DELETE FROM HocVien WHERE TaiKhoanID=@id;
+                DELETE FROM QuanTriVien WHERE TaiKhoanID=@id;
+                DELETE FROM TaiKhoan WHERE TaiKhoanID=@id;", conn, tx);
+            delete.Parameters.AddWithValue("@id", taiKhoanId);
+            if (delete.ExecuteNonQuery() == 0) return (false, "Không tìm thấy tài khoản.");
+            tx.Commit();
+            return (true, "");
+        }
+        catch (Exception ex)
+        {
+            try { tx.Rollback(); } catch { /* Giao dịch có thể đã đóng. */ }
+            return (false, "Không thể xóa hồ sơ: " + ex.Message);
+        }
     }
 }

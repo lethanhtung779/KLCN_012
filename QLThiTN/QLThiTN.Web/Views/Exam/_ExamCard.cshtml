@@ -1,7 +1,7 @@
 @model ExamScheduleViewModel
 @{
     var now = DateTime.Now;
-    var isOpen = Model.StartTime <= now && Model.EndTime >= now;
+    var isOpen = Model.IsOpen;
     var khoaGoi = !Model.LaMienPhi && Context.Session.GetString("LoaiGoi") != "DongPhi";
 }
 <div class="card card-exam h-100">
@@ -12,7 +12,7 @@
             {
                 <span class="badge-status badge-status-warn"><i class="bi bi-hourglass-split me-1"></i>Sắp mở</span>
             }
-            else if (Model.EndTime < now)
+            else if (!isOpen)
             {
                 <span class="badge-status badge-status-muted"><i class="bi bi-stop-circle me-1"></i>Đã đóng</span>
             }
@@ -61,25 +61,25 @@
         </ul>
         @if (khoaGoi)
         {
-            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" class="btn btn-locked-vip mt-auto">
+            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-locked-vip mt-auto">
                 <i class="bi bi-lock-fill me-1"></i>Cần gói đóng phí
             </a>
         }
         else if (Model.HasRegistered && isOpen)
         {
-            <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom mt-auto">
+            <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-primary-custom mt-auto">
                 <i class="bi bi-pencil-square me-1"></i>Vào thi ngay
             </a>
         }
         else if (Model.HasRegistered)
         {
-            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" class="btn btn-primary-custom mt-auto">
+            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-primary-custom mt-auto">
                 <i class="bi bi-eye me-1"></i>Xem chi tiết
             </a>
         }
         else
         {
-            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" class="btn btn-primary-custom mt-auto">
+            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-primary-custom mt-auto">
                 @if (isOpen)
                 {
                     <text><i class="bi bi-person-plus me-1"></i>Đăng ký thi</text>

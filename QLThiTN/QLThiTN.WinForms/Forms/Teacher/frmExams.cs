@@ -28,7 +28,7 @@ public class frmExams : Form
         };
         var btnTHPTQG = Ui.ButtonAccent("🎓 Tạo đề chuẩn THPTQG", 220);
         btnTHPTQG.Click += (s, e) => TaoDe(giaoVienId => new frmTaoDeTHPTQG(giaoVienId));
-        var btnTuDong = Ui.ButtonPrimary("⚡ Tạo đề tự động", 180);
+        var btnTuDong = Ui.ButtonPrimary("Tạo đề ngẫu nhiên", 190);
         btnTuDong.Click += (s, e) => TaoDe(giaoVienId => new frmTaoDeTuDong(giaoVienId));
         var btnThuCong = Ui.ButtonPrimary("✎ Tạo đề thủ công", 190);
         btnThuCong.Click += (s, e) => TaoDe(giaoVienId => new frmTaoDeThuCong(giaoVienId));
@@ -297,7 +297,7 @@ public class frmExams : Form
         var id = DeIdDangChon();
         if (id == 0) { MessageBox.Show("Hãy chọn một đề thi.", "Thông báo"); return; }
         var ten = _gridDe.CurrentRow!.Cells["TenDe"].Value;
-        if (MessageBox.Show($"Xóa đề '{ten}' cùng toàn bộ đợt thi, đăng ký và bài làm liên quan?\nHành động này KHÔNG THỂ hoàn tác!",
+        if (MessageBox.Show($"Xóa đề '{ten}' cùng đợt thi và đăng ký liên quan? Đề đã có bài làm sẽ không thể xóa.\nHành động này KHÔNG THỂ hoàn tác!",
                 "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
         _service.XoaDe(id);
         TaiLai();

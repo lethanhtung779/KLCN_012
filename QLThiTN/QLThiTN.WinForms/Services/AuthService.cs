@@ -27,13 +27,13 @@ public static class Session
         try
         {
             var trangThai = Database.ExecuteScalarString($"SELECT TrangThai FROM TaiKhoan WHERE TaiKhoanID = {Current.TaiKhoanID}");
-            if (!string.IsNullOrEmpty(trangThai) && trangThai != "HoatDong")
+            if (trangThai != "HoatDong")
             {
                 Clear();
                 return false;
             }
         }
-        catch { }
+        catch { return false; }
         return true;
     }
 

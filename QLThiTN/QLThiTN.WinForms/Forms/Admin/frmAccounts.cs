@@ -73,9 +73,24 @@ public class frmAccounts : Form
         _lblInfo.Location = new Point(16, 8);
         panelInfo.Controls.Add(_lblInfo);
 
-        Controls.Add(_grid);
-        Controls.Add(panelInfo);
-        Controls.Add(toolbar);
+        var tabs = new TabControl { Dock = DockStyle.Fill, Font = Ui.Body };
+        var accountsTab = new TabPage("Tài khoản") { BackColor = Color.White };
+        accountsTab.Controls.Add(_grid);
+        accountsTab.Controls.Add(panelInfo);
+        accountsTab.Controls.Add(toolbar);
+        tabs.TabPages.Add(accountsTab);
+        var studentsTab = new TabPage("Danh sách học viên") { BackColor = Color.White };
+        studentsTab.Controls.Add(new PersonDirectoryPanel("HocVien"));
+        tabs.TabPages.Add(studentsTab);
+        var teachersTab = new TabPage("Danh sách giáo viên") { BackColor = Color.White };
+        teachersTab.Controls.Add(new PersonDirectoryPanel("GiaoVien"));
+        tabs.TabPages.Add(teachersTab);
+        tabs.SelectedIndexChanged += (_, _) =>
+        {
+            if (tabs.SelectedIndex == 1) ((PersonDirectoryPanel)studentsTab.Controls[0]).RefreshList();
+            if (tabs.SelectedIndex == 2) ((PersonDirectoryPanel)teachersTab.Controls[0]).RefreshList();
+        };
+        Controls.Add(tabs);
 
         _grid.Dock = DockStyle.Fill;
         _grid.CellDoubleClick += (s, e) => Sua();
@@ -175,10 +190,11 @@ public class frmAccounts : Form
         var id = IdDangChon();
         if (id == 0) { MessageBox.Show("Hãy chọn một tài khoản.", "Thông báo"); return; }
         var ten = _grid.CurrentRow!.Cells["TenDangNhap"].Value;
-        if (MessageBox.Show($"Đặt lại mật khẩu cho '{ten}' thành 'Abc@123456'?",
+        if (MessageBox.Show($"Đặt lại mật khẩu cho '{ten}'?",
                 "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        _service.DatLaiMatKhau(id, "Abc@123456");
-        MessageBox.Show("Đã đặt lại mật khẩu thành 'Abc@123456'. Học viên/giáo viên nên đổi lại sau khi đăng nhập.", "Hoàn tất");
+        var temporaryPassword = "Tn@" + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(6));
+        _service.DatLaiMatKhau(id, temporaryPassword);
+        MessageBox.Show($"Mật khẩu tạm: {temporaryPassword}\nHãy gửi riêng cho người dùng và yêu cầu đổi sau khi đăng nhập.", "Hoàn tất");
     }
 
     private void Xoa()

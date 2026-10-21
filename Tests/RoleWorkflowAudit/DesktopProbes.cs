@@ -147,7 +147,9 @@ static class DesktopProbes
         Probe("T01", () =>
         {
             var foreignSubject = Database.ExecuteScalarInt("INSERT INTO MonHoc(TenMon) VALUES(N'Foreign stats subject'); SELECT CAST(SCOPE_IDENTITY() AS int);");
-            var foreignExam = Database.ExecuteScalarInt($"INSERT INTO DeThi(TenDe,MonHocID,GiaoVienID,SoLuongCauHoi,LaMienPhi,LoaiDe,HinhThucTao) VALUES(N'Foreign Exam',{foreignSubject},{teacherId},1,1,N'ThiThu',N'ThuCong'); SELECT CAST(SCOPE_IDENTITY() AS int);");
+            var foreignTk = Database.ExecuteScalarInt("INSERT INTO TaiKhoan(TenDangNhap,MatKhau,Email,VaiTro,TrangThai,NgayTao) VALUES(N'foreign-stats-teacher',N'x',N'foreign-stats@example.test',N'GiaoVien',N'HoatDong',SYSDATETIME()); SELECT CAST(SCOPE_IDENTITY() AS int);");
+            var foreignTeacher = Database.ExecuteScalarInt($"INSERT INTO GiaoVien(TaiKhoanID,HoTen) VALUES({foreignTk},N'Foreign stats teacher'); SELECT CAST(SCOPE_IDENTITY() AS int);");
+            var foreignExam = Database.ExecuteScalarInt($"INSERT INTO DeThi(TenDe,MonHocID,GiaoVienID,SoLuongCauHoi,LaMienPhi,LoaiDe,HinhThucTao) VALUES(N'Foreign Exam',{foreignSubject},{foreignTeacher},1,1,N'ThiThu',N'ThuCong'); SELECT CAST(SCOPE_IDENTITY() AS int);");
             var foreignDotThi = Database.ExecuteScalarInt($"INSERT INTO DotThi(DeThiID,TenDotThi,ThoiGianMoCong,ThoiGianDongCong,ThoiLuongLamBai,SoLanThiToiDa,CongBoDiemSom,TrangThai,PhamVi) VALUES({foreignExam},N'Foreign DotThi',GETDATE(),DATEADD(hour,1,GETDATE()),30,1,0,N'DangMo',N'ToanTruong'); SELECT CAST(SCOPE_IDENTITY() AS int);");
             var stats = new StatisticsService();
             var sessions = stats.LayDanhSachDotThiChoThongKe();
@@ -159,7 +161,8 @@ static class DesktopProbes
             bool foreignDenied = false;
             try { stats.LayKetQuaDotThi(foreignDotThi); }
             catch (UnauthorizedAccessException) { foreignDenied = true; }
-            Note("T01", $"Teacher reads assigned sessions (foreign visible={foreignVisible}, foreign detail blocked={foreignDenied}).");
+            if (foreignVisible || !foreignDenied) throw new Exception("Teacher can read another teacher's unrelated session.");
+            Note("T01", "Teacher cannot list or read another teacher's unrelated session.");
         });
         Probe("T02", () =>
         {
@@ -232,6 +235,10 @@ static class DesktopProbes
         Session.Set(admin);
         Capture("admin-main", () => new frmMain());
         Capture("admin-accounts", () => new frmAccounts());
+        Capture("admin-students", () => { var f = new frmAccounts(); f.Controls.OfType<TabControl>().Single().SelectedIndex = 1; return f; });
+        Capture("admin-teachers", () => { var f = new frmAccounts(); f.Controls.OfType<TabControl>().Single().SelectedIndex = 2; return f; });
+        Capture("admin-student-editor", () => new frmPersonEdit("HocVien"));
+        Capture("admin-teacher-editor", () => new frmPersonEdit("GiaoVien"));
         Capture("admin-account-editor", () => new frmAccountEdit());
         Capture("admin-training", () => new frmDaoTao());
         var uiCourse = training.ThemKhoaHoc("Assignment layout course", subjectId,
@@ -518,6 +525,40 @@ static class DesktopProbes
             if (!accountService.Xoa(created.TaiKhoanID).Ok) throw new Exception("Account deletion failed.");
             Note("FLOW-ADMIN-ACCOUNT", "Create, edit, reset password, set package, lock, unlock and delete succeeded.");
         });
+        Probe("FLOW-PERSON-DIRECTORIES", () =>
+        {
+            var people = new PersonManagementService();
+            var studentRecord = new PersonRecord { VaiTro = "HocVien", TenDangNhap = "directory-student",
+                Email = "directory-student@example.test", HoTen = "Directory Student", SoDienThoai = "0912345678",
+                NgaySinh = new DateTime(2008, 4, 12), LoaiHocVien = "HocSinh" };
+            var createdStudent = people.Luu(studentRecord, "Student123!");
+            if (!createdStudent.Ok) throw new Exception(createdStudent.Message);
+            var loadedStudent = people.LayChiTiet("HocVien", createdStudent.TaiKhoanID)!;
+            if (loadedStudent.NgaySinh != studentRecord.NgaySinh || loadedStudent.SoDienThoai != studentRecord.SoDienThoai)
+                throw new Exception("Student profile fields were not saved.");
+            loadedStudent.HoTen = "Directory Student Edited";
+            loadedStudent.LoaiHocVien = "TuDo";
+            loadedStudent.TrangThai = "Khoa";
+            if (!people.Luu(loadedStudent, null).Ok || people.LayChiTiet("HocVien", createdStudent.TaiKhoanID)!.TrangThai != "Khoa")
+                throw new Exception("Student edit or status update failed.");
+            if (people.LayDanhSach("HocVien", "Student Edited", "Khoa").Rows.Count != 1)
+                throw new Exception("Student search/status filter failed.");
+            if (!accountService.Xoa(createdStudent.TaiKhoanID).Ok) throw new Exception("Student delete failed.");
+
+            var teacherRecord = new PersonRecord { VaiTro = "GiaoVien", TenDangNhap = "directory-teacher",
+                Email = "directory-teacher@example.test", HoTen = "Directory Teacher", SoDienThoai = "0987654321",
+                MonHocIds = [subjectId] };
+            var createdTeacher = people.Luu(teacherRecord, "Teacher123!");
+            if (!createdTeacher.Ok) throw new Exception(createdTeacher.Message);
+            var loadedTeacher = people.LayChiTiet("GiaoVien", createdTeacher.TaiKhoanID)!;
+            if (!loadedTeacher.MonHocIds.Contains(subjectId)) throw new Exception("Teacher subject assignment not saved.");
+            loadedTeacher.HoTen = "Directory Teacher Edited";
+            if (!people.Luu(loadedTeacher, null).Ok || people.LayDanhSach("GiaoVien", "Teacher Edited", "").Rows.Count != 1)
+                throw new Exception("Teacher edit/search failed.");
+            if (!accountService.Xoa(createdTeacher.TaiKhoanID).Ok) throw new Exception("Teacher delete failed.");
+            if (accountService.Xoa(teacherAccountId).Ok) throw new Exception("Teacher with questions/exams was deleted.");
+            Note("FLOW-PERSON-DIRECTORIES", "Detailed student and teacher create, read, edit, filter and delete passed; teacher history is protected.");
+        });
         Probe("FLOW-ADMIN-TRAINING", () =>
         {
             var course = training.ThemKhoaHoc("Workflow course", subjectId, DateTime.Today, DateTime.Today.AddMonths(2), "HoatDong");
@@ -527,14 +568,46 @@ static class DesktopProbes
             var classroom = training.ThemLopHoc("Workflow class", course.Id);
             if (!classroom.Ok || !training.SuaLopHoc(classroom.Id, "Workflow class edited", course.Id).Ok)
                 throw new Exception("Class create or edit failed.");
+            var otherSubject = Database.ExecuteScalarInt("INSERT INTO MonHoc(TenMon) VALUES(N'Workflow other subject'); SELECT CAST(SCOPE_IDENTITY() AS int);");
+            if (training.SuaKhoaHoc(course.Id, "Changed subject", otherSubject, DateTime.Today, DateTime.Today.AddMonths(2), "HoatDong").Ok)
+                throw new Exception("Course subject changed after classes were created.");
+            var unqualified = accountService.Them("unqualified-teacher", "unqualified-teacher@example.test", "Unqualified", "GiaoVien", "Password123!");
+            if (!unqualified.Ok) throw new Exception(unqualified.Error);
+            var unqualifiedId = Database.ExecuteScalarInt($"SELECT GiaoVienID FROM GiaoVien WHERE TaiKhoanID={unqualified.TaiKhoanID}");
+            if (training.LuuPhanCong(classroom.Id, subjectId, unqualifiedId, false).Ok ||
+                Database.ExecuteScalarInt($"SELECT COUNT(*) FROM GiaoVien_MonHoc WHERE GiaoVienID={unqualifiedId}") != 0)
+                throw new Exception("Unqualified teacher was assigned or granted expertise implicitly.");
+            if (!accountService.Xoa(unqualified.TaiKhoanID).Ok) throw new Exception("Failed to remove temporary unqualified teacher.");
             var lesson = training.ThemLichHoc(classroom.Id, "Workflow lesson", DateTime.Today.AddDays(40), DateTime.Today.AddDays(40).AddHours(1), "Room A");
             if (!lesson.Ok) throw new Exception(lesson.Error);
             if (!training.SuaLichHoc(lesson.Id, classroom.Id, "Workflow lesson edited", DateTime.Today.AddDays(40), DateTime.Today.AddDays(40).AddHours(2), "Room B").Ok ||
                 !training.XoaLichHoc(lesson.Id).Ok)
                 throw new Exception("Schedule edit or delete failed.");
-            if (!training.LuuPhanCong(classroom.Id, subjectId, teacherId, false).Ok ||
-                !training.XoaPhanCong(classroom.Id, subjectId).Ok)
+            if (!training.LuuPhanCong(classroom.Id, subjectId, teacherId, false).Ok)
                 throw new Exception("Teacher assignment create or delete failed.");
+            var secondClass = training.ThemLopHoc("Workflow parallel class", course.Id);
+            if (!secondClass.Ok) throw new Exception(secondClass.Error);
+            var time = DateTime.Today.AddDays(42);
+            var firstLesson = training.ThemLichHoc(classroom.Id, "Assigned teacher lesson", time, time.AddHours(1), "Room C");
+            var secondLesson = training.ThemLichHoc(secondClass.Id, "Unassigned teacher lesson", time, time.AddHours(1), "Room D");
+            if (!firstLesson.Ok || !secondLesson.Ok)
+                throw new Exception("Non-conflicting room schedules were rejected.");
+            if (training.LuuPhanCong(secondClass.Id, subjectId, teacherId, false).Ok)
+                throw new Exception("Teacher was assigned to overlapping class schedules.");
+            if (!training.XoaLichHoc(firstLesson.Id).Ok || !training.XoaLichHoc(secondLesson.Id).Ok ||
+                !training.XoaLopHoc(secondClass.Id).Ok || !training.XoaPhanCong(classroom.Id, subjectId).Ok)
+                throw new Exception("Schedule and teacher assignment cleanup failed.");
+            var restricted = new ExamService(teacherId);
+            var session = new DotThi { DeThiID = examId, TenDotThi = "Workflow class session",
+                ThoiGianMoCong = DateTime.Now.AddHours(1), ThoiGianDongCong = DateTime.Now.AddHours(3),
+                ThoiLuongLamBai = 30, SoLanThiToiDa = 1, PhamVi = "TheoLop" };
+            bool missingClassRejected = false;
+            try { restricted.TaoDotThi(session); } catch (InvalidOperationException) { missingClassRejected = true; }
+            if (!missingClassRejected) throw new Exception("Class-scoped session accepted without a class.");
+            var sessionId = restricted.TaoDotThi(session, [classroom.Id]);
+            if (Database.ExecuteScalarInt($"SELECT COUNT(*) FROM DotThi_LopHoc WHERE DotThiID={sessionId} AND LopHocID={classroom.Id}") != 1)
+                throw new Exception("Class-scoped session did not save class membership.");
+            Database.Execute($"DELETE FROM DotThi_LopHoc WHERE DotThiID={sessionId}; DELETE FROM DotThi WHERE DotThiID={sessionId};");
             if (!training.XoaLopHoc(classroom.Id).Ok || !training.XoaKhoaHoc(course.Id).Ok)
                 throw new Exception("Class or course deletion failed.");
             Note("FLOW-ADMIN-TRAINING", "Course, class, lesson and teacher assignment create/edit/delete succeeded.");

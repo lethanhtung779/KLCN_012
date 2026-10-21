@@ -299,7 +299,8 @@ public class DeThiController : ControllerBase
 
         var now = DateTime.Now;
         var dangLamSessionId = await _db.BaiLams
-            .Where(b => b.HocVienID == request.HocVienID && b.TrangThai == "DangLam" && de.DotThis.Select(dt => dt.DotThiID).Contains(b.DotThiID))
+            .Where(b => b.HocVienID == request.HocVienID && b.TrangThai == "DangLam" && de.DotThis.Select(dt => dt.DotThiID).Contains(b.DotThiID)
+                && (!request.DotThiID.HasValue || b.DotThiID == request.DotThiID.Value))
             .Select(b => b.DotThiID)
             .FirstOrDefaultAsync();
 
@@ -309,24 +310,14 @@ public class DeThiController : ControllerBase
             dot = de.DotThis.FirstOrDefault(d => d.DotThiID == dangLamSessionId);
         }
 
+        if (dot is null && request.DotThiID.HasValue)
+            dot = de.DotThis.FirstOrDefault(d => d.DotThiID == request.DotThiID.Value);
+        if (dot is null && !request.DotThiID.HasValue && de.DotThis.Count == 1)
+            dot = de.DotThis.Single();
         if (dot is null)
-        {
-            dot = de.DotThis
-                .Where(d => d.TrangThai != "DaDong" && d.ThoiGianMoCong <= now && d.ThoiGianDongCong >= now)
-                .OrderByDescending(d => d.DotThiID)
-                .FirstOrDefault();
-        }
-
-        if (dot is null)
-        {
-            dot = de.DotThis.OrderByDescending(d => d.DotThiID).FirstOrDefault();
-        }
-
-        if (dot is null)
-        {
-            dot = TaoDotThiFallback(de);
-            await _db.SaveChangesAsync();
-        }
+            return BadRequest(new { message = de.DotThis.Count == 0
+                ? "Đề thi chưa có đợt thi được quản trị viên mở."
+                : "Hãy chọn đúng đợt thi trước khi bắt đầu." });
 
         if (dot.TrangThai == "DaDong")
             return BadRequest(new { message = "Đợt thi đã đóng, không thể bắt đầu làm bài" });
@@ -746,25 +737,6 @@ public class DeThiController : ControllerBase
             .Include(x => x.CauHoi)
                 .ThenInclude(c => c!.HinhAnhs)
             .ToListAsync();
-
-    /// <summary>Dot thi du phong khi de chua duoc lap lich (mo 30 ngay, khong gioi han).</summary>
-    private DotThi TaoDotThiFallback(DeThi de)
-    {
-        var dot = new DotThi
-        {
-            DeThiID = de.DeThiID,
-            TenDotThi = "Đợt thi - " + (de.TenDe ?? $"Đề #{de.DeThiID}"),
-            ThoiGianMoCong = DateTime.Now.AddDays(-1),
-            ThoiGianDongCong = DateTime.Now.AddDays(30),
-            ThoiLuongLamBai = 45,
-            TrangThai = "DangMo",
-            PhamVi = "ToanTruong",
-            SoLanThiToiDa = 0
-        };
-        _db.DotThis.Add(dot);
-        de.DotThis.Add(dot);
-        return dot;
-    }
 
     /// <summary>Ghi (thay the) lua chon cua thi sinh cho tung cau — dung chung cho
     /// luutam (autosave) va nopbai. Chi tao ChiTietBaiLam cho cau co noi dung;

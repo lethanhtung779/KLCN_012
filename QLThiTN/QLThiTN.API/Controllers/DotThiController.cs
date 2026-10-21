@@ -19,9 +19,16 @@ public class DotThiController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] int? hocVienId)
     {
         hocVienId = User.StudentId() > 0 ? User.StudentId() : null;
+        var lopIds = hocVienId.HasValue
+            ? await _db.HocVien_Lops.Where(h => h.HocVienID == hocVienId.Value && h.TrangThai == "DangHoc")
+                .Select(h => h.LopHocID).ToListAsync()
+            : new List<int>();
+        var eligibleDotIds = await _db.DotThi_LopHocs.Where(x => lopIds.Contains(x.LopHocID))
+            .Select(x => x.DotThiID).Distinct().ToListAsync();
         var list = await _db.DotThis
             .Include(d => d.DeThi)
                 .ThenInclude(d => d!.MonHoc)
+            .Where(d => d.PhamVi != "TheoLop" || eligibleDotIds.Contains(d.DotThiID))
             .OrderBy(d => d.ThoiGianMoCong)
             .ToListAsync();
 
@@ -68,6 +75,26 @@ public class DotThiController : ControllerBase
     {
         var de = await _db.DeThis.FindAsync(request.DeThiID);
         if (de is null) return BadRequest(new { message = "DeThi khong ton tai" });
+        if (string.IsNullOrWhiteSpace(request.TenDotThi) || request.ThoiGianDongCong <= request.ThoiGianMoCong ||
+            request.ThoiLuongLamBai <= 0 || request.GioiHanSoLuong is <= 0)
+            return BadRequest(new { message = "Tên đợt thi, thời gian, thời lượng hoặc giới hạn số chỗ không hợp lệ." });
+
+        var phamVi = string.IsNullOrWhiteSpace(request.PhamVi) ? "ToanTruong" : request.PhamVi;
+        if (phamVi != "ToanTruong" && phamVi != "TheoLop")
+            return BadRequest(new { message = "Phạm vi đợt thi không hợp lệ." });
+        var lopIds = (request.LopHocIds ?? new List<int>()).Distinct().ToList();
+        if (phamVi == "TheoLop")
+        {
+            if (lopIds.Count == 0) return BadRequest(new { message = "Hãy chọn ít nhất một lớp cho đợt thi theo lớp." });
+            var valid = await _db.LopHocs.CountAsync(l => lopIds.Contains(l.LopHocID)
+                && l.KhoaHoc != null && l.KhoaHoc.MonHocID == de.MonHocID
+                && l.KhoaHoc.TrangThai != "DaKetThuc");
+            if (valid != lopIds.Count) return BadRequest(new { message = "Danh sách lớp có lớp không thuộc môn của đề thi." });
+        }
+        else if (lopIds.Count > 0)
+            return BadRequest(new { message = "Chỉ đợt thi theo lớp mới được chọn lớp." });
+
+        await using var tx = await _db.Database.BeginTransactionAsync();
 
         var dot = new DotThi
         {
@@ -79,11 +106,19 @@ public class DotThiController : ControllerBase
             GioiHanSoLuong = request.GioiHanSoLuong,
             CongBoDiemSom = request.CongBoDiemSom,
             TrangThai = request.TrangThai,
-            PhamVi = string.IsNullOrWhiteSpace(request.PhamVi) ? "ToanTruong" : request.PhamVi,
+            PhamVi = phamVi,
             SoLanThiToiDa = request.SoLanThiToiDa > 0 ? request.SoLanThiToiDa : 1
         };
         _db.DotThis.Add(dot);
         await _db.SaveChangesAsync();
+
+        if (lopIds.Count > 0)
+        {
+            _db.DotThi_LopHocs.AddRange(lopIds.Select(lopId => new DotThi_LopHoc
+                { DotThiID = dot.DotThiID, LopHocID = lopId }));
+            await _db.SaveChangesAsync();
+        }
+        await tx.CommitAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = dot.DotThiID }, dot);
     }

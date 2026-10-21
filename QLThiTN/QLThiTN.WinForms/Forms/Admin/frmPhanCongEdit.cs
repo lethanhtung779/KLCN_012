@@ -93,11 +93,12 @@ public class frmPhanCongEdit : Form
             return;
         }
         var gv = _service.LayGiaoVienTheoMon(monId);
-        if (gv.Rows.Count == 0)
-            gv = _service.LayTatCaGiaoVien();
         _cboGiaoVien.DisplayMember = "HoTen";
         _cboGiaoVien.ValueMember = "GiaoVienID";
         _cboGiaoVien.DataSource = gv;
+        _lblError.Text = gv.Rows.Count == 0
+            ? "Chưa có giáo viên đúng chuyên môn. Hãy cập nhật môn trong hồ sơ giáo viên."
+            : "";
         _cboGiaoVien.DropDownWidth = Math.Max(_cboGiaoVien.Width, 460);
         if (chonGv.HasValue && chonGv.Value > 0)
             _cboGiaoVien.SelectedValue = chonGv.Value;

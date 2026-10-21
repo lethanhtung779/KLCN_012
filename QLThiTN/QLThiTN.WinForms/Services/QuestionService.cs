@@ -12,6 +12,7 @@ public class QuestionService
     {
         if (Session.IsGiaoVien)
         {
+            if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
             return Database.ReadList(@"
                 SELECT m.MonHocID, m.TenMon FROM MonHoc m
                 JOIN GiaoVien_MonHoc gm ON gm.MonHocID = m.MonHocID
@@ -20,6 +21,7 @@ public class QuestionService
                 r => new MonHoc { MonHocID = r.GetInt32(0), TenMon = r.GetString(1) },
                 p => p.AddWithValue("@gv", Session.GiaoVienID));
         }
+        Session.YeuCauQuanTriVien();
         return Database.ReadList("SELECT MonHocID, TenMon FROM MonHoc ORDER BY MonHocID",
             r => new MonHoc { MonHocID = r.GetInt32(0), TenMon = r.GetString(1) });
     }
@@ -28,6 +30,7 @@ public class QuestionService
     {
         if (Session.IsGiaoVien)
         {
+            if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
             var sqlGv = monHocId.HasValue
                 ? @"SELECT cd.ChuDeID, cd.MonHocID, cd.TenChuDe FROM ChuDe cd
                     JOIN GiaoVien_MonHoc gm ON gm.MonHocID = cd.MonHocID
@@ -43,6 +46,7 @@ public class QuestionService
                     if (monHocId.HasValue) p.AddWithValue("@m", monHocId.Value);
                 });
         }
+        Session.YeuCauQuanTriVien();
         var sql = monHocId.HasValue
             ? "SELECT ChuDeID, MonHocID, TenChuDe FROM ChuDe WHERE MonHocID = @m ORDER BY TenChuDe"
             : "SELECT ChuDeID, MonHocID, TenChuDe FROM ChuDe ORDER BY TenChuDe";
@@ -54,6 +58,11 @@ public class QuestionService
     // ------------------------------------------------------------------ tra cuu
     public DataTable TraCuu(int? monHocId, int? chuDeId, string? loai, string? mucDo, string? tuKhoa)
     {
+        if (Session.IsGiaoVien)
+        {
+            if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
+        }
+        else Session.YeuCauQuanTriVien();
         var sql = @"
             SELECT c.CauHoiID, c.NoiDung,
                    CASE c.LoaiCauHoi
@@ -98,6 +107,10 @@ public class QuestionService
 
     public CauHoi? LayChiTiet(int cauHoiId)
     {
+        if (Session.IsGiaoVien)
+            KiemTraPhanCongMon(Database.ExecuteScalarInt("SELECT ChuDeID FROM CauHoi WHERE CauHoiID=@id",
+                p => p.AddWithValue("@id", cauHoiId)));
+        else Session.YeuCauQuanTriVien();
         var cau = Database.ReadList(@"
             SELECT c.CauHoiID, c.ChuDeID, c.GiaoVienID, c.NoiDung, c.LoaiCauHoi, c.MucDoKho,
                    c.Diem, c.TrangThai, c.NgayTao, c.GiaiThichDapAn
@@ -168,7 +181,8 @@ public class QuestionService
 
     private static void KiemTraPhanCongMon(int chuDeId)
     {
-        if (!Session.IsGiaoVien) return;
+        if (!Session.IsGiaoVien) { Session.YeuCauQuanTriVien(); return; }
+        if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
         var gvId = Session.GiaoVienID;
         var duocPhanCong = Database.ExecuteScalarInt(@"
             SELECT COUNT(1) FROM GiaoVien_MonHoc gm
@@ -185,7 +199,9 @@ public class QuestionService
 
     private static void KiemTraTacGia(int cauHoiId)
     {
-        if (!Session.IsGiaoVien) return;
+        if (!Session.IsGiaoVien) { Session.YeuCauQuanTriVien(); return; }
+        KiemTraPhanCongMon(Database.ExecuteScalarInt("SELECT ChuDeID FROM CauHoi WHERE CauHoiID=@id",
+            p => p.AddWithValue("@id", cauHoiId)));
         var gvId = Session.GiaoVienID;
         var authorId = Database.ExecuteScalarInt(
             "SELECT GiaoVienID FROM CauHoi WHERE CauHoiID = @id",

@@ -1,81 +1,104 @@
-using System.Diagnostics;
+using System.Data;
+using Microsoft.Data.SqlClient;
 
 namespace QLThiTN.WinForms.Services;
 
-/// <summary>Sao luu / phuc hoi co so du lieu ThiTracNghiem (BACKUP/RESTORE DATABASE).</summary>
 public class BackupService
 {
-    public const string ThuMucBackupMacDinh = @"D:\KLCN\backup";
+    public static readonly string ThuMucBackupMacDinh = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "QLThiTN", "backup");
 
-    private static string GetCurrentDatabaseName()
+    private static string Name()
     {
-        try
-        {
-            var db = Database.ExecuteScalarString("SELECT DB_NAME()");
-            if (!string.IsNullOrWhiteSpace(db)) return db;
-        }
-        catch { }
-        try
-        {
-            var csb = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(Database.ConnectionString);
-            if (!string.IsNullOrWhiteSpace(csb.InitialCatalog)) return csb.InitialCatalog;
-        }
-        catch { }
-        return "ThiTracNghiem";
+        var name = new SqlConnectionStringBuilder(Database.ConnectionString).InitialCatalog;
+        return string.IsNullOrWhiteSpace(name)
+            ? throw new InvalidOperationException("Connection string chưa xác định database.") : name;
     }
 
-    /// <summary>Sao luu DB ra file .bak ten co moc thoi gian. Tra ve duong dan file.</summary>
+    private static string Id(string value) => "[" + value.Replace("]", "]]", StringComparison.Ordinal) + "]";
+    private static string Literal(string value) => "N'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
+
+    private static SqlConnection Master()
+    {
+        var builder = new SqlConnectionStringBuilder(Database.ConnectionString) { InitialCatalog = "master" };
+        var conn = new SqlConnection(builder.ConnectionString);
+        conn.Open();
+        return conn;
+    }
+
+    private static void Run(SqlConnection conn, string sql)
+    {
+        using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 0 };
+        cmd.ExecuteNonQuery();
+    }
+
+    private static DataTable Query(SqlConnection conn, string sql, Action<SqlParameterCollection>? bind = null)
+    {
+        using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 0 };
+        bind?.Invoke(cmd.Parameters);
+        using var adapter = new SqlDataAdapter(cmd);
+        var data = new DataTable();
+        adapter.Fill(data);
+        return data;
+    }
+
     public string SaoLuu(string thuMuc)
     {
         Session.YeuCauQuanTriVien();
-        var dbName = GetCurrentDatabaseName();
+        if (string.IsNullOrWhiteSpace(thuMuc)) throw new ArgumentException("Hãy chọn thư mục sao lưu.");
+        var name = Name();
         Directory.CreateDirectory(thuMuc);
-        var file = Path.Combine(thuMuc, $"{dbName}_{DateTime.Now:yyyyMMdd_HHmmss}.bak")
-            .Replace("'", "''");
-
-        var sw = Stopwatch.StartNew();
-        Database.Execute(
-            $"BACKUP DATABASE [{dbName}] TO DISK = N'{file}' WITH INIT, NAME = N'{dbName}-Full';");
-        sw.Stop();
+        var file = Path.Combine(thuMuc, $"{name}_{DateTime.Now:yyyyMMdd_HHmmss}.bak");
+        using var conn = Master();
+        Run(conn, $"BACKUP DATABASE {Id(name)} TO DISK = {Literal(file)} WITH INIT, CHECKSUM;");
+        Run(conn, $"RESTORE VERIFYONLY FROM DISK = {Literal(file)} WITH CHECKSUM;");
         return file;
     }
 
-    /// <summary>Phuc hoi DB tu file .bak. Server phai cho phep single-user trong luc restore.</summary>
     public void PhucHoi(string fileBak)
     {
         Session.YeuCauQuanTriVien();
-        if (!File.Exists(fileBak))
-            throw new FileNotFoundException("Không tìm thấy file backup.", fileBak);
+        if (!File.Exists(fileBak)) throw new FileNotFoundException("Không tìm thấy file backup.", fileBak);
+        var name = Name();
+        using var conn = Master();
+        var header = Query(conn, $"RESTORE HEADERONLY FROM DISK = {Literal(fileBak)}");
+        if (header.Rows.Count == 0 || !string.Equals(header.Rows[0]["DatabaseName"].ToString(), name, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("File sao lưu không thuộc database hiện tại.");
+        Run(conn, $"RESTORE VERIFYONLY FROM DISK = {Literal(fileBak)} WITH CHECKSUM;");
 
-        var dbName = GetCurrentDatabaseName();
+        var source = Query(conn, $"RESTORE FILELISTONLY FROM DISK = {Literal(fileBak)}");
+        var target = Query(conn, "SELECT type_desc,physical_name FROM sys.master_files WHERE database_id=DB_ID(@db) ORDER BY file_id",
+            p => p.AddWithValue("@db", name));
+        if (source.Rows.Count != target.Rows.Count || target.Rows.Count == 0)
+            throw new InvalidOperationException("Cấu trúc file backup không khớp database. Hãy thử phục hồi trên bản sao.");
+        var data = target.Rows.Cast<DataRow>().Where(r => r["type_desc"].ToString() == "ROWS")
+            .Select(r => r["physical_name"].ToString()!).ToList();
+        var logs = target.Rows.Cast<DataRow>().Where(r => r["type_desc"].ToString() == "LOG")
+            .Select(r => r["physical_name"].ToString()!).ToList();
+        var moves = new List<string>();
+        foreach (DataRow row in source.Rows)
+        {
+            var paths = row["Type"].ToString() == "L" ? logs : data;
+            if (paths.Count == 0) throw new InvalidOperationException("Loại file backup không khớp database.");
+            moves.Add($"MOVE {Literal(row["LogicalName"].ToString()!)} TO {Literal(paths[0])}");
+            paths.RemoveAt(0);
+        }
 
-        // Ngat ket noi nguoi dung khac, restore, tra lai che do multi-user
-        Database.Execute($@"
-            IF DB_ID('{dbName}') IS NOT NULL
-                ALTER DATABASE [{dbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;");
+        var identifier = Id(name);
+        var singleUser = false;
         try
         {
-            var file = fileBak.Replace("'", "''");
-            // Xac dinh ten logical file tu backup de dung MOVE dung di
-            var dt = Database.Query("RESTORE FILELISTONLY FROM DISK = N'" + file + "'");
-            var dataFile = "";
-            var logFile = "";
-            foreach (System.Data.DataRow row in dt.Rows)
-            {
-                var type = row["Type"].ToString();
-                if (type == "D") dataFile = row["LogicalName"].ToString() ?? "";
-                if (type == "L") logFile = row["LogicalName"].ToString() ?? "";
-            }
-
-            var restore = $@"RESTORE DATABASE [{dbName}] FROM DISK = N'{file}' WITH REPLACE";
-            if (dataFile != "" && logFile != "")
-                restore += $", MOVE N'{dataFile}' TO N'D:\\KLCN\\{dbName}.mdf', MOVE N'{logFile}' TO N'D:\\KLCN\\{dbName}_log.ldf'";
-            Database.Execute(restore);
+            Run(conn, $"ALTER DATABASE {identifier} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;");
+            singleUser = true;
+            Run(conn, $"RESTORE DATABASE {identifier} FROM DISK = {Literal(fileBak)} WITH REPLACE, RECOVERY, {string.Join(", ", moves)};");
         }
         finally
         {
-            try { Database.Execute($"ALTER DATABASE [{dbName}] SET MULTI_USER;"); }
-            catch { /* ket noi bi ngat khi restore la binh thuong */ }
+            if (singleUser)
+            {
+                try { Run(conn, $"ALTER DATABASE {identifier} SET MULTI_USER;"); }
+                catch { /* SQL Server có thể đã tự chuyển trạng thái sau restore. */ }
+            }
         }
     }
 }

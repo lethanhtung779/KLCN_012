@@ -1,11 +1,11 @@
 @model KhoDeExamItem
 @{
     var now = DateTime.Now;
-    var isOpen = Model.StartTime <= now && Model.EndTime >= now;
+    var isOpen = Model.IsOpen;
     var loaiDe = Model.ExamKind.ToDisplayName();
     var khoaGoi = !Model.LaMienPhi && Context.Session.GetString("LoaiGoi") != "DongPhi";
 }
-<div class="card exam-cover-card h-100 exam-item" data-loaide="@Model.ExamKind" data-trangthai="@(Model.StartTime > now ? "SapMo" : Model.EndTime < now ? "DaDong" : "DangMo")">
+<div class="card exam-cover-card h-100 exam-item" data-loaide="@Model.ExamKind" data-trangthai="@(Model.StartTime > now ? "SapMo" : Model.EndTime < now || !isOpen ? "DaDong" : "DangMo")">
     <partial name="_ExamCover" model="Model" />
     <div class="card-body p-3 d-flex flex-column">
         <div class="d-flex align-items-center gap-2 mb-2 small text-muted">
@@ -23,7 +23,7 @@
                 {
                     <span class="badge-status badge-status-warn py-1 px-2 text-nowrap"><i class="bi bi-hourglass-split me-1"></i>Sắp mở</span>
                 }
-                else if (Model.EndTime < now)
+                else if (Model.EndTime < now || !isOpen)
                 {
                     <span class="badge-status badge-status-muted py-1 px-2 text-nowrap"><i class="bi bi-stop-circle me-1"></i>Đã đóng</span>
                 }
@@ -47,19 +47,19 @@
         </div>
         @if (khoaGoi)
         {
-            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" class="btn btn-locked-vip w-100 mt-auto">
+            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-locked-vip w-100 mt-auto">
                 <i class="bi bi-lock-fill me-1"></i>Cần gói đóng phí
             </a>
         }
         else if (Model.HasRegistered && isOpen)
         {
-            <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" class="btn btn-primary-custom w-100 mt-auto">
+            <a asp-controller="Exam" asp-action="Taking" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-primary-custom w-100 mt-auto">
                 <i class="bi bi-play-fill me-1"></i>Vào thi ngay
             </a>
         }
         else
         {
-            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" class="btn btn-outline-primary-custom w-100 mt-auto">
+            <a asp-controller="Exam" asp-action="Detail" asp-route-id="@Model.Id" asp-route-dotThiId="@Model.DotThiID" class="btn btn-outline-primary-custom w-100 mt-auto">
                 <i class="bi bi-play-fill me-1"></i>@(isOpen && !Model.HasRegistered && !Model.SoChoConLai.HasValue ? "Làm bài" : "Xem chi tiết")
             </a>
         }

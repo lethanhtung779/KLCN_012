@@ -17,6 +17,7 @@ public class frmDotThiEdit : Form
     private readonly NumericUpDown _numLanThi = new() { Width = 150, Minimum = 1, Maximum = 10, Value = 1, Font = Ui.Body };
     private readonly CheckBox _chkCongBo = new() { Text = "Công bố điểm ngay sau khi nộp (bỏ tick = chờ quản trị công bố)", AutoSize = true, Font = Ui.Body, Checked = true };
     private readonly ComboBox _cboPhamVi = Ui.Combo(240);
+    private readonly CheckedListBox _classes = new() { Width = 520, Height = 112, CheckOnClick = true, Font = Ui.Body };
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
 
     public frmDotThiEdit(int deThiId, string tenDe)
@@ -28,7 +29,7 @@ public class frmDotThiEdit : Form
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
-        ClientSize = new Size(580, 480);
+        ClientSize = new Size(600, 610);
         BackColor = Color.White;
 
         var lblInfo = Ui.Label($"Đề thi: {tenDe}", Ui.H2, Ui.Accent2);
@@ -49,6 +50,14 @@ public class frmDotThiEdit : Form
         _cboPhamVi.Items.Add(new ComboItem("ToanTruong", "Công khai — mọi học sinh tự do vào thi"));
         _cboPhamVi.Items.Add(new ComboItem("TheoLop", "Theo lớp — chỉ học viên được phân công"));
         _cboPhamVi.SelectedIndex = 0;
+        _cboPhamVi.SelectedIndexChanged += (_, _) =>
+        {
+            _classes.Enabled = (_cboPhamVi.SelectedItem as ComboItem)?.Value as string == "TheoLop";
+        };
+        foreach (System.Data.DataRow row in _service.LayLopChoDotThi(deThiId).Rows)
+            _classes.Items.Add(new ClassOption(Convert.ToInt32(row["LopHocID"]), row["TenHienThi"].ToString() ?? ""));
+        _classes.Enabled = false;
+        var lblLop = Ui.Label("Lớp được dự thi (bắt buộc khi chọn Theo lớp)", Ui.H2, Ui.Navy);
 
         var btnTao = Ui.ButtonAccent("Tạo đợt thi", 170, 42);
         Ui.GradientButton(btnTao, Ui.Accent, Ui.Accent2);
@@ -57,7 +66,8 @@ public class frmDotThiEdit : Form
         btnHuy.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
         Controls.AddRange([lblInfo, lblTen, _txtTenDot, lblMo, _dtpMo, lblDong, _dtpDong, lblLuong, _numThoiLuong,
-            lblHan, _numGioiHan, lblLan, _numLanThi, lblPhamVi, _cboPhamVi, _chkCongBo, _lblError, btnTao, btnHuy]);
+            lblHan, _numGioiHan, lblLan, _numLanThi, lblPhamVi, _cboPhamVi, _chkCongBo,
+            lblLop, _classes, _lblError, btnTao, btnHuy]);
 
         var y = 16;
         lblInfo.Location = new Point(30, y); y += 36;
@@ -69,15 +79,22 @@ public class frmDotThiEdit : Form
         lblLan.Location = new Point(30, y); _numLanThi.Location = new Point(30, y + 24);
         lblPhamVi.Location = new Point(300, y); _cboPhamVi.Location = new Point(300, y + 24); y += 64;
         _chkCongBo.Location = new Point(30, y); y += 34;
-        _lblError.Location = new Point(30, y);
-        btnTao.Location = new Point(30, y + 22);
-        btnHuy.Location = new Point(210, y + 22);
+        lblLop.Location = new Point(30, y); y += 25;
+        _classes.Location = new Point(30, y); y += 118;
+        _lblError.Location = new Point(30, y); y += 26;
+        btnTao.Location = new Point(30, y);
+        btnHuy.Location = new Point(210, y);
     }
 
     private class ComboItem(object value, string text)
     {
         public object Value { get; } = value;
         public override string ToString() => text;
+    }
+
+    private sealed record ClassOption(int Id, string Name)
+    {
+        public override string ToString() => Name;
     }
 
     private void Tao()
@@ -98,7 +115,8 @@ public class frmDotThiEdit : Form
                 PhamVi = (_cboPhamVi.SelectedItem as ComboItem)?.Value as string ?? "ToanTruong",
                 SoLanThiToiDa = (int)_numLanThi.Value
             };
-            var id = _service.TaoDotThi(dot);
+            var classes = _classes.CheckedItems.Cast<ClassOption>().Select(x => x.Id).ToArray();
+            var id = _service.TaoDotThi(dot, classes);
             MessageBox.Show($"Tạo đợt thi thành công! (ID: {id})\nHọc viên sẽ thấy đợt thi này trên website trong khoảng thời gian mở công.",
                 "Hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
             DialogResult = DialogResult.OK;

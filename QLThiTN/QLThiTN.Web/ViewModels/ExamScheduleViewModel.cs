@@ -13,6 +13,7 @@ public class ExamScheduleViewModel
     public int QuestionCount { get; set; }
     public bool HasRegistered { get; set; }
     public bool CanRegister { get; set; }
+    public bool IsOpen { get; set; }
     public ExamKind ExamKind { get; set; } = ExamKind.MonthlyMock;
     public bool IsPublic => ExamKind == ExamKind.PublicMock;
     public bool IsAssignedToMe { get; set; }

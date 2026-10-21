@@ -132,6 +132,7 @@ public class BatDauRequestDto
 {
     [System.ComponentModel.DataAnnotations.Required]
     public int HocVienID { get; set; }
+    public int? DotThiID { get; set; }
 }
 
 public class SavedAnswerDto
