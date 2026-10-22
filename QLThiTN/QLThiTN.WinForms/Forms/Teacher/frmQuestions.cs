@@ -15,6 +15,7 @@ public class frmQuestions : Form
     private readonly ComboBox _cboLoai = Ui.Combo(150);
     private readonly ComboBox _cboMuc = Ui.Combo(150);
     private readonly TextBox _txtTuKhoa = Ui.Input(170);
+    private readonly CheckBox _chkLocTrung = new() { Text = "Chỉ hiện câu trùng", AutoSize = true, Font = Ui.Body, ForeColor = Ui.Danger, Margin = new Padding(6, 26, 8, 0), Cursor = Cursors.Hand };
     private readonly Label _lblCount = Ui.Label("", Ui.Small, Ui.TextMuted);
     private readonly Label _lblEmpty = Ui.Label("", Ui.Body, Ui.TextMuted);
 
@@ -43,6 +44,7 @@ public class frmQuestions : Form
         _cboMuc.SelectedIndexChanged += (s, e) => { if (!_dangKhoiTao) TaiLai(); };
         _txtTuKhoa.PlaceholderText = "Tìm trong nội dung...";
         _txtTuKhoa.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter && !_dangKhoiTao) TaiLai(); };
+        _chkLocTrung.CheckedChanged += (s, e) => { if (!_dangKhoiTao) TaiLai(); };
 
         var btnThem = Ui.ButtonAccent("Thêm câu hỏi", 160);
         btnThem.Click += (s, e) => Them();
@@ -76,7 +78,7 @@ public class frmQuestions : Form
         foreach (Control c in new Control[]
                  {
                      FilterGroup(lblMon, _cboMon), FilterGroup(lblChuDe, _cboChuDe),
-                     FilterGroup(lblLoai, _cboLoai), FilterGroup(lblMuc, _cboMuc), _txtTuKhoa
+                     FilterGroup(lblLoai, _cboLoai), FilterGroup(lblMuc, _cboMuc), _txtTuKhoa, _chkLocTrung
                  })
         {
             c.Margin = new Padding(0, 3, 8, 0);
@@ -193,7 +195,8 @@ public class frmQuestions : Form
             var muc = Muc;
             var tuKhoa = _txtTuKhoa.Text;
 
-            var dt = await Task.Run(() => _service.TraCuu(monId, chuDeId, loai, muc, tuKhoa));
+            var locTrung = _chkLocTrung.Checked;
+            var dt = await Task.Run(() => _service.TraCuu(monId, chuDeId, loai, muc, tuKhoa, locTrung));
             if (IsDisposed || version != _loadVersion) return;
 
             _grid.DataSource = dt;
@@ -212,11 +215,27 @@ public class frmQuestions : Form
                      })
                 if (_grid.Columns.Contains(column)) _grid.Columns[column]!.Width = width;
 
-            _lblCount.Text = $"Tổng cộng: {dt.Rows.Count:N0} câu hỏi";
+            if (locTrung)
+            {
+                _lblCount.Text = dt.Rows.Count > 0
+                    ? $"⚠ Phát hiện {dt.Rows.Count:N0} câu hỏi bị trùng lặp nội dung trong ngân hàng!"
+                    : "Không phát hiện câu hỏi nào bị trùng lặp.";
+                foreach (DataGridViewRow r in _grid.Rows)
+                {
+                    r.DefaultCellStyle.BackColor = Color.FromArgb(255, 246, 235);
+                }
+            }
+            else
+            {
+                _lblCount.Text = $"Tổng cộng: {dt.Rows.Count:N0} câu hỏi";
+            }
+
             _lblEmpty.Text = dt.Rows.Count == 0
-                ? Session.IsGiaoVien && _cboMon.Items.Count == 1
-                    ? "Bạn chưa được phân công môn học.\nLiên hệ quản trị viên để được phân công và sử dụng ngân hàng câu hỏi."
-                    : "Không tìm thấy câu hỏi phù hợp.\nHãy thử thay đổi bộ lọc hoặc thêm câu hỏi mới."
+                ? locTrung
+                    ? "Không có câu hỏi nào bị trùng lặp nội dung trong bộ lọc hiện tại."
+                    : Session.IsGiaoVien && _cboMon.Items.Count == 1
+                        ? "Bạn chưa được phân công môn học.\nLiên hệ quản trị viên để được phân công và sử dụng ngân hàng câu hỏi."
+                        : "Không tìm thấy câu hỏi phù hợp.\nHãy thử thay đổi bộ lọc hoặc thêm câu hỏi mới."
                 : "";
             _lblEmpty.Visible = dt.Rows.Count == 0;
             CenterEmptyMessage();

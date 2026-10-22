@@ -15,7 +15,12 @@ public sealed class QuestionImportRow
     public bool Selected { get; set; }
     public int? ImportedId { get; set; }
     public string Topic { get; set; } = "";
-    public string Status => ImportedId.HasValue ? $"Đã nhập #{ImportedId}" : Errors.Count > 0 ? string.Join("; ", Errors) : "Hợp lệ";
+    public bool IsDuplicate { get; set; }
+    public string DuplicateInfo { get; set; } = "";
+    public string Status => ImportedId.HasValue ? $"Đã nhập #{ImportedId}"
+        : Errors.Count > 0 ? string.Join("; ", Errors)
+        : IsDuplicate ? $"[Trùng lặp] {DuplicateInfo}"
+        : "Hợp lệ";
     public bool CanImport => Errors.Count == 0 && !ImportedId.HasValue;
 }
 
@@ -37,46 +42,129 @@ public sealed class QuestionImportService
     {
         var limit = Path.GetExtension(file).Equals(".zip", StringComparison.OrdinalIgnoreCase) ? 100 * 1024 * 1024 : MaxDataBytes;
         if (new FileInfo(file).Length > limit) throw new InvalidDataException("File quá lớn (ZIP tối đa 100 MB; Excel/TXT tối đa 20 MB).");
+        List<QuestionImportRow> rows;
         if (!Path.GetExtension(file).Equals(".zip", StringComparison.OrdinalIgnoreCase))
         {
             using var stream = File.OpenRead(file);
-            return ReadData(stream, Path.GetExtension(file), _ => throw new InvalidDataException("Ảnh cần được đóng gói trong ZIP cùng file dữ liệu."));
+            rows = ReadData(stream, Path.GetExtension(file), _ => throw new InvalidDataException("Ảnh cần được đóng gói trong ZIP cùng file dữ liệu."));
         }
-        using var zip = ZipFile.OpenRead(file);
-        if (zip.Entries.Count > 2000 || zip.Entries.Sum(e => e.Length) > 200L * 1024 * 1024)
-            throw new InvalidDataException("ZIP vượt giới hạn 2.000 mục hoặc 200 MB sau giải nén.");
-        var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in zip.Entries.Where(e => e.Name.Length > 0))
+        else
         {
-            var path = SafeRelativePath(entry.FullName);
-            if (!entries.TryAdd(path, entry)) throw new InvalidDataException($"ZIP có tên file trùng nhau: {path}");
+            using var zip = ZipFile.OpenRead(file);
+            if (zip.Entries.Count > 2000 || zip.Entries.Sum(e => e.Length) > 200L * 1024 * 1024)
+                throw new InvalidDataException("ZIP vượt giới hạn 2.000 mục hoặc 200 MB sau giải nén.");
+            var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
+            foreach (var entry in zip.Entries.Where(e => e.Name.Length > 0))
+            {
+                var path = SafeRelativePath(entry.FullName);
+                if (!entries.TryAdd(path, entry)) throw new InvalidDataException($"ZIP có tên file trùng nhau: {path}");
+            }
+            var dataFiles = entries.Where(e => new[] { ".xlsx", ".txt", ".csv" }.Contains(Path.GetExtension(e.Key).ToLowerInvariant())).ToList();
+            if (dataFiles.Count != 1) throw new InvalidDataException("ZIP phải có đúng một file Excel/TXT/CSV. Hãy để hướng dẫn trong file .md.");
+            var dataFile = dataFiles[0];
+            if (dataFile.Value.Length > MaxDataBytes) throw new InvalidDataException("File dữ liệu trong ZIP vượt 20 MB.");
+            var folder = dataFile.Key.Contains('/') ? dataFile.Key[..(dataFile.Key.LastIndexOf('/') + 1)] : "";
+            var cache = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+            long totalImages = 0;
+            byte[] LoadImage(string relative)
+            {
+                var path = folder + SafeRelativePath(relative);
+                if (cache.TryGetValue(path, out var saved)) return saved;
+                if (!entries.TryGetValue(path, out var entry)) throw new InvalidDataException($"Không tìm thấy ảnh: {relative}");
+                if (!new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif" }.Contains(Path.GetExtension(path).ToLowerInvariant()))
+                    throw new InvalidDataException($"Ảnh {relative}: chỉ hỗ trợ PNG/JPEG/BMP/GIF.");
+                if (entry.Length > 15 * 1024 * 1024) throw new InvalidDataException($"Ảnh {relative} vượt 15 MB.");
+                using var source = entry.Open();
+                using var memory = new MemoryStream(); source.CopyTo(memory); memory.Position = 0;
+                using var image = Image.FromStream(memory, false, true);
+                var bytes = QuestionImageStore.ToPng(image);
+                totalImages += bytes.Length;
+                if (totalImages > 100L * 1024 * 1024) throw new InvalidDataException("Tổng ảnh đã xử lý vượt 100 MB. Hãy chia nhỏ gói nhập.");
+                cache[path] = bytes;
+                return bytes;
+            }
+            using var data = dataFile.Value.Open();
+            rows = ReadData(data, Path.GetExtension(dataFile.Key), LoadImage);
         }
-        var dataFiles = entries.Where(e => new[] { ".xlsx", ".txt", ".csv" }.Contains(Path.GetExtension(e.Key).ToLowerInvariant())).ToList();
-        if (dataFiles.Count != 1) throw new InvalidDataException("ZIP phải có đúng một file Excel/TXT/CSV. Hãy để hướng dẫn trong file .md.");
-        var dataFile = dataFiles[0];
-        if (dataFile.Value.Length > MaxDataBytes) throw new InvalidDataException("File dữ liệu trong ZIP vượt 20 MB.");
-        var folder = dataFile.Key.Contains('/') ? dataFile.Key[..(dataFile.Key.LastIndexOf('/') + 1)] : "";
-        var cache = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        long totalImages = 0;
-        byte[] LoadImage(string relative)
+
+        KiemTraTrungLap(rows);
+        return rows;
+    }
+
+    public static string ChuanHoaNoiDung(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var clean = System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]+>", " ");
+        clean = System.Text.RegularExpressions.Regex.Replace(clean, @"\s+", " ").Trim();
+        return clean.ToLowerInvariant();
+    }
+
+    private void KiemTraTrungLap(List<QuestionImportRow> rows)
+    {
+        var chuDeIds = rows.Where(r => r.Question.ChuDeID > 0)
+                           .Select(r => r.Question.ChuDeID)
+                           .Distinct()
+                           .ToList();
+
+        var existingQuestions = chuDeIds.Count > 0
+            ? QuestionService.LayCauHoiKiemTraTrung(chuDeIds)
+            : [];
+
+        var dbLookup = new Dictionary<string, (int Id, string ChuDe)>(StringComparer.OrdinalIgnoreCase);
+        var topicLookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var eq in existingQuestions)
         {
-            var path = folder + SafeRelativePath(relative);
-            if (cache.TryGetValue(path, out var saved)) return saved;
-            if (!entries.TryGetValue(path, out var entry)) throw new InvalidDataException($"Không tìm thấy ảnh: {relative}");
-            if (!new[] { ".png", ".jpg", ".jpeg", ".bmp", ".gif" }.Contains(Path.GetExtension(path).ToLowerInvariant()))
-                throw new InvalidDataException($"Ảnh {relative}: chỉ hỗ trợ PNG/JPEG/BMP/GIF.");
-            if (entry.Length > 15 * 1024 * 1024) throw new InvalidDataException($"Ảnh {relative} vượt 15 MB.");
-            using var source = entry.Open();
-            using var memory = new MemoryStream(); source.CopyTo(memory); memory.Position = 0;
-            using var image = Image.FromStream(memory, false, true);
-            var bytes = QuestionImageStore.ToPng(image);
-            totalImages += bytes.Length;
-            if (totalImages > 100L * 1024 * 1024) throw new InvalidDataException("Tổng ảnh đã xử lý vượt 100 MB. Hãy chia nhỏ gói nhập.");
-            cache[path] = bytes;
-            return bytes;
+            var clean = ChuanHoaNoiDung(eq.NoiDung);
+            if (clean.Length == 0) continue;
+            var keyMon = $"{eq.MonHocID}_{clean}";
+            dbLookup.TryAdd(keyMon, (eq.CauHoiID, eq.TenChuDe));
+
+            var keyTopic = $"{eq.ChuDeID}_{clean}";
+            topicLookup.TryAdd(keyTopic, eq.CauHoiID);
         }
-        using var data = dataFile.Value.Open();
-        return ReadData(data, Path.GetExtension(dataFile.Key), LoadImage);
+
+        var seenInFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in rows)
+        {
+            if (row.Errors.Count > 0) continue;
+            if (string.IsNullOrWhiteSpace(row.Question.NoiDung)) continue;
+
+            var clean = ChuanHoaNoiDung(row.Question.NoiDung);
+            var topic = _topics.FirstOrDefault(t => t.ChuDeID == row.Question.ChuDeID);
+            var monHocId = topic?.MonHocID ?? 0;
+            var keyMon = $"{monHocId}_{clean}";
+            var keyTopic = $"{row.Question.ChuDeID}_{clean}";
+
+            // 1. Kiem tra trung voi CSDL
+            if (dbLookup.TryGetValue(keyMon, out var existing))
+            {
+                row.IsDuplicate = true;
+                row.DuplicateInfo = $"Đã có trong ngân hàng (câu #{existing.Id} - {existing.ChuDe})";
+                row.Selected = false;
+                continue;
+            }
+            if (topicLookup.TryGetValue(keyTopic, out var exId))
+            {
+                row.IsDuplicate = true;
+                row.DuplicateInfo = $"Đã có trong ngân hàng (câu #{exId})";
+                row.Selected = false;
+                continue;
+            }
+
+            // 2. Kiem tra trung giua cac dong trong file import
+            if (seenInFile.TryGetValue(keyMon, out var firstLine) || seenInFile.TryGetValue(keyTopic, out firstLine))
+            {
+                row.IsDuplicate = true;
+                row.DuplicateInfo = $"Trùng nội dung với dòng {firstLine} trong file";
+                row.Selected = false;
+                continue;
+            }
+
+            seenInFile[keyMon] = row.Line;
+            seenInFile[keyTopic] = row.Line;
+        }
     }
 
     private static string SafeRelativePath(string value)

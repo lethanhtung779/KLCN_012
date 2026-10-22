@@ -38,7 +38,7 @@ html, body {
 }
 
 body {
-    font-family: 'Be Vietnam Pro', 'Segoe UI', 'Helvetica Neue', -apple-system, system-ui, sans-serif;
+    font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: var(--bg-soft);
     color: var(--text-main);
     display: flex;
@@ -124,12 +124,26 @@ main {
     color: #38bdf8;
 }
 
+.main-nav .navbar-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.main-nav .nav-item {
+    white-space: nowrap;
+}
+
 .main-nav .nav-link {
     color: rgba(255, 255, 255, .85);
     font-weight: 500;
     border-radius: 8px;
-    padding: .5rem .9rem;
+    padding: .42rem .75rem;
     transition: all .2s ease;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    font-size: .93rem;
 }
 
 .main-nav .nav-link:hover,
@@ -143,15 +157,25 @@ main {
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 30px;
-    padding: .35rem 1rem .35rem .5rem;
+    padding: .35rem .85rem .35rem .5rem;
     font-weight: 500;
     transition: all .2s ease;
+    white-space: nowrap;
 }
 
 .btn-user:hover {
     background: rgba(255, 255, 255, .22);
     color: #fff;
     border-color: rgba(255, 255, 255, 0.3);
+}
+
+.btn-user .user-name {
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .user-avatar {
@@ -1118,12 +1142,13 @@ mjx-container[jax="CHTML"][display="true"] {
     position: relative;
     z-index: 1;
     align-self: flex-start;
-    background: rgba(255, 255, 255, .85);
-    color: var(--primary);
+    background: rgba(255, 255, 255, .95);
+    color: #0f172a !important;
     font-size: .72rem;
-    font-weight: 700;
+    font-weight: 800;
     padding: .2rem .7rem;
     border-radius: 20px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
 }
 
 .exam-cover .cover-bookmark {
@@ -1131,7 +1156,7 @@ mjx-container[jax="CHTML"][display="true"] {
     z-index: 1;
     top: 12px;
     right: 14px;
-    color: rgba(27, 42, 78, .35);
+    color: rgba(15, 23, 42, .45) !important;
     font-size: 1.1rem;
 }
 
@@ -1139,11 +1164,9 @@ mjx-container[jax="CHTML"][display="true"] {
     position: relative;
     z-index: 1;
     flex: 1;
-    display: flex;
-    align-items: center;
-    color: var(--primary);
+    color: #0f172a !important; /* Luon dam sac net de doc tren nen pastel ke ca dark mode */
     font-weight: 800;
-    font-size: 1.02rem;
+    font-size: 1.05rem;
     line-height: 1.35;
     display: -webkit-box;
     -webkit-line-clamp: 3;
@@ -1157,16 +1180,16 @@ mjx-container[jax="CHTML"][display="true"] {
     display: flex;
     align-items: center;
     gap: .6rem;
-    font-size: .74rem;
-    font-weight: 600;
-    color: rgba(27, 42, 78, .65);
+    font-size: .76rem;
+    font-weight: 700;
+    color: rgba(15, 23, 42, .8) !important;
 }
 
 .exam-cover .cover-meta .dot {
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: rgba(27, 42, 78, .35);
+    background: rgba(15, 23, 42, .4) !important;
 }
 
 .exam-cover-card {
@@ -1174,11 +1197,19 @@ mjx-container[jax="CHTML"][display="true"] {
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(27, 42, 78, .06);
     transition: transform .18s ease, box-shadow .18s ease;
+    overflow: hidden;
 }
 
 .exam-cover-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 12px 28px rgba(27, 42, 78, .12);
+}
+
+.exam-cover-card .badge-status,
+.exam-cover-card .badge-vip {
+    padding: .2rem .55rem !important;
+    font-size: .72rem !important;
+    letter-spacing: 0;
 }
 
 .cover-card-title {

@@ -1,6 +1,6 @@
 @model KhoDeViewModel
 @{
-    ViewData["Title"] = "Kho đề thi" + (string.IsNullOrWhiteSpace(Model.TenMon) ? "" : " môn " + Model.TenMon);
+    ViewData["Title"] = "Kho đề thi" + (string.IsNullOrWhiteSpace(Model.TenMon) ? "" : " môn " + MonHocVisual.ToDisplayName(Model.TenMon));
 }
 
 @* Chip chon mon — pattern thu cap du navbar nhu DOL THPT *@
@@ -10,7 +10,7 @@
         {
             <a asp-controller="Exam" asp-action="KhoDe" asp-route-mon="@m.MonHocID"
                class="subject-chip @(m.MonHocID == Model.MonHocId ? "active" : "")">
-                <i class="bi @MonHocVisual.ToIcon(m.TenMon)"></i> @m.TenMon
+                <i class="bi @MonHocVisual.ToIcon(m.TenMon)"></i> @MonHocVisual.ToDisplayName(m.TenMon)
             </a>
         }
     </div>
@@ -33,7 +33,7 @@
                     <div class="d-flex gap-3">
                         <div class="kho-de-icon"><i class="bi @MonHocVisual.ToIcon(Model.TenMon)"></i></div>
                         <div>
-                            <h1 class="section-title mb-1">Kho đề môn @Model.TenMon</h1>
+                            <h1 class="section-title mb-1">Kho đề môn @MonHocVisual.ToDisplayName(Model.TenMon)</h1>
                             <p class="text-muted small mb-2">
                                 Tổng hợp <b>@Model.SoDe đề thi trực tuyến</b> với <b>@Model.SoCau câu hỏi</b> —
                                 làm bài tính giờ, tự động lưu tiến trình và chấm điểm tức thì.

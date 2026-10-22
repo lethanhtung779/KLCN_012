@@ -56,14 +56,14 @@ public class QuestionService
     }
 
     // ------------------------------------------------------------------ tra cuu
-    public DataTable TraCuu(int? monHocId, int? chuDeId, string? loai, string? mucDo, string? tuKhoa)
+    public DataTable TraCuu(int? monHocId, int? chuDeId, string? loai, string? mucDo, string? tuKhoa, bool chiLocTrung = false)
     {
         if (Session.IsGiaoVien)
         {
             if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
         }
         else Session.YeuCauQuanTriVien();
-        var sql = @"
+        var sql = $@"
             SELECT c.CauHoiID, c.NoiDung,
                    CASE c.LoaiCauHoi
                        WHEN 'TracNghiem' THEN N'Trắc nghiệm'
@@ -92,7 +92,16 @@ public class QuestionService
               AND (@muc = N'' OR c.MucDoKho = @muc)
               AND (@tu = N'' OR c.NoiDung LIKE N'%' + @tu + N'%')
               AND (@isGv = 0 OR cd.MonHocID IN (SELECT MonHocID FROM GiaoVien_MonHoc WHERE GiaoVienID = @gvId))
-            ORDER BY c.CauHoiID DESC";
+              {(chiLocTrung ? @" AND c.NoiDung IN (
+                    SELECT c2.NoiDung 
+                    FROM CauHoi c2 
+                    JOIN ChuDe cd2 ON cd2.ChuDeID = c2.ChuDeID
+                    WHERE c2.TrangThai = N'HoatDong'
+                      AND (@mon = 0 OR cd2.MonHocID = @mon)
+                    GROUP BY c2.NoiDung 
+                    HAVING COUNT(*) > 1
+                )" : "")}
+            ORDER BY {(chiLocTrung ? "c.NoiDung, c.CauHoiID" : "c.CauHoiID DESC")}";
         return Database.Query(sql, p =>
         {
             p.AddWithValue("@mon", monHocId ?? 0);
@@ -103,6 +112,29 @@ public class QuestionService
             p.AddWithValue("@isGv", Session.IsGiaoVien ? 1 : 0);
             p.AddWithValue("@gvId", Session.GiaoVienID);
         });
+    }
+
+    /// <summary>Lay danh sach cau hoi trong cac mon hoc / chu de de phuc vu loc trung khi import.</summary>
+    public static List<(int CauHoiID, int ChuDeID, string TenChuDe, int MonHocID, string NoiDung)> LayCauHoiKiemTraTrung(IEnumerable<int> chuDeIds)
+    {
+        var ids = chuDeIds.Where(id => id > 0).Distinct().ToList();
+        if (ids.Count == 0) return [];
+
+        var pNames = string.Join(",", ids.Select((_, i) => $"@cd{i}"));
+        var sql = $@"
+            SELECT c.CauHoiID, c.ChuDeID, cd.TenChuDe, cd.MonHocID, c.NoiDung 
+            FROM CauHoi c 
+            JOIN ChuDe cd ON cd.ChuDeID = c.ChuDeID
+            WHERE c.TrangThai = N'HoatDong' 
+              AND cd.MonHocID IN (SELECT DISTINCT MonHocID FROM ChuDe WHERE ChuDeID IN ({pNames}))";
+
+        return Database.ReadList(sql,
+            r => (r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.GetInt32(3), r.GetString(4)),
+            p =>
+            {
+                for (int i = 0; i < ids.Count; i++)
+                    p.AddWithValue($"@cd{i}", ids[i]);
+            });
     }
 
     public CauHoi? LayChiTiet(int cauHoiId)

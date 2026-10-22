@@ -129,7 +129,7 @@ public static class ExamMapping
         StartTime = d.ThoiGianMoCong,
         EndTime = d.ThoiGianDongCong,
         MaxStudents = null,
-        SubjectName = d.TenMon,
+        SubjectName = MonHocVisual.ToDisplayName(d.TenMon),
         QuestionCount = d.SoLuongCauHoi,
         HasRegistered = false,
         CanRegister = d.TrangThai != "DaDong",

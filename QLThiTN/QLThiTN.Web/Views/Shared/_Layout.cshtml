@@ -36,7 +36,7 @@
                 <span class="brand-icon shadow-sm"><i class="bi bi-mortarboard-fill"></i></span>
                 <div class="d-flex flex-column ms-2">
                     <span class="fw-bold lh-1 fs-5" style="letter-spacing: -0.3px;">EduExam <span class="badge badge-pro">PRO</span></span>
-                    <small class="text-white-50" style="font-size: 0.7rem; letter-spacing: 0.2px;">Hệ thống Khảo thí & Luyện thi THPT</small>
+                    <small class="text-white-50 d-none d-md-block" style="font-size: 0.7rem; letter-spacing: 0.2px;">Hệ thống Khảo thí & Luyện thi THPT</small>
                 </div>
             </a>
             <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar">
@@ -83,7 +83,7 @@
                         <div class="dropdown">
                             <button class="btn btn-user dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown">
                                 <span class="user-avatar me-2">@(_fullName!.Substring(0, 1))</span>
-                                <span>@_fullName</span>
+                                <span class="user-name">@_fullName</span>
                                 @if (Context.Session.GetInt32("HocVienId") != null)
                                 {
                                     if (Context.Session.GetString("LoaiGoi") == "DongPhi")
