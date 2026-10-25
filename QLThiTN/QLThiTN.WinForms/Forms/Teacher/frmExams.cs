@@ -72,26 +72,35 @@ public class frmExams : Form
         _split.Panel1.Controls.Add(panelDe);
 
         // Grid dot thi (duoi)
-        var headerDot = new FlowLayoutPanel
+        var headerDot = new TableLayoutPanel
         {
-            Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            WrapContents = true, Padding = new Padding(16, 6, 12, 6), BackColor = Color.White
+            Dock = DockStyle.Top, Height = 52, ColumnCount = 3, RowCount = 1,
+            Padding = new Padding(16, 6, 12, 6), BackColor = Color.White
         };
+        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         var lblDot = Ui.Label("Các đợt thi của đề đang chọn (chọn đề phía trên)", Ui.H2, Ui.Navy);
-        lblDot.Margin = new Padding(0, 6, 16, 6);
-        lblDot.AutoSize = true;
+        lblDot.Dock = DockStyle.Fill;
+        lblDot.AutoSize = false;
+        lblDot.AutoEllipsis = true;
+        lblDot.TextAlign = ContentAlignment.MiddleLeft;
+        lblDot.Margin = new Padding(0, 0, 12, 0);
         var btnXemDiem = Ui.ButtonAccent("📊 Xem bảng điểm", 160, 32);
-        btnXemDiem.Margin = new Padding(0, 0, 10, 4);
+        btnXemDiem.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+        btnXemDiem.Margin = new Padding(0, 3, 10, 0);
         btnXemDiem.Click += (s, e) => XemBangDiemDot();
         var btnDongDot = Ui.ButtonOutline("Đóng đợt thi", 130, 32);
-        btnDongDot.Margin = new Padding(0, 0, 0, 4);
+        btnDongDot.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+        btnDongDot.Margin = new Padding(0, 3, 0, 0);
         btnDongDot.Click += (s, e) => DongDot();
-        headerDot.Controls.Add(lblDot);
-        headerDot.Controls.Add(btnXemDiem);
-        headerDot.Controls.Add(btnDongDot);
-        headerDot.SizeChanged += (_, _) => lblDot.MaximumSize = new Size(Math.Max(100, headerDot.ClientSize.Width - headerDot.Padding.Horizontal), 0);
+        headerDot.Controls.Add(lblDot, 0, 0);
+        headerDot.Controls.Add(btnXemDiem, 1, 0);
+        headerDot.Controls.Add(btnDongDot, 2, 0);
 
         Ui.StyleGrid(_gridDot);
+        _gridDot.ColumnHeadersHeight = 46;
+        _gridDot.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
         _gridDot.Dock = DockStyle.Fill;
         _gridDot.DataError += (s, e) => { e.ThrowException = false; };
 
@@ -225,7 +234,7 @@ public class frmExams : Form
             foreach (DataGridViewRow row in _gridDot.Rows)
                 row.Cells["PhamVi"].Value = row.Cells["PhamVi"].Value switch
                 {
-                    "ToanTruong" => "Toàn trường",
+                    "ToanTruong" => "Toàn trung tâm",
                     "TheoLop" => "Theo lớp",
                     "CongKhai" => "Công khai",
                     "NoiBo" => "Nội bộ",

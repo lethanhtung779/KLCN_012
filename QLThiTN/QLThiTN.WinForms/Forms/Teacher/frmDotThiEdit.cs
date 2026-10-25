@@ -53,7 +53,7 @@ public class frmDotThiEdit : Form
         Add(Field("Đặt nhanh thời gian đóng cổng", _window), 1, 3);
         Add(Field("Số lần thi tối đa", _attempts), 0, 4);
         Add(Field("Số chỗ (0 = không giới hạn)", _capacity), 1, 4);
-        _scope.Items.AddRange(["Công khai — mọi học viên đủ điều kiện", "Theo lớp — chỉ các lớp được chọn"]);
+        _scope.Items.AddRange(["Toàn trung tâm — mọi học viên đủ điều kiện", "Theo lớp — chỉ các lớp được chọn"]);
         _scope.SelectedIndex = 0; _scope.DropDownWidth = 450;
         Add(Field("Phạm vi dự thi", _scope), 0, 5);
         Add(Field("Kết quả", _publish), 1, 5);
