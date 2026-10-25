@@ -259,19 +259,24 @@ public class frmQuestions : Form
             _previous.Enabled = _page > 0;
             _next.Enabled = (_page + 1) * PageSize < dt.Rows.Count;
             Ui.RenameColumns(_grid,
-                ("CauHoiID", "ID"), ("NoiDung", "Nội dung câu hỏi"), ("LoaiCauHoi", "Loại"),
+                ("CauHoiID", "ID câu hỏi"), ("NoiDung", "Nội dung câu hỏi"), ("LoaiCauHoi", "Loại"),
                 ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TrangThai", "Trạng thái"),
                 ("TenChuDe", "Chủ đề"), ("TenMon", "Môn"), ("TenGiaoVien", "Người soạn"), ("NgayTao", "Ngày tạo"));
-            Ui.HideColumns(_grid, "CauHoiID", "ChuDeID", "GiaoVienID", "NgayTao");
+            Ui.HideColumns(_grid, "ChuDeID", "GiaoVienID", "NgayTao");
 
             _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             foreach (var (column, width) in new[]
                      {
-                         ("NoiDung", 300), ("LoaiCauHoi", 120), ("MucDoKho", 110),
+                         ("CauHoiID", 90), ("NoiDung", 300), ("LoaiCauHoi", 120), ("MucDoKho", 110),
                          ("Diem", 65), ("TrangThai", 110), ("TenChuDe", 130),
                          ("TenMon", 110), ("TenGiaoVien", 140)
                      })
                 if (_grid.Columns.Contains(column)) _grid.Columns[column]!.Width = width;
+            if (_grid.Columns.Contains("CauHoiID"))
+            {
+                _grid.Columns["CauHoiID"]!.DisplayIndex = 0;
+                _grid.Columns["CauHoiID"]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            }
 
             if (locTrung)
             {

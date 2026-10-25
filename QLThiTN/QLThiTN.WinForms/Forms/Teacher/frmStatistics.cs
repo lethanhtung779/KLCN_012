@@ -31,6 +31,9 @@ public class frmStatistics : Form
     {
         _dotThiIdKhoiTao = dotThiId;
         Text = "Thống kê kết quả";
+        StartPosition = FormStartPosition.CenterParent;
+        ClientSize = new Size(1100, 700);
+        MinimumSize = new Size(780, 560);
         Font = Ui.Body;
         BackColor = Color.White;
 
@@ -44,9 +47,12 @@ public class frmStatistics : Form
             Padding = new Padding(16, 8, 16, 4),
         };
         top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        top.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
+        top.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
         top.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        var selector = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false };
+        var selector = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1 };
+        selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        selector.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var lblChon = Ui.Label("Chọn đợt thi:", Ui.H2, Ui.Navy);
         _cboDotThi.SelectedIndexChanged += (s, e) => { TaiThongKeDiem(); TaiThongKeCauHoi(); };
         var btnLamMoi = Ui.ButtonOutline("Làm mới", 120, 30);
@@ -54,7 +60,11 @@ public class frmStatistics : Form
         lblChon.Margin = new Padding(0, 8, 12, 0);
         _cboDotThi.Margin = new Padding(0, 4, 12, 0);
         btnLamMoi.Margin = new Padding(0, 4, 0, 0);
-        selector.Controls.AddRange([lblChon, _cboDotThi, btnLamMoi]);
+        _cboDotThi.Dock = DockStyle.Top;
+        _cboDotThi.DropDownWidth = 800;
+        selector.Controls.Add(lblChon, 0, 0);
+        selector.Controls.Add(_cboDotThi, 1, 0);
+        selector.Controls.Add(btnLamMoi, 2, 0);
         _lblTongQuan.AutoSize = false;
         _lblTongQuan.Dock = DockStyle.Fill;
         _lblTongQuan.TextAlign = ContentAlignment.MiddleLeft;
@@ -75,9 +85,9 @@ public class frmStatistics : Form
 
         var lblHuongDan = Ui.Label(
             "Hướng dẫn đọc thống kê:\n\n" +
-            "• Bảng: kết quả từng bài thi của đợt đang chọn\n   (sắp theo điểm giảm dần).\n" +
-            "• Biểu đồ: phân bố số bài theo khoảng điểm 0–10.\n" +
-            "• Dữ liệu lấy trực tiếp từ bảng BaiLam — cùng nguồn\n   dữ liệu với website nên luôn đồng bộ.",
+            "• Bảng: các bài thi được sắp theo điểm giảm dần.\n" +
+            "• Biểu đồ: số bài theo khoảng điểm 0–10.\n" +
+            "• Kết quả được đồng bộ với website.",
             Ui.Body, Color.FromArgb(43, 52, 82));
         lblHuongDan.AutoSize = false;
         lblHuongDan.Dock = DockStyle.Fill;
@@ -98,7 +108,7 @@ public class frmStatistics : Form
         scoreLayout.Controls.Add(_gridDiem, 0, 0);
         scoreLayout.SetColumnSpan(_gridDiem, 2);
         scoreLayout.Controls.Add(chartPanel, 0, 1);
-        scoreLayout.Controls.Add(lblHuongDan, 1, 1);
+        scoreLayout.Controls.Add(ScrollableNote(lblHuongDan), 1, 1);
         tabDiem.Controls.Add(scoreLayout);
 
         // ---------------------------------------------------------------- Tab 2: chat luong cau hoi
@@ -143,7 +153,7 @@ public class frmStatistics : Form
         qualityLayout.Controls.Add(_gridCauHoi, 0, 0);
         qualityLayout.Controls.Add(qualityChartPanel, 1, 0);
         qualityLayout.Controls.Add(_lblCauHoiInfo, 0, 1);
-        qualityLayout.Controls.Add(lblHuongDan2, 1, 1);
+        qualityLayout.Controls.Add(ScrollableNote(lblHuongDan2), 1, 1);
         tabCauHoi.Controls.Add(qualityLayout);
 
         tabs.TabPages.Add(tabDiem);
@@ -163,6 +173,17 @@ public class frmStatistics : Form
         Controls.Add(root);
 
         Load += (s, e) => TaiDotThi();
+    }
+
+    private static Control ScrollableNote(Label label)
+    {
+        var panel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        label.Dock = DockStyle.Top;
+        label.AutoSize = true;
+        label.Padding = new Padding(12);
+        panel.Controls.Add(label);
+        panel.SizeChanged += (_, _) => label.MaximumSize = new Size(Math.Max(100, panel.ClientSize.Width - SystemInformation.VerticalScrollBarWidth), 0);
+        return panel;
     }
 
     private void TaiDotThi()

@@ -72,20 +72,24 @@ public class frmExams : Form
         _split.Panel1.Controls.Add(panelDe);
 
         // Grid dot thi (duoi)
-        var headerDot = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.White };
+        var headerDot = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            WrapContents = true, Padding = new Padding(16, 6, 12, 6), BackColor = Color.White
+        };
         var lblDot = Ui.Label("Các đợt thi của đề đang chọn (chọn đề phía trên)", Ui.H2, Ui.Navy);
-        lblDot.Location = new Point(16, 10);
+        lblDot.Margin = new Padding(0, 6, 16, 6);
         lblDot.AutoSize = true;
         var btnXemDiem = Ui.ButtonAccent("📊 Xem bảng điểm", 160, 32);
-        btnXemDiem.Location = new Point(480, 5);
+        btnXemDiem.Margin = new Padding(0, 0, 10, 4);
         btnXemDiem.Click += (s, e) => XemBangDiemDot();
         var btnDongDot = Ui.ButtonOutline("Đóng đợt thi", 130, 32);
-        btnDongDot.Location = new Point(650, 5);
-        btnDongDot.Location = new Point(480, 5);
+        btnDongDot.Margin = new Padding(0, 0, 0, 4);
         btnDongDot.Click += (s, e) => DongDot();
         headerDot.Controls.Add(lblDot);
         headerDot.Controls.Add(btnXemDiem);
         headerDot.Controls.Add(btnDongDot);
+        headerDot.SizeChanged += (_, _) => lblDot.MaximumSize = new Size(Math.Max(100, headerDot.ClientSize.Width - headerDot.Padding.Horizontal), 0);
 
         Ui.StyleGrid(_gridDot);
         _gridDot.Dock = DockStyle.Fill;
