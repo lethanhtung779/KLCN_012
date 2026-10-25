@@ -11,7 +11,8 @@ public class AccountService
     {
         Session.YeuCauQuanTriVien();
         var sql = @"
-            SELECT tk.TaiKhoanID, tk.TenDangNhap, tk.Email, tk.VaiTro, tk.TrangThai,
+            SELECT tk.TaiKhoanID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan,
+                   tk.TenDangNhap, tk.Email, tk.VaiTro, tk.TrangThai,
                    COALESCE(gv.HoTen, hv.HoTen, qtv.HoTen, N'') AS HoTen,
                    COALESCE(hv.LoaiGoi, N'') AS LoaiGoi,
                    CASE
@@ -27,10 +28,13 @@ public class AccountService
             WHERE (@tuKhoa = N'' OR tk.TenDangNhap LIKE '%' + @tuKhoa + N'%' OR tk.Email LIKE '%' + @tuKhoa + N'%'
                    OR COALESCE(gv.HoTen, hv.HoTen, qtv.HoTen, N'') LIKE '%' + @tuKhoa + N'%')
               AND (@vaiTro = N'' OR tk.VaiTro = @vaiTro)
+              AND (@id = 0 OR tk.TaiKhoanID = @id)
             ORDER BY tk.TaiKhoanID DESC";
         return Database.Query(sql, p =>
         {
-            p.AddWithValue("@tuKhoa", tuKhoa?.Trim() ?? "");
+            var id = DirectoryRules.SearchId(tuKhoa, "TK");
+            p.AddWithValue("@id", id);
+            p.AddWithValue("@tuKhoa", id > 0 ? "" : tuKhoa?.Trim() ?? "");
             p.AddWithValue("@vaiTro", vaiTro ?? "");
         });
     }
@@ -71,7 +75,7 @@ public class AccountService
         if (string.IsNullOrWhiteSpace(tenDangNhap)) return (false, "Chưa nhập tên đăng nhập.", 0);
         if (string.IsNullOrWhiteSpace(hoTen)) return (false, "Chưa nhập họ tên.", 0);
         if (hoTen.Length > 100) return (false, "Họ tên không được vượt quá 100 ký tự.", 0);
-        if (!System.Net.Mail.MailAddress.TryCreate(email, out _)) return (false, "Email không hợp lệ.", 0);
+        if (!DirectoryRules.ValidEmail(email)) return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).", 0);
         if (string.IsNullOrWhiteSpace(matKhau) || matKhau.Length < 6) return (false, "Mật khẩu tối thiểu 6 ký tự.", 0);
         if (vaiTro is not ("GiaoVien" or "HocVien" or "QuanTriVien")) return (false, "Vai trò không hợp lệ.", 0);
         if (TenDangNhapTonTai(tenDangNhap)) return (false, $"Tên đăng nhập '{tenDangNhap}' đã tồn tại.", 0);
@@ -124,7 +128,7 @@ public class AccountService
         hoTen = hoTen.Trim();
         if (string.IsNullOrWhiteSpace(hoTen)) return (false, "Chưa nhập họ tên.");
         if (hoTen.Length > 100) return (false, "Họ tên không được vượt quá 100 ký tự.");
-        if (!System.Net.Mail.MailAddress.TryCreate(email, out _)) return (false, "Email không hợp lệ.");
+        if (!DirectoryRules.ValidEmail(email)) return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).");
         if (EmailTonTai(email, taiKhoanId)) return (false, $"Email '{email}' đã được sử dụng.");
 
         using var conn = Database.Open();

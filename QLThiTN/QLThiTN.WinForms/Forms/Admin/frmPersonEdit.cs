@@ -95,8 +95,8 @@ public sealed class frmPersonEdit : Form
         if (student)
         {
             _studentType.DropDownStyle = ComboBoxStyle.DropDownList;
-            _studentType.Items.AddRange(["Học sinh", "Sinh viên", "Tự do"]);
-            _studentType.SelectedIndex = _record.LoaiHocVien switch { "SinhVien" => 1, "TuDo" => 2, _ => 0 };
+            _studentType.Items.AddRange(["Học sinh", "Tự do"]);
+            _studentType.SelectedIndex = _record.LoaiHocVien switch { "HocSinh" => 0, "TuDo" => 1, _ => -1 };
             _package.DropDownStyle = ComboBoxStyle.DropDownList;
             _package.Items.AddRange(["Miễn phí", "Đóng phí (VIP)"]);
             _package.SelectedIndex = _record.LoaiGoi == "DongPhi" ? 1 : 0;
@@ -158,6 +158,8 @@ public sealed class frmPersonEdit : Form
     private void Save()
     {
         _error.Text = "";
+        if (_record.VaiTro == "HocVien" && _studentType.SelectedIndex < 0)
+        { _error.Text = "Hãy chọn Học sinh hoặc Tự do cho hồ sơ này."; return; }
         _record.TenDangNhap = _username.Text;
         _record.Email = _email.Text;
         _record.HoTen = _name.Text;
@@ -166,7 +168,7 @@ public sealed class frmPersonEdit : Form
         if (_record.VaiTro == "HocVien")
         {
             _record.NgaySinh = _birth.Checked ? _birth.Value.Date : null;
-            _record.LoaiHocVien = _studentType.SelectedIndex switch { 1 => "SinhVien", 2 => "TuDo", _ => "HocSinh" };
+            _record.LoaiHocVien = _studentType.SelectedIndex == 1 ? "TuDo" : "HocSinh";
             _record.LoaiGoi = _package.SelectedIndex == 1 ? "DongPhi" : "MienPhi";
         }
         else

@@ -26,7 +26,8 @@ public sealed class PersonManagementService
         Session.YeuCauQuanTriVien();
         if (vaiTro == "HocVien")
             return Database.Query(@"
-                SELECT tk.TaiKhoanID, hv.HocVienID, hv.HoTen, tk.TenDangNhap, tk.Email,
+                SELECT tk.TaiKhoanID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan,
+                       hv.HocVienID, hv.HoTen, tk.TenDangNhap, tk.Email,
                        hv.SoDienThoai, hv.NgaySinh, hv.LoaiHocVien, hv.LoaiGoi, tk.TrangThai,
                        CASE hv.LoaiHocVien WHEN N'HocSinh' THEN N'Học sinh' WHEN N'SinhVien' THEN N'Sinh viên'
                            ELSE N'Tự do' END AS LoaiHocVienHienThi,
@@ -36,13 +37,15 @@ public sealed class PersonManagementService
                            AND hl.TrangThai=N'DangHoc') AS SoLop, tk.NgayTao
                 FROM HocVien hv JOIN TaiKhoan tk ON tk.TaiKhoanID=hv.TaiKhoanID
                 WHERE tk.VaiTro=N'HocVien'
+                  AND (@id = 0 OR tk.TaiKhoanID = @id)
                   AND (@status=N'' OR tk.TrangThai=@status)
                   AND (@q=N'' OR hv.HoTen LIKE N'%'+@q+N'%' OR tk.TenDangNhap LIKE N'%'+@q+N'%'
                       OR tk.Email LIKE N'%'+@q+N'%' OR hv.SoDienThoai LIKE N'%'+@q+N'%')
                 ORDER BY hv.HocVienID DESC", p => BindFilter(p, tuKhoa, trangThai));
         if (vaiTro == "GiaoVien")
             return Database.Query(@"
-                SELECT tk.TaiKhoanID, gv.GiaoVienID, gv.HoTen, tk.TenDangNhap, tk.Email,
+                SELECT tk.TaiKhoanID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan,
+                       gv.GiaoVienID, gv.HoTen, tk.TenDangNhap, tk.Email,
                        gv.SoDienThoai, tk.TrangThai,
                        CASE tk.TrangThai WHEN N'Khoa' THEN N'Đã khóa' ELSE N'Hoạt động' END AS TrangThaiHienThi,
                        STUFF((SELECT N', ' + mh.TenMon FROM GiaoVien_MonHoc gm
@@ -54,6 +57,7 @@ public sealed class PersonManagementService
                        tk.NgayTao
                 FROM GiaoVien gv JOIN TaiKhoan tk ON tk.TaiKhoanID=gv.TaiKhoanID
                 WHERE tk.VaiTro=N'GiaoVien'
+                  AND (@id = 0 OR tk.TaiKhoanID = @id)
                   AND (@status=N'' OR tk.TrangThai=@status)
                   AND (@q=N'' OR gv.HoTen LIKE N'%'+@q+N'%' OR tk.TenDangNhap LIKE N'%'+@q+N'%'
                       OR tk.Email LIKE N'%'+@q+N'%' OR gv.SoDienThoai LIKE N'%'+@q+N'%'
@@ -65,7 +69,9 @@ public sealed class PersonManagementService
 
     private static void BindFilter(SqlParameterCollection p, string? tuKhoa, string? trangThai)
     {
-        p.AddWithValue("@q", tuKhoa?.Trim() ?? "");
+        var id = DirectoryRules.SearchId(tuKhoa, "TK");
+        p.AddWithValue("@id", id);
+        p.AddWithValue("@q", id > 0 ? "" : tuKhoa?.Trim() ?? "");
         p.AddWithValue("@status", trangThai ?? "");
     }
 
@@ -127,8 +133,8 @@ public sealed class PersonManagementService
         if (item.TaiKhoanID == 0 && (item.TenDangNhap.Length is < 3 or > 50 || item.TenDangNhap.Any(char.IsWhiteSpace)))
             return (false, "Tên đăng nhập phải có 3–50 ký tự và không chứa khoảng trắng.", 0);
         if (item.HoTen.Length is < 2 or > 100) return (false, "Họ tên phải có 2–100 ký tự.", 0);
-        if (item.Email.Length > 100 || !System.Net.Mail.MailAddress.TryCreate(item.Email, out var address) || address.Address != item.Email)
-            return (false, "Email không hợp lệ hoặc quá 100 ký tự.", 0);
+        if (!DirectoryRules.ValidEmail(item.Email))
+            return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).", 0);
         if (item.SoDienThoai != null && (item.SoDienThoai.Length is < 9 or > 20 ||
             item.SoDienThoai.Any(c => !char.IsDigit(c) && c is not ('+' or '-' or ' '))))
             return (false, "Số điện thoại phải có 9–20 ký tự gồm số, dấu +, dấu - hoặc khoảng trắng.", 0);
@@ -139,7 +145,7 @@ public sealed class PersonManagementService
             return (false, "Mật khẩu phải có ít nhất 6 ký tự.", 0);
         if (item.VaiTro == "HocVien")
         {
-            if (item.LoaiHocVien is not ("HocSinh" or "SinhVien" or "TuDo")) return (false, "Loại học viên không hợp lệ.", 0);
+            if (item.LoaiHocVien is not ("HocSinh" or "TuDo")) return (false, "Chọn loại học viên: Học sinh hoặc Tự do.", 0);
             if (item.LoaiGoi is not ("MienPhi" or "DongPhi")) return (false, "Gói học viên không hợp lệ.", 0);
             if (item.NgaySinh is { } birth && (birth.Date > DateTime.Today || birth.Year < 1900))
                 return (false, "Ngày sinh phải nằm trong khoảng từ năm 1900 đến hôm nay.", 0);

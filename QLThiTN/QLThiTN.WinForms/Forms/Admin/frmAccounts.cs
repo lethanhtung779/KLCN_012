@@ -20,10 +20,11 @@ public class frmAccounts : Form
 
         // Thanh cong cu tren cung
         var lblTim = Ui.Label("Tìm kiếm:", Ui.Body, Ui.TextMuted);
-        _txtTim.PlaceholderText = "Tên đăng nhập / email / họ tên...";
+        _txtTim.PlaceholderText = "Mã TK / tên / email / họ tên...";
         _txtTim.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) TaiLai(); };
 
-        _cboVaiTro.Items.AddRange(["Tất cả", "GiaoVien", "HocVien", "QuanTriVien"]);
+        _cboVaiTro.Items.Add("Tất cả");
+        _cboVaiTro.Items.AddRange(new[] { "GiaoVien", "HocVien", "QuanTriVien" }.Select(c => new DirectoryRules.RoleOption(c)).ToArray());
         _cboVaiTro.SelectedIndex = 0;
         _cboVaiTro.SelectedIndexChanged += (s, e) => TaiLai();
 
@@ -53,6 +54,13 @@ public class frmAccounts : Form
 
         // Grid
         Ui.StyleGrid(_grid);
+        _grid.CellFormatting += (_, e) =>
+        {
+            if (e.ColumnIndex < 0) return;
+            var column = _grid.Columns[e.ColumnIndex].Name;
+            if (column == "VaiTro") { e.Value = DirectoryRules.Role(e.Value?.ToString()); e.FormattingApplied = true; }
+            if (column == "TrangThai") { e.Value = DirectoryRules.Status(e.Value?.ToString()); e.FormattingApplied = true; }
+        };
         _grid.SelectionChanged += (s, e) => _lblInfo.Text = CapNhatInfo();
 
         var toolbar = new FlowLayoutPanel
@@ -106,7 +114,7 @@ public class frmAccounts : Form
     private async void TaiLai()
     {
         var version = ++_loadVersion;
-        var vaiTro = _cboVaiTro.SelectedIndex is > 0 ? _cboVaiTro.Text : "";
+        var vaiTro = (_cboVaiTro.SelectedItem as DirectoryRules.RoleOption)?.Code ?? "";
         var search = _txtTim.Text;
         _lblInfo.Text = "Đang tải danh sách...";
         try
@@ -115,7 +123,7 @@ public class frmAccounts : Form
         if (IsDisposed || Disposing || version != _loadVersion) return;
         _grid.DataSource = data;
         Ui.RenameColumns(_grid,
-            ("TaiKhoanID", "ID"), ("TenDangNhap", "Tên đăng nhập"), ("Email", "Email"),
+            ("MaTaiKhoan", "Mã tài khoản"), ("TaiKhoanID", "ID"), ("TenDangNhap", "Tên đăng nhập"), ("Email", "Email"),
             ("VaiTro", "Vai trò"), ("TrangThai", "Trạng thái"), ("HoTen", "Họ và tên"),
             ("TrangThaiGoi", "Gói"), ("NgayTao", "Ngày tạo"));
         Ui.HideColumns(_grid, "TaiKhoanID", "LoaiGoi");
@@ -134,7 +142,7 @@ public class frmAccounts : Form
         var row = _grid.CurrentRow;
         if (row == null) return $"{_grid.Rows.Count} tài khoản";
         var goi = row.Cells["TrangThaiGoi"].Value;
-        return $"Đang chọn: {row.Cells["TenDangNhap"].Value} — {row.Cells["HoTen"].Value} [{row.Cells["TrangThai"].Value}] — Gói: {goi}";
+        return $"{row.Cells["MaTaiKhoan"].Value} · {row.Cells["TenDangNhap"].Value} — {row.Cells["HoTen"].Value} [{DirectoryRules.Status(row.Cells["TrangThai"].Value?.ToString())}] — Gói: {goi}";
     }
 
     private int IdDangChon() =>
@@ -208,11 +216,12 @@ public class frmAccounts : Form
         var id = IdDangChon();
         if (id == 0) { MessageBox.Show("Hãy chọn một tài khoản.", "Thông báo"); return; }
         var ten = _grid.CurrentRow!.Cells["TenDangNhap"].Value;
-        if (MessageBox.Show($"Đặt lại mật khẩu cho '{ten}'?",
+        if (MessageBox.Show($"Tạo mật khẩu mới cho '{ten}'?\nMật khẩu cũ sẽ không dùng được nữa. Hệ thống không tự gửi email; bạn cần gửi mật khẩu mới riêng cho người dùng.",
                 "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         var temporaryPassword = "Tn@" + Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(6));
         _service.DatLaiMatKhau(id, temporaryPassword);
-        MessageBox.Show($"Mật khẩu tạm: {temporaryPassword}\nHãy gửi riêng cho người dùng và yêu cầu đổi sau khi đăng nhập.", "Hoàn tất");
+        using var result = new PasswordResetResult(DirectoryRules.AccountCode(id), ten?.ToString() ?? "", temporaryPassword);
+        result.ShowDialog(this);
     }
 
     private void Xoa()

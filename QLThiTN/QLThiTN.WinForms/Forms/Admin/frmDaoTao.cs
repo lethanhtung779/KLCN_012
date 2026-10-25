@@ -41,6 +41,8 @@ public class frmDaoTao : Form
     private List<TongHopKhoaHoc> _tongHopCache = [];
     private TabControl? _tabs;
     private const int TabTongHopIndex = 4;
+    private int _selectedClassId;
+    private bool _bindingClass;
 
     public frmDaoTao()
     {
@@ -54,8 +56,28 @@ public class frmDaoTao : Form
         _tabs.TabPages.Add(TaoTabXepHocVien());
         _tabs.TabPages.Add(TaoTabLichHoc());
         _tabs.TabPages.Add(TaoTabTongHop());
+        var steps = new[] { "1. Khóa học", "2. Lớp & phân công", "3. Xếp học viên", "4. Lịch học", "Tổng hợp" };
+        for (var i = 0; i < steps.Length; i++) _tabs.TabPages[i].Text = steps[i];
+        var guide = Ui.Label("", Ui.Body, Ui.Navy);
+        guide.Dock = DockStyle.Top;
+        guide.AutoSize = false;
+        guide.Height = 64;
+        guide.Padding = new Padding(16, 10, 16, 6);
+        void UpdateGuide() => guide.Text = _tabs.SelectedIndex switch
+        {
+            0 => "Bước 1 · Tạo khóa học theo môn và thời gian học. Sau đó mở tab Lớp & phân công để tạo lớp trong khóa.",
+            1 => "Bước 2 · Chọn khóa học, tạo lớp rồi mở Chi tiết lớp để phân công giáo viên. Mã LH giúp phân biệt các lớp trùng tên.",
+            2 => "Bước 3 · Chọn lớp, chọn học viên chưa vào lớp rồi bấm Thêm vào lớp. Tìm chính xác bằng mã TK.",
+            3 => "Bước 4 · Chọn lớp và thêm buổi học. Lịch được hiển thị trên website cho học viên của lớp đó.",
+            _ => "Tổng hợp · Chọn khóa học để xem các lớp, giáo viên được phân công và học viên đã xếp lớp."
+        };
+        UpdateGuide();
+        _gridLop.CurrentCellChanged += (_, _) => { if (!_bindingClass && GridId(_gridLop, "LopHocID") > 0) _selectedClassId = GridId(_gridLop, "LopHocID"); };
+        foreach (var combo in new[] { _cboLopXep, _cboLopLh })
+            combo.SelectedIndexChanged += (_, _) => { if (!_bindingClass && combo.SelectedValue is int id) _selectedClassId = id; };
         _tabs.SelectedIndexChanged += (_, _) =>
         {
+            UpdateGuide();
             switch (_tabs.SelectedIndex)
             {
                 case 0: // Khóa học
@@ -79,6 +101,7 @@ public class frmDaoTao : Form
             }
         };
         Controls.Add(_tabs);
+        Controls.Add(guide);
         Load += (_, _) =>
         {
             if (_tabs.SelectedIndex == TabTongHopIndex) TaiTongHop();
@@ -104,7 +127,7 @@ public class frmDaoTao : Form
         _gridChiTietKhoa.Dock = DockStyle.Fill;
         _gridChiTietKhoa.CellFormatting += GridChiTietKhoa_CellFormatting;
 
-        _txtTimTongHop.PlaceholderText = "Tìm tên khóa, môn, lớp, giáo viên, học viên...";
+        _txtTimTongHop.PlaceholderText = "Mã TK / LH, tên khóa, môn, họ tên...";
         _txtTimTongHop.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) TaiTongHop(); };
 
         var btnTim = Ui.ButtonPrimary("Tìm", 80);
@@ -303,14 +326,14 @@ public class frmDaoTao : Form
         {
             foreach (var lop in khoa.LopHocs)
             {
-                dt.Rows.Add("Lớp học", lop.TenLop, lop.TenLop, "", "");
+                dt.Rows.Add("Lớp học", lop.TenLop, lop.TenLop, DirectoryRules.ClassCode(lop.LopHocID), "");
 
                 if (lop.GiaoViens.Count == 0)
                     dt.Rows.Add("Giáo viên", lop.TenLop, "(Chưa phân công giáo viên)", "", "");
                 else
                 {
                     foreach (var gv in lop.GiaoViens)
-                        dt.Rows.Add("Giáo viên", lop.TenLop, gv.TenGiaoVien, gv.TenMon, "Phụ trách");
+                        dt.Rows.Add("Giáo viên", lop.TenLop, gv.TenGiaoVien, $"{DirectoryRules.AccountCode(gv.TaiKhoanID)} · {gv.TenMon}", "Phụ trách");
                 }
 
                 if (lop.HocViens.Count == 0)
@@ -318,7 +341,7 @@ public class frmDaoTao : Form
                 else
                 {
                     foreach (var hv in lop.HocViens)
-                        dt.Rows.Add("Học viên", lop.TenLop, hv.HoTen, hv.TenDangNhap,
+                        dt.Rows.Add("Học viên", lop.TenLop, hv.HoTen, $"{DirectoryRules.AccountCode(hv.TaiKhoanID)} · {hv.TenDangNhap}",
                             TrangThaiHocVienLop.Display(hv.TrangThai));
                 }
             }
@@ -488,7 +511,7 @@ public class frmDaoTao : Form
         _gridLop.Dock = DockStyle.Fill;
         _gridLop.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) XemChiTietLop(); };
 
-        _txtTimLop.PlaceholderText = "Tìm tên lớp, khóa học...";
+        _txtTimLop.PlaceholderText = "Mã LH / tên lớp / khóa học...";
         _txtTimLop.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) TaiLopHoc(); };
         _cboLocKhoaLop.SelectedIndexChanged += (_, _) => TaiLopHoc();
 
@@ -557,12 +580,25 @@ public class frmDaoTao : Form
         var dt = _service.LayDanhSachLopHoc(khId, _txtTimLop.Text);
         var view = dt.DefaultView;
         if (_chkChuaPhanCong.Checked) view.RowFilter = "TrangThaiPhanCong = 'Chưa phân công'";
-        _gridLop.DataSource = view;
+        _bindingClass = true;
+        try
+        {
+            _gridLop.DataSource = view;
+            var selected = _gridLop.Rows.Cast<DataGridViewRow>().FirstOrDefault(r => Convert.ToInt32(r.Cells["LopHocID"].Value) == _selectedClassId);
+            if (selected != null)
+            {
+                _gridLop.ClearSelection();
+                _gridLop.CurrentCell = selected.Cells["TenLop"];
+                selected.Selected = true;
+            }
+            _selectedClassId = GridId(_gridLop, "LopHocID");
+        }
+        finally { _bindingClass = false; }
         Ui.RenameColumns(_gridLop,
-            ("LopHocID", "ID"), ("TenLop", "Tên lớp"), ("TenKhoaHoc", "Khóa học"),
+            ("MaLop", "Mã lớp"), ("LopHocID", "ID"), ("TenLop", "Tên lớp"), ("TenKhoaHoc", "Khóa học"),
             ("TenMon", "Môn"), ("SoHocVien", "Số học viên"),
             ("TrangThaiPhanCong", "Phân công GV"));
-        Ui.HideColumns(_gridLop, "KhoaHocID");
+        Ui.HideColumns(_gridLop, "KhoaHocID", "LopHocID");
 
         if (_gridLop.Columns.Contains("LopHocID"))
         {
@@ -648,7 +684,7 @@ public class frmDaoTao : Form
         _gridTrongLop.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         _gridChuaLop.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
-        _cboLopXep.SelectedIndexChanged += (_, _) => TaiHocVienLop();
+        _cboLopXep.SelectedIndexChanged += (_, _) => { if (!_bindingClass) TaiHocVienLop(); };
         _txtTimHv.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) TaiHocVienChuaLop(); };
 
         foreach (var (_, display) in TrangThaiHocVienLop.All)
@@ -691,7 +727,7 @@ public class frmDaoTao : Form
         ChiaDoiKhiHienThi(split);
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.White };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         top.Dock = DockStyle.Fill;
         top.Margin = Padding.Empty;
@@ -705,9 +741,19 @@ public class frmDaoTao : Form
 
     private void NapComboLop(ComboBox cbo)
     {
-        cbo.DisplayMember = "TenHienThi";
-        cbo.ValueMember = "LopHocID";
-        cbo.DataSource = _service.LayComboLopHoc();
+        var previous = _selectedClassId > 0 ? _selectedClassId : cbo.SelectedValue is int value ? value : 0;
+        _bindingClass = true;
+        try
+        {
+            cbo.DisplayMember = "TenHienThi";
+            cbo.ValueMember = "LopHocID";
+            cbo.DataSource = _service.LayComboLopHoc();
+            cbo.DropDownWidth = 850;
+            if (previous > 0) cbo.SelectedValue = previous;
+            if (cbo.SelectedIndex < 0 && cbo.Items.Count > 0) cbo.SelectedIndex = 0;
+            if (cbo.SelectedValue is int selected) _selectedClassId = selected;
+        }
+        finally { _bindingClass = false; }
     }
 
     private int LopXepId() => _cboLopXep.SelectedValue is int i ? i : 0;
@@ -723,7 +769,7 @@ public class frmDaoTao : Form
         }
         _gridTrongLop.DataSource = _service.LayHocVienTrongLop(lop);
         Ui.RenameColumns(_gridTrongLop,
-            ("HocVienID", "ID"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"),
+            ("MaTaiKhoan", "Mã tài khoản"), ("HocVienID", "ID"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"),
             ("Email", "Email"), ("NgayThamGia", "Ngày tham gia"), ("TrangThai", "Trạng thái"));
         Ui.HideColumns(_gridTrongLop, "HocVienID");
         FormatTrangThaiHvLop(_gridTrongLop);
@@ -736,7 +782,7 @@ public class frmDaoTao : Form
         if (lop <= 0) return;
         _gridChuaLop.DataSource = _service.LayHocVienChuaTrongLop(lop, _txtTimHv.Text);
         Ui.RenameColumns(_gridChuaLop,
-            ("HocVienID", "ID"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"), ("Email", "Email"));
+            ("MaTaiKhoan", "Mã tài khoản"), ("HocVienID", "ID"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"), ("Email", "Email"));
         Ui.HideColumns(_gridChuaLop, "HocVienID");
     }
 
@@ -797,7 +843,7 @@ public class frmDaoTao : Form
         _gridLh.Dock = DockStyle.Fill;
         _gridLh.CellDoubleClick += (_, _) => SuaLichHoc();
 
-        _cboLopLh.SelectedIndexChanged += (_, _) => TaiLichHoc();
+        _cboLopLh.SelectedIndexChanged += (_, _) => { if (!_bindingClass) TaiLichHoc(); };
 
         var btnThem = Ui.ButtonAccent("＋ Thêm buổi", 130);
         btnThem.Click += (_, _) =>
@@ -928,7 +974,7 @@ public class frmDaoTao : Form
             BackColor = Color.White,
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, footerHeight));
         foreach (var control in new Control[] { toolbar, grid, footer })
@@ -951,7 +997,9 @@ public class frmDaoTao : Form
             Height = 58,
             Padding = new Padding(12, 10, 0, 0),
             BackColor = Color.White,
-            WrapContents = false
+            WrapContents = true,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink
         };
         foreach (var c in controls)
         {

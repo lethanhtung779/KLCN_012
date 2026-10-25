@@ -39,8 +39,8 @@ public class frmAccountEdit : Form
         _txtHoTen.Text = hoTen;
 
         var lblVaiTro = Ui.Label("Vai trò", Ui.H2, Ui.Navy);
-        _cboVaiTro.Items.AddRange(["HocVien", "GiaoVien", "QuanTriVien"]);
-        _cboVaiTro.SelectedItem = vaiTro;
+        _cboVaiTro.Items.AddRange(new[] { "HocVien", "GiaoVien", "QuanTriVien" }.Select(c => new DirectoryRules.RoleOption(c)).ToArray());
+        _cboVaiTro.SelectedItem = _cboVaiTro.Items.Cast<DirectoryRules.RoleOption>().First(x => x.Code == vaiTro);
         Label? lblVaiTroCoDinh = null;
         if (id == 0)
         {
@@ -52,7 +52,7 @@ public class frmAccountEdit : Form
             lblVaiTroCoDinh = Ui.Label($"Vai trò: {TenVaiTro(vaiTro)} (không đổi khi sửa)", Ui.Body, Ui.TextMuted);
         }
 
-        var lblMatKhau = Ui.Label(id == 0 ? "Mật khẩu * (tối thiểu 6 ký tự)" : "Đặt lại mật khẩu (để trống = giữ nguyên)", Ui.H2, Ui.Navy);
+        var lblMatKhau = Ui.Label(id == 0 ? "Mật khẩu * (tối thiểu 6 ký tự)" : "Mật khẩu mới (để trống để giữ nguyên)", Ui.Body, Ui.Navy);
         _txtMatKhau.UseSystemPasswordChar = true;
 
         var btnLuu = Ui.ButtonAccent(id == 0 ? "Tạo tài khoản" : "Lưu thay đổi", 170, 40);
@@ -87,11 +87,13 @@ public class frmAccountEdit : Form
         lblMatKhau.Location = new Point(30, y);
         _txtMatKhau.Location = new Point(30, y + 26);
         _lblError.Location = new Point(30, y + 56);
-        btnLuu.Location = new Point(30, y + 78);
-        btnHuy.Location = new Point(210, y + 78);
+        _lblError.AutoSize = false;
+        _lblError.Size = new Size(430, 48);
+        btnLuu.Location = new Point(30, y + 108);
+        btnHuy.Location = new Point(210, y + 108);
 
         // Chieu cao form theo noi dung (tranh cat mat nut Luu / Huy khi sua tai khoan)
-        ClientSize = new Size(440, Math.Max(btnLuu.Bottom, btnHuy.Bottom) + 24);
+        ClientSize = new Size(490, Math.Max(btnLuu.Bottom, btnHuy.Bottom) + 24);
     }
 
     private static string TenVaiTro(string code) => code switch
@@ -109,7 +111,7 @@ public class frmAccountEdit : Form
         {
             if (_id == 0)
             {
-                var (ok, error, _) = _service.Them(_txtTen.Text, _txtEmail.Text, _txtHoTen.Text, _cboVaiTro.Text, _txtMatKhau.Text);
+                var (ok, error, _) = _service.Them(_txtTen.Text, _txtEmail.Text, _txtHoTen.Text, (_cboVaiTro.SelectedItem as DirectoryRules.RoleOption)?.Code ?? "", _txtMatKhau.Text);
                 if (!ok) { _lblError.Text = "⚠ " + error; return; }
             }
             else

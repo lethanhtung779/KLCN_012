@@ -44,10 +44,15 @@ public class frmChiTietLopHoc : Form
 
         Ui.StyleGrid(_classes);
         Ui.StyleGrid(_students);
+        _students.CellFormatting += (_, e) =>
+        {
+            if (e.ColumnIndex >= 0 && _students.Columns[e.ColumnIndex].Name == "TrangThai")
+            { e.Value = DirectoryRules.Status(e.Value?.ToString()); e.FormattingApplied = true; }
+        };
         Ui.StyleGrid(_teachers);
         Ui.StyleGrid(_schedule);
         _classes.SelectionChanged += (_, _) => ChonLop();
-        _search.PlaceholderText = "Tìm tên lớp hoặc khóa học...";
+        _search.PlaceholderText = "Mã lớp LH000001 / tên lớp / khóa học...";
         _search.TextChanged += (_, _) => NapDanhSach(debounce: true);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, BackColor = Ui.BorderSoft };
@@ -194,7 +199,7 @@ public class frmChiTietLopHoc : Form
         if (IsDisposed || Disposing || version != _listVersion) return;
         _dangNapDanhSach = true;
         _classes.DataSource = table;
-        Ui.RenameColumns(_classes, ("TenLop", "Lớp học"), ("SoHocVien", "HV"),
+        Ui.RenameColumns(_classes, ("MaLop", "Mã lớp"), ("TenLop", "Lớp học"), ("SoHocVien", "HV"),
             ("TrangThaiPhanCong", "Phân công GV"));
         Ui.HideColumns(_classes, "LopHocID", "TenKhoaHoc", "TenMon");
         if (_classes.Columns.Contains("TenLop")) _classes.Columns["TenLop"]!.FillWeight = 150;
@@ -276,7 +281,7 @@ public class frmChiTietLopHoc : Form
         var (info, students, teachers, schedule) = data;
         if (info.Rows.Count == 0) { XoaChiTiet(); return; }
         var row = info.Rows[0];
-        _title.Text = row["TenLop"].ToString();
+        _title.Text = $"{DirectoryRules.ClassCode(classId)} · {row["TenLop"]}";
         var dates = row["NgayBatDau"] is DateTime start && row["NgayKetThuc"] is DateTime end
             ? $" · {start:dd/MM/yyyy}–{end:dd/MM/yyyy}" : "";
         _meta.Text = $"{row["TenKhoaHoc"]} · {row["TenMon"]}{dates}";
@@ -286,7 +291,7 @@ public class frmChiTietLopHoc : Form
         _summary.ForeColor = teachers.Rows.Count == 0 ? Color.FromArgb(160, 88, 0) : Ui.Navy;
 
         _students.DataSource = students;
-        Ui.RenameColumns(_students, ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"),
+        Ui.RenameColumns(_students, ("MaTaiKhoan", "Mã tài khoản"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"),
             ("Email", "Email"), ("NgayThamGia", "Ngày vào lớp"), ("TrangThai", "Trạng thái"));
         Ui.HideColumns(_students, "HocVienID");
         if (_students.Columns.Contains("NgayThamGia")) _students.Columns["NgayThamGia"]!.DefaultCellStyle.Format = "dd/MM/yyyy";
@@ -474,7 +479,7 @@ internal class frmThemHocVienVaoLop : Form
     private void Nap()
     {
         _grid.DataSource = _service.LayHocVienChuaTrongLop(_lopId, _search.Text);
-        Ui.RenameColumns(_grid, ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"), ("Email", "Email"));
+        Ui.RenameColumns(_grid, ("MaTaiKhoan", "Mã tài khoản"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"), ("Email", "Email"));
         Ui.HideColumns(_grid, "HocVienID");
     }
 

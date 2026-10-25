@@ -23,7 +23,7 @@ public sealed class PersonDirectoryPanel : UserControl
         BackColor = Color.White;
         Font = Ui.Body;
         _search.PlaceholderText = role == "HocVien"
-            ? "Tên, tài khoản, email, điện thoại..." : "Tên, môn học, email, điện thoại...";
+            ? "Mã TK / tên / email / điện thoại..." : "Mã TK / tên / môn / email...";
         _search.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; RefreshList(); } };
         _status.DropDownStyle = ComboBoxStyle.DropDownList;
         _status.Items.AddRange(["Tất cả", "Hoạt động", "Đã khóa"]);
@@ -88,6 +88,7 @@ public sealed class PersonDirectoryPanel : UserControl
         if (IsDisposed || Disposing || version != _loadVersion) return;
         _grid.DataSource = data;
         Ui.RenameColumns(_grid,
+            ("MaTaiKhoan", "Mã tài khoản"),
             ("HoTen", "Họ và tên"), ("TenDangNhap", "Tên đăng nhập"),
             ("Email", "Email"), ("SoDienThoai", "Điện thoại"),
             ("NgaySinh", "Ngày sinh"), ("LoaiHocVienHienThi", "Đối tượng"),
@@ -99,7 +100,7 @@ public sealed class PersonDirectoryPanel : UserControl
         foreach (DataGridViewColumn col in _grid.Columns)
             col.Width = col.Name switch
             {
-                "HoTen" => 165, "TenDangNhap" => 135, "Email" => 220,
+                "MaTaiKhoan" => 125, "HoTen" => 165, "TenDangNhap" => 135, "Email" => 220,
                 "SoDienThoai" => 125, "NgaySinh" => 105, "LoaiHocVienHienThi" => 100,
                 "LoaiGoiHienThi" => 120, "TrangThaiHienThi" => 110,
                 "SoLop" or "SoCauHoi" => 76, "MonPhuTrach" => 210,
@@ -143,12 +144,12 @@ public sealed class PersonDirectoryPanel : UserControl
     {
         var id = SelectedId();
         if (id == 0) { MessageBox.Show("Hãy chọn một hồ sơ."); return; }
-        if (MessageBox.Show($"Đặt lại mật khẩu cho {SelectedName()}?", "Xác nhận",
+        if (MessageBox.Show($"Tạo mật khẩu mới cho {SelectedName()}?\nMật khẩu cũ sẽ không dùng được nữa. Hệ thống không tự gửi email; bạn cần gửi riêng cho người dùng.", "Xác nhận",
             MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         var password = "Tn@" + Convert.ToHexString(RandomNumberGenerator.GetBytes(6));
         _accounts.DatLaiMatKhau(id, password);
-        MessageBox.Show($"Mật khẩu tạm: {password}\nHãy gửi riêng cho người dùng và yêu cầu đổi sau khi đăng nhập.",
-            "Đặt lại mật khẩu", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        using var result = new PasswordResetResult(DirectoryRules.AccountCode(id), SelectedName(), password);
+        result.ShowDialog(FindForm());
     }
 
     private void Delete()

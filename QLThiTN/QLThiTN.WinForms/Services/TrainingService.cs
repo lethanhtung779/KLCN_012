@@ -97,7 +97,7 @@ public class TrainingService
     public DataTable LayDanhSachLopHoc(int? khoaHocId, string? tuKhoa)
     {
         var sql = @"
-            SELECT lh.LopHocID, lh.TenLop, lh.KhoaHocID, kh.TenKhoaHoc, mh.TenMon,
+            SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000')) AS MaLop, lh.TenLop, lh.KhoaHocID, kh.TenKhoaHoc, mh.TenMon,
                    (SELECT COUNT(1) FROM HocVien_Lop hvl WHERE hvl.LopHocID = lh.LopHocID AND hvl.TrangThai = N'DangHoc') AS SoHocVien,
                    CASE WHEN EXISTS (SELECT 1 FROM PhanCongGiangDay pc WHERE pc.LopHocID = lh.LopHocID)
                         THEN N'Đã phân công' ELSE N'Chưa phân công' END AS TrangThaiPhanCong
@@ -105,12 +105,16 @@ public class TrainingService
             INNER JOIN KhoaHoc kh ON kh.KhoaHocID = lh.KhoaHocID
             INNER JOIN MonHoc mh ON mh.MonHocID = kh.MonHocID
             WHERE (@khoaHocId IS NULL OR lh.KhoaHocID = @khoaHocId)
-              AND (@tuKhoa = N'' OR lh.TenLop LIKE N'%' + @tuKhoa + N'%' OR kh.TenKhoaHoc LIKE N'%' + @tuKhoa + N'%')
+              AND (@classId = 0 OR lh.LopHocID = @classId)
+              AND (@tuKhoa = N''
+                   OR lh.TenLop LIKE N'%' + @tuKhoa + N'%' OR kh.TenKhoaHoc LIKE N'%' + @tuKhoa + N'%')
             ORDER BY lh.LopHocID DESC";
         return Database.Query(sql, p =>
         {
             p.AddWithValue("@khoaHocId", khoaHocId.HasValue ? khoaHocId.Value : DBNull.Value);
-            p.AddWithValue("@tuKhoa", tuKhoa?.Trim() ?? "");
+            var id = DirectoryRules.SearchId(tuKhoa, "LH");
+            p.AddWithValue("@classId", id);
+            p.AddWithValue("@tuKhoa", id > 0 ? "" : tuKhoa?.Trim() ?? "");
         });
     }
 
@@ -120,7 +124,7 @@ public class TrainingService
         if (!Session.IsAccountActive() || !Session.IsQuanTriVien && !Session.IsGiaoVien)
             throw new UnauthorizedAccessException("Bạn không có quyền xem lớp học.");
         return Database.Query(@"
-            SELECT lh.LopHocID, lh.TenLop, kh.TenKhoaHoc, mh.TenMon,
+            SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000')) AS MaLop, lh.TenLop, kh.TenKhoaHoc, mh.TenMon,
                    (SELECT COUNT(*) FROM HocVien_Lop hl WHERE hl.LopHocID = lh.LopHocID AND hl.TrangThai = N'DangHoc') AS SoHocVien,
                    CASE WHEN EXISTS (SELECT 1 FROM PhanCongGiangDay pc WHERE pc.LopHocID = lh.LopHocID)
                         THEN N'Đã phân công' ELSE N'Chưa phân công' END AS TrangThaiPhanCong
@@ -130,13 +134,17 @@ public class TrainingService
             WHERE (@admin = 1 OR EXISTS (
                 SELECT 1 FROM PhanCongGiangDay pc
                 WHERE pc.LopHocID = lh.LopHocID AND pc.GiaoVienID = @gv))
-              AND (@search = N'' OR lh.TenLop LIKE N'%' + @search + N'%'
+              AND (@classId = 0 OR lh.LopHocID = @classId)
+              AND (@search = N''
+                   OR lh.TenLop LIKE N'%' + @search + N'%'
                    OR kh.TenKhoaHoc LIKE N'%' + @search + N'%')
             ORDER BY lh.LopHocID DESC", p =>
         {
             p.AddWithValue("@admin", Session.IsQuanTriVien);
             p.AddWithValue("@gv", Session.GiaoVienID);
-            p.AddWithValue("@search", tuKhoa?.Trim() ?? "");
+            var id = DirectoryRules.SearchId(tuKhoa, "LH");
+            p.AddWithValue("@classId", id);
+            p.AddWithValue("@search", id > 0 ? "" : tuKhoa?.Trim() ?? "");
         });
     }
 
@@ -195,7 +203,7 @@ public class TrainingService
 
     public DataTable LayComboLopHoc() =>
         Database.Query(@"
-            SELECT lh.LopHocID, lh.TenLop + N' (' + kh.TenKhoaHoc + N')' AS TenHienThi
+            SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000'), N' · ', lh.TenLop, N' (', kh.TenKhoaHoc, N')') AS TenHienThi
             FROM LopHoc lh
             INNER JOIN KhoaHoc kh ON kh.KhoaHocID = lh.KhoaHocID
             ORDER BY lh.TenLop");
@@ -247,7 +255,7 @@ public class TrainingService
 
     public DataTable LayHocVienTrongLop(int lopHocId) =>
         Database.Query(@"
-            SELECT hvl.HocVienID, hv.HoTen, tk.TenDangNhap, tk.Email,
+            SELECT hvl.HocVienID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan, hv.HoTen, tk.TenDangNhap, tk.Email,
                    hvl.NgayThamGia, hvl.TrangThai
             FROM HocVien_Lop hvl
             INNER JOIN HocVien hv ON hv.HocVienID = hvl.HocVienID
@@ -259,10 +267,11 @@ public class TrainingService
     public DataTable LayHocVienChuaTrongLop(int lopHocId, string? tuKhoa)
     {
         var sql = @"
-            SELECT hv.HocVienID, hv.HoTen, tk.TenDangNhap, tk.Email
+            SELECT hv.HocVienID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan, hv.HoTen, tk.TenDangNhap, tk.Email
             FROM HocVien hv
             INNER JOIN TaiKhoan tk ON tk.TaiKhoanID = hv.TaiKhoanID
             WHERE tk.VaiTro = N'HocVien' AND tk.TrangThai = N'HoatDong'
+              AND (@accountId = 0 OR tk.TaiKhoanID = @accountId)
               AND NOT EXISTS (SELECT 1 FROM HocVien_Lop hvl WHERE hvl.HocVienID = hv.HocVienID AND hvl.LopHocID = @lop)
               AND (@tuKhoa = N'' OR hv.HoTen LIKE N'%' + @tuKhoa + N'%'
                    OR tk.TenDangNhap LIKE N'%' + @tuKhoa + N'%' OR tk.Email LIKE N'%' + @tuKhoa + N'%')
@@ -270,7 +279,9 @@ public class TrainingService
         return Database.Query(sql, p =>
         {
             p.AddWithValue("@lop", lopHocId);
-            p.AddWithValue("@tuKhoa", tuKhoa?.Trim() ?? "");
+            var id = DirectoryRules.SearchId(tuKhoa, "TK");
+            p.AddWithValue("@accountId", id);
+            p.AddWithValue("@tuKhoa", id > 0 ? "" : tuKhoa?.Trim() ?? "");
         });
     }
 
@@ -332,7 +343,7 @@ public class TrainingService
 
     public DataTable LayGiaoVienTheoMon(int monHocId) =>
         Database.Query(@"
-            SELECT gv.GiaoVienID, gv.HoTen + N' (' + tk.TenDangNhap + N')' AS HoTen
+            SELECT gv.GiaoVienID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000'), N' · ', gv.HoTen, N' (', tk.TenDangNhap, N')') AS HoTen
             FROM GiaoVien gv
             JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
             JOIN GiaoVien_MonHoc gvm ON gvm.GiaoVienID = gv.GiaoVienID AND gvm.MonHocID = @mon
@@ -344,7 +355,7 @@ public class TrainingService
         Database.Query(@"
             SELECT gv.GiaoVienID, 
                    CASE WHEN tk.TenDangNhap IS NOT NULL 
-                        THEN gv.HoTen + N' (' + tk.TenDangNhap + N')' 
+                        THEN CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000'), N' · ', gv.HoTen, N' (', tk.TenDangNhap, N')')
                         ELSE gv.HoTen END AS HoTen
             FROM GiaoVien gv
             LEFT JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
@@ -532,14 +543,14 @@ public class TrainingService
             ORDER BY lh.TenLop");
 
         var dtGv = Database.Query(@"
-            SELECT pc.LopHocID, mh.TenMon, gv.HoTen AS TenGiaoVien
+            SELECT pc.LopHocID, gv.TaiKhoanID, mh.TenMon, gv.HoTen AS TenGiaoVien
             FROM PhanCongGiangDay pc
             INNER JOIN MonHoc mh ON mh.MonHocID = pc.MonHocID
             INNER JOIN GiaoVien gv ON gv.GiaoVienID = pc.GiaoVienID
             ORDER BY mh.TenMon, gv.HoTen");
 
         var dtHv = Database.Query(@"
-            SELECT hvl.LopHocID, hv.HoTen, tk.TenDangNhap, hvl.TrangThai
+            SELECT hvl.LopHocID, tk.TaiKhoanID, hv.HoTen, tk.TenDangNhap, hvl.TrangThai
             FROM HocVien_Lop hvl
             INNER JOIN HocVien hv ON hv.HocVienID = hvl.HocVienID
             INNER JOIN TaiKhoan tk ON tk.TaiKhoanID = hv.TaiKhoanID
@@ -556,6 +567,7 @@ public class TrainingService
             }
             list.Add(new TongHopGiaoVienLop
             {
+                TaiKhoanID = Convert.ToInt32(r["TaiKhoanID"]),
                 TenMon = r["TenMon"]?.ToString() ?? "",
                 TenGiaoVien = r["TenGiaoVien"]?.ToString() ?? ""
             });
@@ -572,6 +584,7 @@ public class TrainingService
             }
             list.Add(new TongHopHocVienLop
             {
+                TaiKhoanID = Convert.ToInt32(r["TaiKhoanID"]),
                 HoTen = r["HoTen"]?.ToString() ?? "",
                 TenDangNhap = r["TenDangNhap"]?.ToString() ?? "",
                 TrangThai = r["TrangThai"]?.ToString() ?? ""
@@ -619,6 +632,10 @@ public class TrainingService
 
     private static bool KhoaHopTuKhoaTongHop(TongHopKhoaHoc khoa, string key)
     {
+        if (key.StartsWith("TK", StringComparison.OrdinalIgnoreCase) && DirectoryRules.SearchId(key, "TK") is > 0 and var accountId)
+            return khoa.LopHocs.Any(l => l.GiaoViens.Any(g => g.TaiKhoanID == accountId) || l.HocViens.Any(h => h.TaiKhoanID == accountId));
+        if (key.StartsWith("LH", StringComparison.OrdinalIgnoreCase) && DirectoryRules.SearchId(key, "LH") is > 0 and var classId)
+            return khoa.LopHocs.Any(l => l.LopHocID == classId);
         if (ChuaChuoi(khoa.TenKhoaHoc, key) || ChuaChuoi(khoa.TenMon, key) || ChuaChuoi(TrangThaiKhoaHoc.Display(khoa.TrangThai), key))
             return true;
 

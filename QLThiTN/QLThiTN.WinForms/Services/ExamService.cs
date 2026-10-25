@@ -75,7 +75,7 @@ public class ExamService(int? giaoVienPhuTrachId = null)
     public DataTable LayLopChoDotThi(int deThiId)
     {
         YeuCauQuanTriVien();
-        return Database.Query(@"SELECT lh.LopHocID, lh.TenLop + N' — ' + kh.TenKhoaHoc AS TenHienThi
+        return Database.Query(@"SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000'), N' · ', lh.TenLop, N' — ', kh.TenKhoaHoc) AS TenHienThi
             FROM DeThi d JOIN KhoaHoc kh ON kh.MonHocID=d.MonHocID
             JOIN LopHoc lh ON lh.KhoaHocID=kh.KhoaHocID
             WHERE d.DeThiID=@de AND kh.TrangThai<>N'DaKetThuc'
