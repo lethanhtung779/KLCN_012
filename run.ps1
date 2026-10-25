@@ -22,6 +22,13 @@ $WebProjRel = "QLThiTN\QLThiTN.Web\QLThiTN.Web.csproj"
 $WinProjRel = "QLThiTN\QLThiTN.WinForms\QLThiTN.WinForms.csproj"
 $DataDir = Join-Path $Root "Database\Data"
 $HinhAnhRoot = Join-Path $Root "QLThiTN\tai_nguyen"
+$apiSettingsPath = Join-Path $Root "QLThiTN\QLThiTN.API\appsettings.json"
+if (Test-Path -LiteralPath $apiSettingsPath) {
+    $existingSettings = Get-Content -LiteralPath $apiSettingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (-not [string]::IsNullOrWhiteSpace($existingSettings.HinhAnhRoot)) {
+        $HinhAnhRoot = $existingSettings.HinhAnhRoot
+    }
+}
 $ApiUrl = "http://localhost:5264"
 $WebUrl = "http://localhost:7245"
 

@@ -25,9 +25,11 @@ public class frmStatistics : Form
         Padding = new Padding(28),
     };
     private bool _hasSubmittedAttempts;
+    private readonly int? _dotThiIdKhoiTao;
 
-    public frmStatistics()
+    public frmStatistics(int? dotThiId = null)
     {
+        _dotThiIdKhoiTao = dotThiId;
         Text = "Thống kê kết quả";
         Font = Ui.Body;
         BackColor = Color.White;
@@ -165,7 +167,7 @@ public class frmStatistics : Form
 
     private void TaiDotThi()
     {
-        var save = (_cboDotThi.SelectedItem as ComboItem)?.Value as int?;
+        var save = ((_cboDotThi.SelectedItem as ComboItem)?.Value as int?) ?? _dotThiIdKhoiTao;
         _cboDotThi.Items.Clear();
         try
         {

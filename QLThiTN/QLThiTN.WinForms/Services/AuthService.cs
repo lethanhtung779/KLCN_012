@@ -51,6 +51,19 @@ public class AuthService
     /// (thi sinh dung website, khong dang nhap phan mem nay).</summary>
     public (TaiKhoan? User, string Error) Login(string username, string password)
     {
+        try
+        {
+            return LoginCore(username, password);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        {
+            Session.Clear();
+            return (null, "Không kết nối hoặc truy vấn được cơ sở dữ liệu. Kiểm tra SQL Server và cấu hình appsettings.json.");
+        }
+    }
+
+    private (TaiKhoan? User, string Error) LoginCore(string username, string password)
+    {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return (null, "Vui lòng nhập tên đăng nhập và mật khẩu.");
 

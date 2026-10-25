@@ -13,6 +13,22 @@ public class ExamController : Controller
 
     private int? HocVienId => HttpContext.Session.GetInt32("HocVienId");
 
+    public sealed record ActivityRequest(int BaiLamID, Guid EventID, string EventType);
+
+    [HttpPost]
+    [RequireLogin]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Activity([FromBody] ActivityRequest request)
+    {
+        if (HocVienId is null || request.BaiLamID <= 0 || request.EventID == Guid.Empty ||
+            request.EventType is not ("hidden" or "visible" or "leave")) return BadRequest();
+        try
+        {
+            return Json(new { success = await _api.RecordExamActivityAsync(request.BaiLamID, request.EventID, request.EventType) });
+        }
+        catch (HttpRequestException) { return StatusCode(503); }
+    }
+
     private Task RefreshGoiAsync() => GoiSession.RefreshAsync(HttpContext, _api);
 
     private bool BiKhoaGoi(bool laMienPhi) => !laMienPhi && !GoiSession.LaDongPhi(HttpContext);
@@ -83,6 +99,7 @@ public class ExamController : Controller
                 QuestionCount = vm.QuestionCount,
                 HasRegistered = vm.HasRegistered,
                 CanRegister = vm.CanRegister,
+                IsOpen = vm.IsOpen,
                 ExamKind = vm.ExamKind,
                 IsAssignedToMe = vm.IsAssignedToMe,
                 ScorePublished = vm.ScorePublished,

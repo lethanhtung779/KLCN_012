@@ -13,6 +13,7 @@
 }
 
 <!-- Exam header -->
+<div id="examLeaveNotice" class="alert alert-warning m-3" role="status" aria-live="polite" hidden></div>
 <!-- Exam header (Sticky & Focused) -->
 <header class="exam-header">
     <div class="container">
@@ -243,6 +244,7 @@
 
 @section Scripts {
     <script src="~/js/exam-autosave.js" asp-append-version="true"></script>
+    <script src="~/js/exam-guard.js" asp-append-version="true"></script>
     <script>
         $(function () {
             var remainingSeconds = @Model.RemainingSeconds;
@@ -463,18 +465,48 @@
             }
 
             window.addEventListener('online', luuTam);
-            window.addEventListener('beforeunload', function (event) {
-                if (!submitting && autosave.dirty) {
-                    event.preventDefault();
-                    event.returnValue = '';
+            var guard = new ExamGuard({
+                isSubmitting: function () { return submitting; },
+                save: async function () {
+                    // Finish any in-flight snapshot, then flush edits made during that request.
+                    var ok = await autosave.flush();
+                    if (ok && autosave.dirty) ok = await autosave.flush();
+                    return ok && !autosave.dirty;
+                },
+                confirm: function (message) { return window.confirm(message); },
+                notice: function (message) { $('#examLeaveNotice').text(message).prop('hidden', false); },
+                navigate: function (url) { window.location.assign(url); },
+                record: function (type) {
+                    // randomUUID requires HTTPS; getRandomValues also works on local HTTP deployments.
+                    var bytes = crypto.getRandomValues(new Uint8Array(16));
+                    bytes[6] = (bytes[6] & 15) | 64;
+                    bytes[8] = (bytes[8] & 63) | 128;
+                    var hex = Array.from(bytes, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+                    var eventId = hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+                    fetch('@Url.Action("Activity", "Exam")', {
+                        method: 'POST', credentials: 'same-origin', keepalive: true,
+                        headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': antiForgeryToken },
+                        body: JSON.stringify({ BaiLamID: baiLamId, EventID: eventId, EventType: type })
+                    }).catch(function () { /* Activity is best effort; never block answering. */ });
                 }
+            });
+            window.addEventListener('beforeunload', function (event) { guard.beforeUnload(event); });
+            document.addEventListener('click', function (event) {
+                var link = event.target.closest('a[href]');
+                if (!link || submitting || event.defaultPrevented || link.hasAttribute('download') ||
+                    link.target === '_blank' || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                var url = new URL(link.href, window.location.href);
+                if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+                if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+                event.preventDefault();
+                guard.navigate(url.href);
             });
 
             saveTimerId = window.setInterval(function () { luuTam(); }, 15000);
 
             // Luu ngay khi roi trang (chuyen tab, thu nho cua so)
             document.addEventListener('visibilitychange', function () {
-                if (document.visibilityState === 'hidden') luuTam();
+                guard.visibility(document.visibilityState === 'hidden');
             });
 
             // Xoa tat ca dap an

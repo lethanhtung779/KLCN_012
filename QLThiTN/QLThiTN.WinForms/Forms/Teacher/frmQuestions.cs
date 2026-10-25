@@ -21,6 +21,13 @@ public class frmQuestions : Form
 
     private bool _dangKhoiTao = true;
     private int _loadVersion;
+    private List<ChuDe> _topics = [];
+    private DataTable? _results;
+    private bool _resultsDuplicates;
+    private int _page;
+    private const int PageSize = 100;
+    private readonly Button _previous = Ui.ButtonOutline("Trang trước", 120, 30);
+    private readonly Button _next = Ui.ButtonOutline("Trang sau", 120, 30);
 
     public frmQuestions()
     {
@@ -101,8 +108,16 @@ public class frmQuestions : Form
         var panelBottom = new Panel { Dock = DockStyle.Bottom, Height = 32, BackColor = Color.White };
         _lblCount.Location = new Point(16, 7);
         panelBottom.Controls.Add(_lblCount);
+        _next.Dock = DockStyle.Right;
+        _previous.Dock = DockStyle.Right;
+        _previous.Enabled = _next.Enabled = false;
+        _previous.Click += (_, _) => { if (_page > 0) { _page--; HienThiTrang(); } };
+        _next.Click += (_, _) => { if (_results != null && (_page + 1) * PageSize < _results.Rows.Count) { _page++; HienThiTrang(); } };
+        panelBottom.Controls.Add(_previous);
+        panelBottom.Controls.Add(_next);
 
         Ui.StyleGrid(_grid);
+        _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
         _grid.Dock = DockStyle.Fill;
         _grid.CellDoubleClick += (s, e) => { if (e.RowIndex >= 0) Sua(); };
         _lblEmpty.AutoSize = false;
@@ -120,7 +135,6 @@ public class frmQuestions : Form
 
         // Danh muc
         _cboMon.Items.Add(new ComboItem(0, "Tất cả môn"));
-        foreach (var m in _service.LayMonHoc()) _cboMon.Items.Add(new ComboItem(m.MonHocID, m.TenMon));
         _cboMon.SelectedIndex = 0;
 
         _cboLoai.Items.Add(new ComboItem("", "Tất cả loại"));
@@ -133,9 +147,30 @@ public class frmQuestions : Form
         foreach (var (code, display) in MucDoKho.All) _cboMuc.Items.Add(new ComboItem(code, display));
         _cboMuc.SelectedIndex = 0;
 
-        _dangKhoiTao = false;
-        TaiChuDe();
-        TaiLai();
+        Load += async (_, _) =>
+        {
+            toolbar.Enabled = false;
+            _lblCount.Text = "Đang tải môn học và chủ đề...";
+            try
+            {
+                var catalog = await Task.Run(() => (Subjects: _service.LayMonHoc(), Topics: _service.LayChuDe()));
+                if (IsDisposed || Disposing) return;
+                foreach (var m in catalog.Subjects) _cboMon.Items.Add(new ComboItem(m.MonHocID, m.TenMon));
+                _topics = catalog.Topics;
+                TaiChuDe();
+                _dangKhoiTao = false;
+                TaiLai();
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed && !Disposing)
+                    _lblCount.Text = "Không tải được danh mục: " + ex.Message;
+            }
+            finally
+            {
+                if (!IsDisposed && !Disposing) toolbar.Enabled = true;
+            }
+        };
     }
 
     private class ComboItem(object value, string text)
@@ -177,7 +212,7 @@ public class frmQuestions : Form
     {
         _cboChuDe.Items.Clear();
         _cboChuDe.Items.Add(new ComboItem(0, "Tất cả chủ đề"));
-        foreach (var cd in _service.LayChuDe(MonId > 0 ? MonId : null))
+        foreach (var cd in _topics.Where(cd => MonId <= 0 || cd.MonHocID == MonId))
             _cboChuDe.Items.Add(new ComboItem(cd.ChuDeID, cd.TenChuDe));
         _cboChuDe.SelectedIndex = 0;
     }
@@ -198,8 +233,31 @@ public class frmQuestions : Form
             var locTrung = _chkLocTrung.Checked;
             var dt = await Task.Run(() => _service.TraCuu(monId, chuDeId, loai, muc, tuKhoa, locTrung));
             if (IsDisposed || version != _loadVersion) return;
+            _results = dt;
+            _resultsDuplicates = locTrung;
+            _page = 0;
+            HienThiTrang();
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && version == _loadVersion)
+                _lblCount.Text = "Không thể tải câu hỏi: " + ex.Message;
+        }
+        finally
+        {
+            if (!IsDisposed && version == _loadVersion) UseWaitCursor = false;
+        }
+    }
 
-            _grid.DataSource = dt;
+    private void HienThiTrang()
+    {
+            if (_results == null) return;
+            var dt = _results;
+            var locTrung = _resultsDuplicates;
+            var rows = dt.AsEnumerable().Skip(_page * PageSize).Take(PageSize).ToArray();
+            _grid.DataSource = rows.Length == 0 ? dt.Clone() : rows.CopyToDataTable();
+            _previous.Enabled = _page > 0;
+            _next.Enabled = (_page + 1) * PageSize < dt.Rows.Count;
             Ui.RenameColumns(_grid,
                 ("CauHoiID", "ID"), ("NoiDung", "Nội dung câu hỏi"), ("LoaiCauHoi", "Loại"),
                 ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TrangThai", "Trạng thái"),
@@ -229,6 +287,7 @@ public class frmQuestions : Form
             {
                 _lblCount.Text = $"Tổng cộng: {dt.Rows.Count:N0} câu hỏi";
             }
+            _lblCount.Text += $" · Trang {_page + 1}/{Math.Max(1, (dt.Rows.Count + PageSize - 1) / PageSize)}";
 
             _lblEmpty.Text = dt.Rows.Count == 0
                 ? locTrung
@@ -239,19 +298,6 @@ public class frmQuestions : Form
                 : "";
             _lblEmpty.Visible = dt.Rows.Count == 0;
             CenterEmptyMessage();
-        }
-        catch (Exception ex)
-        {
-            if (!IsDisposed && version == _loadVersion)
-            {
-                _lblCount.Text = "Lỗi khi tải dữ liệu.";
-                MessageBox.Show("Không thể tải danh sách câu hỏi:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-        finally
-        {
-            if (!IsDisposed && version == _loadVersion) UseWaitCursor = false;
-        }
     }
 
     private void CenterEmptyMessage()

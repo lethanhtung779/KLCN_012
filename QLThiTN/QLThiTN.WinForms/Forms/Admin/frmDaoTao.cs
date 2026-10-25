@@ -85,11 +85,7 @@ public class frmDaoTao : Form
         };
 
         NapLocMonKhoa();
-        NapLocKhoaLop();
-        NapComboLop(_cboLopXep);
-        NapComboLop(_cboLopLh);
         TaiKhoaHoc();
-        TaiLopHoc();
     }
 
     private void CapNhatTongHop() => TaiTongHop();

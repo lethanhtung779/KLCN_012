@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, reloadOnChange: true);
 
 builder.Services.AddControllers();
+builder.Services.AddHostedService<ExamExpiryWorker>();
 builder.Services.AddAuthentication("Bearer").AddBearerToken("Bearer", options =>
     options.BearerTokenExpiration = TimeSpan.FromHours(8));
 builder.Services.AddAuthorization();
@@ -32,6 +33,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<QLThiTNDbContext>();
     await db.Database.ExecuteSqlRawAsync(GoiThi.SchemaSql);
+    await db.Database.ExecuteSqlRawAsync(QLThiTN.API.Controllers.ExamActivityController.SchemaSql);
 }
 
 app.UseHttpsRedirection();

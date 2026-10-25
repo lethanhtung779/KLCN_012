@@ -60,6 +60,13 @@ namespace QLThiTN.Web.Services;
         return await _http.GetFromJsonAsync<ApiDeThi>($"/api/dethi/{id}", JsonOptions);
     }
 
+    public async Task<bool> RecordExamActivityAsync(int attemptId, Guid eventId, string eventType)
+    {
+        using var response = await _http.PostAsJsonAsync("/api/examactivity",
+            new { BaiLamID = attemptId, EventID = eventId, EventType = eventType });
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<List<ApiCauHoi>> GetCauHoiAsync(int deThiId, int? maDeId = null, int? hocVienId = null)
     {
         var query = new List<string>();

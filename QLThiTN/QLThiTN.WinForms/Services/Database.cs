@@ -26,22 +26,21 @@ IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
 
     public static void LoadConfig(string baseDir)
     {
-        try
-        {
             var path = Path.Combine(baseDir, "appsettings.json");
-            if (!File.Exists(path)) return;
+            if (!File.Exists(path))
+                throw new FileNotFoundException("Không tìm thấy cấu hình cơ sở dữ liệu.", path);
             using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
             if (doc.RootElement.TryGetProperty("ConnectionStrings", out var cs) &&
                 cs.TryGetProperty("ThiTracNghiem", out var val))
             {
                 var s = val.GetString();
-                if (!string.IsNullOrWhiteSpace(s)) _connectionString = s;
+                if (!string.IsNullOrWhiteSpace(s))
+                {
+                    _connectionString = s;
+                    return;
+                }
             }
-        }
-        catch
-        {
-            // giu connection string mac dinh
-        }
+            throw new InvalidOperationException("Thiếu ConnectionStrings:ThiTracNghiem trong " + path);
     }
 
     public static SqlConnection Open()

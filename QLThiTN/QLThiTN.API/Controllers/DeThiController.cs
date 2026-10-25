@@ -511,13 +511,18 @@ public class DeThiController : ControllerBase
     public async Task<IActionResult> Submit(int id, [FromBody] SubmitExamRequestDto request)
     {
         if (request.HocVienID != User.StudentId()) return Forbid();
+        return await SubmitAttemptAsync(id, request, User.StudentId());
+    }
+
+    internal async Task<IActionResult> SubmitAttemptAsync(int id, SubmitExamRequestDto request, int? studentId, bool expiredOnly = false)
+    {
         await using var transaction = await ExamTransaction.BeginAsync(_db, $"attempt:{request.BaiLamID}");
         var de = await _db.DeThis
             .Include(d => d.MonHoc)
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
         if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
-        if (!de.LaMienPhi)
+        if (!de.LaMienPhi && !expiredOnly)
         {
             var goi = await _db.HocViens
                 .Where(h => h.HocVienID == (request.HocVienID ?? 0))
@@ -532,7 +537,7 @@ public class DeThiController : ControllerBase
             return BadRequest(new { message = "Bạn phải bắt đầu bài thi trước khi nộp." });
         var submittedAttempt = await _db.BaiLams.Include(b => b.DotThi)
             .Include(b => b.ChiTietBaiLams).ThenInclude(c => c.LuaChonBaiLams)
-            .FirstOrDefaultAsync(b => b.BaiLamID == request.BaiLamID && b.HocVienID == User.StudentId());
+            .FirstOrDefaultAsync(b => b.BaiLamID == request.BaiLamID && b.HocVienID == studentId);
         if (submittedAttempt is null || submittedAttempt.DotThi?.DeThiID != id) return NotFound();
         if (submittedAttempt.TrangThai != "DangLam")
             return Ok(new SubmitExamResultDto { BaiLamID = submittedAttempt.BaiLamID, DeThiID = id,
@@ -540,6 +545,7 @@ public class DeThiController : ControllerBase
         var dotThi = submittedAttempt.DotThi;
         if (now < dotThi.ThoiGianMoCong) return BadRequest(new { message = "Đợt thi chưa mở." });
         request.HetGio = now >= ExamRules.Deadline(submittedAttempt, dotThi);
+        if (expiredOnly && !request.HetGio) return Conflict();
         if (request.HetGio) request.Answers = ExamRules.SavedAnswers(submittedAttempt);
         if (request.Answers.Select(a => a.CauHoiID).Distinct().Count() != request.Answers.Count)
             return BadRequest(new { message = "Câu trả lời bị trùng." });
@@ -675,12 +681,12 @@ public class DeThiController : ControllerBase
             : 0m;
 
         var baiLam = submittedAttempt;
-        baiLam.ThoiGianNop = now;
+        baiLam.ThoiGianNop = request.HetGio ? ExamRules.Deadline(baiLam, dotThi) : now;
         baiLam.TongDiem = score;
         baiLam.TrangThai = request.HetGio ? "HetGio" : "DaNop";
 
         var startTime = baiLam.ThoiGianBatDau;
-        var durationUsed = (int)Math.Max(1, Math.Round((now - startTime).TotalMinutes));
+        var durationUsed = (int)Math.Max(1, Math.Round((baiLam.ThoiGianNop.Value - startTime).TotalMinutes));
 
         var resultMap = results.ToDictionary(r => r.CauHoiID);
         var ctMap = baiLam.ChiTietBaiLams.ToDictionary(ct => ct.CauHoiID);
@@ -720,7 +726,7 @@ public class DeThiController : ControllerBase
             Correct = correct,
             Wrong = total - correct,
             ThoiGianBatDau = startTime,
-            ThoiGianNop = now,
+            ThoiGianNop = baiLam.ThoiGianNop.Value,
             DurationUsed = durationUsed,
             ScorePublished = dotThi.CongBoDiemSom || dotThi.ThoiGianDongCong <= now,
             Results = results

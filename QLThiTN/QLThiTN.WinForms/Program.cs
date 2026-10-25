@@ -9,18 +9,20 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
-        Database.LoadConfig(AppContext.BaseDirectory);
         try
         {
+            Database.LoadConfig(AppContext.BaseDirectory);
             Database.EnsureGoiColumns();
         }
         catch (Exception ex)
         {
             MessageBox.Show(
-                "Không cập nhật được cột gói tài khoản / đề miễn phí.\n" + ex.Message,
+                "Không thể khởi tạo cơ sở dữ liệu. Kiểm tra SQL Server và appsettings.json tại:\n"
+                + AppContext.BaseDirectory + "\n\n" + ex.Message,
                 "Cơ sở dữ liệu",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
+            return;
         }
 
         if (args is ["--hash", var plain, ..])

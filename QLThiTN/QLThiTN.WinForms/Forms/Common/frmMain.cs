@@ -47,7 +47,7 @@ public class frmMain : Form
 
         var lblRole = new Label
         {
-            Text = Session.IsQuanTriVien ? "QUẢN TRỊ VIÊN" : Session.IsGiaoVien ? "GIÁO VIÊN · GIÁO VỤ" : "QUẢN TRỊ & GIÁO VIÊN",
+            Text = Session.IsQuanTriVien ? "QUẢN TRỊ VIÊN" : Session.IsGiaoVien ? "GIÁO VIÊN" : "QUẢN TRỊ & GIÁO VIÊN",
             Font = Ui.Small,
             ForeColor = Color.FromArgb(120, 140, 180),
             AutoSize = false,
@@ -83,6 +83,7 @@ public class frmMain : Form
             flow.Controls.Add(NavButton("Quản lý tài khoản", () => MoManHinh("Quản lý tài khoản", () => new Forms.Admin.frmAccounts())));
             flow.Controls.Add(NavButton("Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp học", () => new Forms.Admin.frmDaoTao())));
             flow.Controls.Add(NavButton("Đề thi & Kỳ thi", () => MoManHinh("Đề thi & Kỳ thi", () => new Forms.Teacher.frmExams())));
+            flow.Controls.Add(NavButton("Thống kê & Điểm thi", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));
             flow.Controls.Add(NavButton("Sao lưu & phục hồi", () => MoManHinh("Sao lưu & phục hồi dữ liệu", () => new Forms.Admin.frmBackupRestore())));
         }
 
@@ -148,7 +149,9 @@ public class frmMain : Form
     private void MoManHinh(string tieuDe, Func<Form> tao)
     {
         _content.SuspendLayout();
-        foreach (Control c in _content.Controls) c.Dispose();
+        try
+        {
+        foreach (var c in _content.Controls.Cast<Control>().ToArray()) c.Dispose();
         _content.Controls.Clear();
 
         var header = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = Color.White };
@@ -171,7 +174,11 @@ public class frmMain : Form
         _content.Controls.Add(child);
         _content.Controls.Add(header);
         child.Show();
-        _content.ResumeLayout();
+        }
+        finally
+        {
+            _content.ResumeLayout(true);
+        }
     }
 
     /// <summary>Dashboard tong quan: 4 the so lieu that tu DB.</summary>

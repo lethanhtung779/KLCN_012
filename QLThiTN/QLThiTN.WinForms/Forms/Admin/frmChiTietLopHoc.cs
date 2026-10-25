@@ -10,6 +10,8 @@ public class frmChiTietLopHoc : Form
     private readonly int _lopBanDau;
     private int _lopDangXem;
     private bool _dangNapDanhSach;
+    private int _listVersion;
+    private int _detailVersion;
     private readonly TextBox _search = Ui.Input(280);
     private readonly DataGridView _classes = new();
     private readonly DataGridView _students = new();
@@ -30,7 +32,7 @@ public class frmChiTietLopHoc : Form
 
     public frmChiTietLopHoc(int lopHocId = 0)
     {
-        if (!Session.IsAccountActive() || !Session.IsQuanTriVien && !Session.IsGiaoVien)
+        if (!Session.IsQuanTriVien && !Session.IsGiaoVien)
             throw new UnauthorizedAccessException("Bạn không có quyền xem lớp học.");
 
         _lopBanDau = lopHocId;
@@ -46,7 +48,7 @@ public class frmChiTietLopHoc : Form
         Ui.StyleGrid(_schedule);
         _classes.SelectionChanged += (_, _) => ChonLop();
         _search.PlaceholderText = "Tìm tên lớp hoặc khóa học...";
-        _search.TextChanged += (_, _) => NapDanhSach();
+        _search.TextChanged += (_, _) => NapDanhSach(debounce: true);
 
         var split = new SplitContainer { Dock = DockStyle.Fill, BackColor = Ui.BorderSoft };
         split.SizeChanged += (_, _) =>
@@ -97,7 +99,7 @@ public class frmChiTietLopHoc : Form
             ThemNut("Thêm học viên", ThemHocVien);
             ThemNut("Thêm lịch học", ThemLich);
         }
-        ThemNut("Làm mới", () => { NapDanhSach(_lopDangXem); TaiChiTiet(); });
+        ThemNut("Làm mới", () => NapDanhSach(_lopDangXem));
 
         _tabHocVien = TaoTab("Học viên", _students, _studentHint);
         _tabGiaoVien = TaoTabGiaoVien();
@@ -178,10 +180,18 @@ public class frmChiTietLopHoc : Form
         _actions.Controls.Add(button);
     }
 
-    private void NapDanhSach(int preferId = 0)
+    private async void NapDanhSach(int preferId = 0, bool debounce = false)
     {
+        var version = ++_listVersion;
         var selectedId = preferId > 0 ? preferId : _lopDangXem;
-        var table = _service.LayLopDuocXem(_search.Text);
+        var search = _search.Text;
+        try
+        {
+        if (debounce) await Task.Delay(300);
+        if (IsDisposed || Disposing || version != _listVersion) return;
+        _classHint.Text = "Đang tải danh sách lớp...";
+        var table = await Task.Run(() => _service.LayLopDuocXem(search));
+        if (IsDisposed || Disposing || version != _listVersion) return;
         _dangNapDanhSach = true;
         _classes.DataSource = table;
         Ui.RenameColumns(_classes, ("TenLop", "Lớp học"), ("SoHocVien", "HV"),
@@ -216,6 +226,15 @@ public class frmChiTietLopHoc : Form
         _lopDangXem = 0;
         _dangNapDanhSach = false;
         ChonLop();
+        }
+        catch (Exception ex)
+        {
+            if (IsDisposed || Disposing || version != _listVersion) return;
+            _dangNapDanhSach = false;
+            _classes.DataSource = null;
+            XoaChiTiet();
+            _classHint.Text = "Không tải được lớp: " + ex.Message;
+        }
     }
 
     private void ChonLop()
@@ -228,19 +247,39 @@ public class frmChiTietLopHoc : Form
         TaiChiTiet();
     }
 
-    private void TaiChiTiet()
+    private async void TaiChiTiet()
     {
         if (_lopDangXem <= 0) { XoaChiTiet(); return; }
-        var info = _service.LayThongTinLopDuocXem(_lopDangXem);
+        var version = ++_detailVersion;
+        var classId = _lopDangXem;
+        _actions.Enabled = false;
+        _tabs.Enabled = false;
+        _students.DataSource = null;
+        _teachers.DataSource = null;
+        _schedule.DataSource = null;
+        _title.Text = "Đang tải thông tin lớp...";
+        _meta.Text = _summary.Text = "";
+        _studentHint.Text = _teacherHint.Text = _scheduleHint.Text = "";
+        try
+        {
+        var data = await Task.Run(() =>
+        {
+            var info = _service.LayThongTinLopDuocXem(classId);
+            // Keep the permission checks on each data access.
+            if (info.Rows.Count == 0)
+                return (info, students: new DataTable(), teachers: new DataTable(), schedule: new DataTable());
+            return (info, students: _service.LayHocVienLopDuocXem(classId),
+                teachers: _service.LayPhanCongLopDuocXem(classId),
+                schedule: _service.LayLichHocLopDuocXem(classId));
+        });
+        if (IsDisposed || Disposing || version != _detailVersion || classId != _lopDangXem) return;
+        var (info, students, teachers, schedule) = data;
         if (info.Rows.Count == 0) { XoaChiTiet(); return; }
         var row = info.Rows[0];
         _title.Text = row["TenLop"].ToString();
         var dates = row["NgayBatDau"] is DateTime start && row["NgayKetThuc"] is DateTime end
             ? $" · {start:dd/MM/yyyy}–{end:dd/MM/yyyy}" : "";
         _meta.Text = $"{row["TenKhoaHoc"]} · {row["TenMon"]}{dates}";
-        var students = _service.LayHocVienLopDuocXem(_lopDangXem);
-        var teachers = _service.LayPhanCongLopDuocXem(_lopDangXem);
-        var schedule = _service.LayLichHocLopDuocXem(_lopDangXem);
         _summary.Text = teachers.Rows.Count == 0
             ? $"{row["SoHocVien"]} học viên đang học  ·  CHƯA PHÂN CÔNG GIÁO VIÊN  ·  {row["SoBuoiSapToi"]} buổi sắp tới"
             : $"{row["SoHocVien"]} học viên đang học  ·  {teachers.Rows.Count} giáo viên  ·  {row["SoBuoiSapToi"]} buổi sắp tới";
@@ -265,10 +304,28 @@ public class frmChiTietLopHoc : Form
         if (_schedule.Columns.Contains("ThoiGianBatDau")) _schedule.Columns["ThoiGianBatDau"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
         if (_schedule.Columns.Contains("ThoiGianKetThuc")) _schedule.Columns["ThoiGianKetThuc"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
         _scheduleHint.Text = schedule.Rows.Count == 0 ? "Lớp chưa có lịch học." : $"{schedule.Rows.Count} buổi học đã lên lịch";
+        }
+        catch (Exception ex)
+        {
+            if (IsDisposed || Disposing || version != _detailVersion) return;
+            _title.Text = "Không tải được thông tin lớp";
+            _meta.Text = ex.Message;
+        }
+        finally
+        {
+            if (!IsDisposed && !Disposing && version == _detailVersion)
+            {
+                _actions.Enabled = true;
+                _tabs.Enabled = true;
+            }
+        }
     }
 
     private void XoaChiTiet()
     {
+        ++_detailVersion;
+        _actions.Enabled = true;
+        _tabs.Enabled = true;
         _lopDangXem = 0;
         _title.Text = "Chọn một lớp học";
         _meta.Text = "";

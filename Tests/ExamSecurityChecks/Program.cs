@@ -13,6 +13,7 @@ using QLThiTN.API.Entities;
 
 var repo = Path.GetFullPath(args.FirstOrDefault() ?? ".");
 var apiRoot = Path.Combine(repo, "QLThiTN", "QLThiTN.API");
+var buildConfiguration = Environment.GetEnvironmentVariable("EXAM_CHECK_CONFIGURATION") ?? "Debug";
 var config = new ConfigurationBuilder().SetBasePath(apiRoot).AddJsonFile("appsettings.json").Build();
 var databaseName = "QLThiTN_SecurityChecks_" + Guid.NewGuid().ToString("N");
 var connection = new SqlConnectionStringBuilder(config.GetConnectionString("ThiTracNghiem"))
@@ -68,7 +69,7 @@ try
     portProbe.Stop();
     var start = new ProcessStartInfo("dotnet") { WorkingDirectory = apiRoot, UseShellExecute = false,
         CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-    start.ArgumentList.Add(Path.Combine(apiRoot, "bin", "Debug", "net10.0", "QLThiTN.API.dll"));
+    start.ArgumentList.Add(Path.Combine(apiRoot, "bin", buildConfiguration, "net10.0", "QLThiTN.API.dll"));
     start.Environment["ASPNETCORE_URLS"] = $"http://127.0.0.1:{port}";
     start.Environment["ASPNETCORE_ENVIRONMENT"] = "Production";
     start.Environment["ConnectionStrings__ThiTracNghiem"] = connection.ConnectionString;
@@ -117,6 +118,13 @@ try
     var begins = await Task.WhenAll(Begin(), Begin());
     var attempt = begins[0];
     Check(begins[0].BaiLamID == begins[1].BaiLamID, "Concurrent starts share one attempt");
+    var activity = new { BaiLamID = attempt.BaiLamID, EventID = Guid.NewGuid(), EventType = "hidden" };
+    Check((await anonymous.PostAsJsonAsync("/api/examactivity", activity)).StatusCode == HttpStatusCode.Unauthorized, "Anonymous activity denied");
+    Check((await b.PostAsJsonAsync("/api/examactivity", activity)).StatusCode == HttpStatusCode.NotFound, "Other student's activity denied");
+    Check((await a.PostAsJsonAsync("/api/examactivity", activity)).IsSuccessStatusCode, "Activity accepted for own active attempt");
+    Check((await a.PostAsJsonAsync("/api/examactivity", activity)).IsSuccessStatusCode, "Activity retry is idempotent");
+    var activityCount = await db.Database.SqlQuery<int>($"SELECT COUNT(*) AS Value FROM dbo.ExamActivity WHERE BaiLamID = {attempt.BaiLamID}").SingleAsync();
+    Check(activityCount == 1, "Activity retry does not duplicate event");
     Check((await a.GetAsync(prefix + $"/cauhoi?maDeId={attempt.MaDeID + 999}")).StatusCode == HttpStatusCode.Forbidden, "Unassigned exam variant denied");
     Check((await a.GetAsync(prefix + $"/cauhoi?maDeId={attempt.MaDeID}")).IsSuccessStatusCode, "Assigned questions available");
     List<SubmitAnswerDto> Correct() => [new() { CauHoiID = question.CauHoiID, DapAnID = question.DapAns[0].DapAnID }];
@@ -157,7 +165,7 @@ try
     var webRoot = Path.Combine(repo, "QLThiTN", "QLThiTN.Web");
     var webStart = new ProcessStartInfo("dotnet") { WorkingDirectory = webRoot, UseShellExecute = false,
         CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
-    webStart.ArgumentList.Add(Path.Combine(webRoot, "bin", "Debug", "net10.0", "QLThiTN.Web.dll"));
+    webStart.ArgumentList.Add(Path.Combine(webRoot, "bin", buildConfiguration, "net10.0", "QLThiTN.Web.dll"));
     webStart.Environment["ASPNETCORE_URLS"] = $"http://127.0.0.1:{webPort}";
     webStart.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
     webStart.Environment["ApiSettings__BaseUrl"] = anonymous.BaseAddress!.ToString();
@@ -196,6 +204,13 @@ try
     Check(takingResponse.IsSuccessStatusCode && takingHtml.Contains("exam-autosave.js"), "Web opens exam with autosave client");
     var attemptMatch = System.Text.RegularExpressions.Regex.Match(takingHtml, "name=\"BaiLamID\" value=\"(\\d+)\"");
     var webAttemptId = int.Parse(attemptMatch.Groups[1].Value);
+    Check(takingHtml.Contains("exam-guard.js"), "Exam includes leave guard");
+    var webActivity = new { BaiLamID = webAttemptId, EventID = Guid.NewGuid(), EventType = "visible" };
+    Check((await browser.PostAsJsonAsync("/Exam/Activity", webActivity)).StatusCode == HttpStatusCode.BadRequest, "Activity requires antiforgery token");
+    using var activityRequest = new HttpRequestMessage(HttpMethod.Post, "/Exam/Activity") { Content = JsonContent.Create(webActivity) };
+    activityRequest.Headers.Add("RequestVerificationToken", Csrf(takingHtml));
+    var activityResponse = await browser.SendAsync(activityRequest);
+    Check(activityResponse.IsSuccessStatusCode && (await activityResponse.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("success").GetBoolean(), "Web records activity with authenticated session");
     var payload = new { ExamId = exam.DeThiID, BaiLamID = webAttemptId,
         Answers = new[] { new { QuestionId = question.CauHoiID, SelectedOptionId = question.DapAns[0].DapAnID } } };
     Check((await browser.PostAsJsonAsync("/Exam/LuuTam", payload)).StatusCode == HttpStatusCode.BadRequest, "Web autosave rejects missing antiforgery token");
@@ -208,6 +223,21 @@ try
     var resumedResponse = await browser.GetAsync($"/Exam/Taking/{exam.DeThiID}");
     Check(resumedResponse.StatusCode == HttpStatusCode.Redirect && resumedResponse.Headers.Location!.ToString().Contains("Result"), "Web finalizes expired resumed attempt");
 
+    var abandoned = await Begin();
+    Check((await a.PostAsJsonAsync(prefix + "/luutam", new LuuTamRequestDto
+        { BaiLamID = abandoned.BaiLamID, HocVienID = student.HocVienID, Answers = Correct() })).IsSuccessStatusCode,
+        "Save abandoned attempt snapshot");
+    await db.BaiLams.Where(x => x.BaiLamID == abandoned.BaiLamID).ExecuteUpdateAsync(s => s.SetProperty(x => x.ThoiGianBatDau, DateTime.Now.AddHours(-1)));
+    BaiLam? autoClosed = null;
+    for (var i = 0; i < 25; i++)
+    {
+        autoClosed = await db.BaiLams.AsNoTracking().SingleAsync(x => x.BaiLamID == abandoned.BaiLamID);
+        if (autoClosed.TrangThai != "DangLam") break;
+        await Task.Delay(1000);
+    }
+    Check(autoClosed!.TrangThai == "HetGio" && autoClosed.TongDiem == 10, "Worker grades saved snapshot without any client submission");
+    Check((await a.PostAsJsonAsync("/api/examactivity", new { BaiLamID = abandoned.BaiLamID, EventID = Guid.NewGuid(), EventType = "hidden" })).StatusCode == HttpStatusCode.Conflict,
+        "Closed attempt rejects activity");
     await db.TaiKhoans.Where(x => x.TaiKhoanID == student.TaiKhoanID).ExecuteUpdateAsync(s => s.SetProperty(x => x.TrangThai, "BiKhoa"));
     Check((await a.GetAsync($"/api/auth/profile/{student.TaiKhoanID}")).StatusCode == HttpStatusCode.Unauthorized, "Locking account revokes existing token");
     Console.WriteLine($"All {passed} security/integrity checks passed.");

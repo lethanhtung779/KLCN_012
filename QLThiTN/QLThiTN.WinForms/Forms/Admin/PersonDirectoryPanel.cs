@@ -73,11 +73,20 @@ public sealed class PersonDirectoryPanel : UserControl
         RefreshList();
     }
 
-    public void RefreshList()
+    private int _loadVersion;
+
+    public async void RefreshList()
     {
+        var version = ++_loadVersion;
         var selected = SelectedId();
         var status = _status.SelectedIndex switch { 1 => "HoatDong", 2 => "Khoa", _ => "" };
-        _grid.DataSource = _people.LayDanhSach(_role, _search.Text, status);
+        var search = _search.Text;
+        _summary.Text = "Đang tải danh sách...";
+        try
+        {
+        var data = await Task.Run(() => _people.LayDanhSach(_role, search, status));
+        if (IsDisposed || Disposing || version != _loadVersion) return;
+        _grid.DataSource = data;
         Ui.RenameColumns(_grid,
             ("HoTen", "Họ và tên"), ("TenDangNhap", "Tên đăng nhập"),
             ("Email", "Email"), ("SoDienThoai", "Điện thoại"),
@@ -102,6 +111,12 @@ public sealed class PersonDirectoryPanel : UserControl
             if (Convert.ToInt32(row.Cells["TaiKhoanID"].Value) == selected)
             { row.Selected = true; _grid.CurrentCell = row.Cells["HoTen"]; break; }
         _summary.Text = $"{_grid.Rows.Count} {(_role == "HocVien" ? "học viên" : "giáo viên")} trong danh sách";
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _loadVersion)
+                _summary.Text = "Không tải được danh sách: " + ex.Message;
+        }
     }
 
     private int SelectedId() => _grid.CurrentRow?.Cells["TaiKhoanID"].Value is { } id ? Convert.ToInt32(id) : 0;

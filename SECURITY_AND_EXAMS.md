@@ -18,7 +18,9 @@
 
 - Cần khởi động lại API và Web sau cập nhật. Phiên Web cũ không có token sẽ yêu cầu đăng nhập lại.
 - Cần giữ an toàn key ring ASP.NET Core Data Protection; khi triển khai nhiều API instance phải chia sẻ key ring phù hợp để token có thể được xác thực ở mọi instance.
-- Bản này chưa có worker nền tự chốt bài khi học viên đóng trình duyệt và không quay lại. Hạn thi vẫn được máy chủ cưỡng chế, nhưng việc chốt điểm xảy ra khi có yêu cầu nộp/quay lại.
+- Worker nền kiểm tra bài hết hạn mỗi 15 giây khi API hoạt động và dùng cùng giao dịch/khóa/chấm điểm với nộp bài. Bài được chốt từ đáp án đã lưu, mốc nộp là hạn thi. Khi API khởi động lại, worker xử lý cả các bài đã quá hạn trong lúc API dừng.
+- Trang thi cảnh báo rời bài kể cả đã lưu hết đáp án. Link điều hướng có xác nhận, thử lưu trước khi rời; đóng tab/tải lại dùng cảnh báo mặc định của trình duyệt (không bảo đảm mọi thiết bị đều hiển thị). Chuyển tab/thu nhỏ được ghi nhận và nhắc khi quay lại, không tự kết luận gian lận hay tự nộp bài do số lần rời tab.
+- Nhật ký `dbo.ExamActivity` lưu loại sự kiện và thời điểm máy chủ nhận, giới hạn 1000 sự kiện/bài, chống gửi lặp bằng EventID. API kiểm tra chủ sở hữu bài, trạng thái/hạn thi; Web yêu cầu antiforgery token. Đây là tín hiệu do trình duyệt gửi, có thể thiếu khi mất mạng/đóng ứng dụng, không phải bằng chứng gian lận. Chưa có màn hình xem nhật ký cho giám thị.
 - Chưa hỗ trợ phục hồi thay đổi chưa gửi sau khi đóng tab, tải lại trang hoặc mất điện; chỉ đáp án máy chủ xác nhận được bảo đảm khôi phục. Cần giữ trang mở khi có lỗi đồng bộ.
 - Chưa giải quyết ghi đè đáp án giữa nhiều tab đang mở cùng một bài; giao dịch bảo đảm ghi nguyên vẹn, không thay thế kiểm soát phiên hoặc phiên bản dữ liệu giữa các tab.
 - Băm mật khẩu SHA-256 cũ, cảnh báo dependency, giới hạn tần suất đăng nhập và rà soát HTML câu hỏi cần được xử lý tiếp. Các URL ảnh hiện vẫn công khai để tương thích cách Web tải ảnh trực tiếp.

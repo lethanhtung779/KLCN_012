@@ -10,6 +10,7 @@ public class frmAccounts : Form
     private readonly TextBox _txtTim = Ui.Input(220);
     private readonly ComboBox _cboVaiTro = Ui.Combo(150);
     private readonly Label _lblInfo = Ui.Label("", Ui.Small, Ui.TextMuted);
+    private int _loadVersion;
 
     public frmAccounts()
     {
@@ -80,34 +81,51 @@ public class frmAccounts : Form
         accountsTab.Controls.Add(toolbar);
         tabs.TabPages.Add(accountsTab);
         var studentsTab = new TabPage("Danh sách học viên") { BackColor = Color.White };
-        studentsTab.Controls.Add(new PersonDirectoryPanel("HocVien"));
         tabs.TabPages.Add(studentsTab);
         var teachersTab = new TabPage("Danh sách giáo viên") { BackColor = Color.White };
-        teachersTab.Controls.Add(new PersonDirectoryPanel("GiaoVien"));
         tabs.TabPages.Add(teachersTab);
         tabs.SelectedIndexChanged += (_, _) =>
         {
-            if (tabs.SelectedIndex == 1) ((PersonDirectoryPanel)studentsTab.Controls[0]).RefreshList();
-            if (tabs.SelectedIndex == 2) ((PersonDirectoryPanel)teachersTab.Controls[0]).RefreshList();
+            var page = tabs.SelectedTab;
+            if (page == studentsTab || page == teachersTab)
+            {
+                if (page.Controls.Count == 0)
+                    page.Controls.Add(new PersonDirectoryPanel(page == studentsTab ? "HocVien" : "GiaoVien"));
+                else
+                    ((PersonDirectoryPanel)page.Controls[0]).RefreshList();
+            }
         };
         Controls.Add(tabs);
 
         _grid.Dock = DockStyle.Fill;
         _grid.CellDoubleClick += (s, e) => Sua();
 
-        TaiLai();
+        Load += (_, _) => TaiLai();
     }
 
-    private void TaiLai()
+    private async void TaiLai()
     {
+        var version = ++_loadVersion;
         var vaiTro = _cboVaiTro.SelectedIndex is > 0 ? _cboVaiTro.Text : "";
-        _grid.DataSource = _service.LayDanhSach(_txtTim.Text, vaiTro);
+        var search = _txtTim.Text;
+        _lblInfo.Text = "Đang tải danh sách...";
+        try
+        {
+        var data = await Task.Run(() => _service.LayDanhSach(search, vaiTro));
+        if (IsDisposed || Disposing || version != _loadVersion) return;
+        _grid.DataSource = data;
         Ui.RenameColumns(_grid,
             ("TaiKhoanID", "ID"), ("TenDangNhap", "Tên đăng nhập"), ("Email", "Email"),
             ("VaiTro", "Vai trò"), ("TrangThai", "Trạng thái"), ("HoTen", "Họ và tên"),
             ("TrangThaiGoi", "Gói"), ("NgayTao", "Ngày tạo"));
         Ui.HideColumns(_grid, "TaiKhoanID", "LoaiGoi");
         _lblInfo.Text = CapNhatInfo();
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _loadVersion)
+                _lblInfo.Text = "Không tải được danh sách: " + ex.Message;
+        }
     }
 
     private string CapNhatInfo()

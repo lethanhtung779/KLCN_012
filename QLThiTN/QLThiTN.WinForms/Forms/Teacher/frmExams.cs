@@ -76,10 +76,15 @@ public class frmExams : Form
         var lblDot = Ui.Label("Các đợt thi của đề đang chọn (chọn đề phía trên)", Ui.H2, Ui.Navy);
         lblDot.Location = new Point(16, 10);
         lblDot.AutoSize = true;
-        var btnDongDot = Ui.ButtonOutline("Đóng đợt thi", 140, 32);
+        var btnXemDiem = Ui.ButtonAccent("📊 Xem bảng điểm", 160, 32);
+        btnXemDiem.Location = new Point(480, 5);
+        btnXemDiem.Click += (s, e) => XemBangDiemDot();
+        var btnDongDot = Ui.ButtonOutline("Đóng đợt thi", 130, 32);
+        btnDongDot.Location = new Point(650, 5);
         btnDongDot.Location = new Point(480, 5);
         btnDongDot.Click += (s, e) => DongDot();
         headerDot.Controls.Add(lblDot);
+        headerDot.Controls.Add(btnXemDiem);
         headerDot.Controls.Add(btnDongDot);
 
         Ui.StyleGrid(_gridDot);
@@ -257,6 +262,14 @@ public class frmExams : Form
         var tenDe = _gridDe.CurrentRow!.Cells["TenDe"].Value?.ToString() ?? "";
         using var f = new frmDotThiEdit(deId, tenDe);
         if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
+    }
+
+    private void XemBangDiemDot()
+    {
+        var id = DotIdDangChon();
+        if (id == 0) { MessageBox.Show("Hãy chọn một đợt thi phía dưới để xem bảng điểm.", "Thông báo"); return; }
+        using var f = new frmStatistics(id);
+        f.ShowDialog(FindForm());
     }
 
     private void DongDot()
