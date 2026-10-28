@@ -40,12 +40,12 @@ public static class WorkflowSchema
             EXEC sp_executesql N'UPDATE d SET NguoiTaoID=gv.TaiKhoanID FROM DeThi d JOIN GiaoVien gv ON gv.GiaoVienID=d.GiaoVienID WHERE d.NguoiTaoID IS NULL';
         IF COL_LENGTH('CauHoi','GiaoVienID') IS NOT NULL
             EXEC sp_executesql N'UPDATE c SET NguoiTaoID=gv.TaiKhoanID FROM CauHoi c JOIN GiaoVien gv ON gv.GiaoVienID=c.GiaoVienID WHERE c.NguoiTaoID IS NULL';
-        IF EXISTS(SELECT 1 FROM DeThi WHERE NguoiTaoID IS NULL) THROW 50002,N'Có đề thi chưa xác định được tài khoản người tạo.',1;
-        IF EXISTS(SELECT 1 FROM CauHoi WHERE NguoiTaoID IS NULL) THROW 50003,N'Có câu hỏi chưa xác định được tài khoản người tạo.',1;
+        EXEC sp_executesql N'IF EXISTS(SELECT 1 FROM DeThi WHERE NguoiTaoID IS NULL) THROW 50002,N''Có đề thi chưa xác định được tài khoản người tạo.'',1;';
+        EXEC sp_executesql N'IF EXISTS(SELECT 1 FROM CauHoi WHERE NguoiTaoID IS NULL) THROW 50003,N''Có câu hỏi chưa xác định được tài khoản người tạo.'',1;';
         IF EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('DeThi') AND name='NguoiTaoID' AND is_nullable=1)
-            ALTER TABLE DeThi ALTER COLUMN NguoiTaoID int NOT NULL;
+            EXEC sp_executesql N'ALTER TABLE DeThi ALTER COLUMN NguoiTaoID int NOT NULL';
         IF EXISTS(SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID('CauHoi') AND name='NguoiTaoID' AND is_nullable=1)
-            ALTER TABLE CauHoi ALTER COLUMN NguoiTaoID int NOT NULL;
+            EXEC sp_executesql N'ALTER TABLE CauHoi ALTER COLUMN NguoiTaoID int NOT NULL';
 
         DECLARE @legacyTable sysname, @fk sysname, @index sysname;
         DECLARE legacy_tables CURSOR LOCAL FAST_FORWARD FOR SELECT n FROM (VALUES(N'DeThi'),(N'CauHoi')) v(n);
@@ -83,8 +83,10 @@ public static class WorkflowSchema
             ALTER TABLE MaDe_CauHoi DROP CONSTRAINT UQ_MaDe_CauHoi_ThuTu;
         IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('MaDe_CauHoi') AND name='UQ_MaDe_CauHoi_ThuTu')
             ALTER TABLE MaDe_CauHoi ADD CONSTRAINT UQ_MaDe_CauHoi_ThuTu UNIQUE(MaDeID,ThuTu);
-        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('CauHoi') AND name='IX_CauHoi_NguoiTao') CREATE INDEX IX_CauHoi_NguoiTao ON CauHoi(NguoiTaoID);
-        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('DeThi') AND name='IX_DeThi_NguoiTao') CREATE INDEX IX_DeThi_NguoiTao ON DeThi(NguoiTaoID);
+        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('CauHoi') AND name='IX_CauHoi_NguoiTao')
+            EXEC sp_executesql N'CREATE INDEX IX_CauHoi_NguoiTao ON CauHoi(NguoiTaoID)';
+        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('DeThi') AND name='IX_DeThi_NguoiTao')
+            EXEC sp_executesql N'CREATE INDEX IX_DeThi_NguoiTao ON DeThi(NguoiTaoID)';
         COMMIT;
         """ + InvalidationTriggers();
 

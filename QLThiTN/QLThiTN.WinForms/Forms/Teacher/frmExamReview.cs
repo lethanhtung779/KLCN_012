@@ -47,10 +47,19 @@ public sealed class frmExamReview : Form
                 Directory.CreateDirectory(_folder);
                 string ImageUrl(ReviewImage img)
                 {
-                    var bytes=QuestionImageStore.Read(new QuestionImage{DuongDan=img.Path});
-                    var name=img.Id+Path.GetExtension(img.Path);
-                    File.WriteAllBytes(Path.Combine(_folder,name),bytes);
-                    return "https://review.local/"+name;
+                    try
+                    {
+                        var bytes = QuestionImageStore.Read(new QuestionImage { DuongDan = img.Path });
+                        var ext = Path.GetExtension(img.Path);
+                        if (string.IsNullOrWhiteSpace(ext)) ext = ".png";
+                        var name = img.Id + ext;
+                        File.WriteAllBytes(Path.Combine(_folder, name), bytes);
+                        return "https://review.local/" + name;
+                    }
+                    catch
+                    {
+                        return "";
+                    }
                 }
                 var body=ExamReview.Html(_report,ImageUrl);
                 var html="""

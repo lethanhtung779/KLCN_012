@@ -125,7 +125,11 @@ public static class ExamReview
             }
             b.Append("</nav><p><b>Tổng số mã đề: ").Append(doc.Variants.Count).Append(".</b> Mỗi mã được tách thành một tab riêng; chọn tab để xem nội dung.</p>");
         }
-        void Content(string text,List<ReviewImage> images){ b.Append("<div style='white-space:pre-wrap'>").Append(E(text)).Append("</div>");foreach(var img in images)b.Append("<img style='max-width:100%;max-height:350px' src='").Append(E(imageUrl(img))).Append("'>"); }
+        void Content(string text,List<ReviewImage> images){
+            var cleanText = System.Text.RegularExpressions.Regex.Replace(text ?? "", @"<img\s+[^>]*\/?>", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+            b.Append("<div style='white-space:pre-wrap'>").Append(E(cleanText)).Append("</div>");
+            foreach(var img in images)b.Append("<img style='max-width:100%;max-height:350px' src='").Append(E(imageUrl(img))).Append("'>");
+        }
         for(var variantIndex=0;variantIndex<doc.Variants.Count;variantIndex++)
         {
             var v=doc.Variants[variantIndex];

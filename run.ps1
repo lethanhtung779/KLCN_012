@@ -7,7 +7,7 @@ param(
     [switch]$SkipRestore,
     [switch]$WinForms,
     [switch]$SkipBuild,
-    [string]$SqlServer = "(localdb)\MSSQLLocalDB",
+    [string]$SqlServer = "localhost",
     [string]$BackupFile = ""
 )
 

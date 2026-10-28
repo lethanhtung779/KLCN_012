@@ -40,7 +40,41 @@ public static class QuestionImageStore
         return data.ToArray();
     }
 
-    public static byte[] Read(QuestionImage image) => image.PendingPng ?? File.ReadAllBytes(Resolve(image.DuongDan));
+    private static byte[]? _placeholderPng;
+
+    public static byte[] GetPlaceholderPng()
+    {
+        if (_placeholderPng != null) return _placeholderPng;
+        using var bmp = new Bitmap(240, 80);
+        using var g = Graphics.FromImage(bmp);
+        g.Clear(Color.FromArgb(243, 244, 246));
+        using var pen = new Pen(Color.FromArgb(209, 213, 219), 2);
+        g.DrawRectangle(pen, 1, 1, 237, 77);
+        using var font = new Font("Segoe UI", 9, FontStyle.Regular);
+        using var brush = new SolidBrush(Color.FromArgb(107, 114, 128));
+        var text = "[Ảnh minh họa]";
+        var size = g.MeasureString(text, font);
+        g.DrawString(text, font, brush, (240 - size.Width) / 2, (80 - size.Height) / 2);
+        using var ms = new MemoryStream();
+        bmp.Save(ms, ImageFormat.Png);
+        return _placeholderPng = ms.ToArray();
+    }
+
+    public static byte[] Read(QuestionImage image)
+    {
+        if (image.PendingPng != null) return image.PendingPng;
+        try
+        {
+            var path = Resolve(image.DuongDan);
+            if (File.Exists(path))
+                return File.ReadAllBytes(path);
+        }
+        catch
+        {
+            // Bỏ qua lỗi giải quyết đường dẫn để dùng ảnh giữ chỗ
+        }
+        return GetPlaceholderPng();
+    }
 
     // Chỉ xóa những file mới do chính lần lưu thất bại này tạo ra.
     public sealed class Batch : IDisposable

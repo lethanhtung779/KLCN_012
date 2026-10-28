@@ -101,7 +101,8 @@ public sealed class QuestionPreview : UserControl
 
     private void Content(StringBuilder html, string text, List<QuestionImage>? images)
     {
-        html.Append("<div class=\"text\">").Append(WebUtility.HtmlEncode(text)).Append("</div>");
+        var cleanText = System.Text.RegularExpressions.Regex.Replace(text ?? "", @"<img\s+[^>]*\/?>", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+        html.Append("<div class=\"text\">").Append(WebUtility.HtmlEncode(cleanText)).Append("</div>");
         foreach (var image in images ?? [])
         {
             try
