@@ -4,12 +4,13 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM DeThi)
 BEGIN
-    INSERT INTO DeThi (MonHocID, GiaoVienID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
-    VALUES (1, 1, N'Thithu Toan - De 1', N'ThiThu', 10, N'TuDong');
-    INSERT INTO DeThi (MonHocID, GiaoVienID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
-    VALUES (3, 1, N'Thithu Hoa Hoc - De 1', N'ThiThu', 10, N'TuDong');
-    INSERT INTO DeThi (MonHocID, GiaoVienID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
-    VALUES (7, 1, N'On tap Tin Hoc - Tuan 1', N'OnTap', 10, N'TuDong');
+    DECLARE @NguoiTaoID INT = (SELECT TOP (1) TaiKhoanID FROM TaiKhoan WHERE VaiTro IN (N'QuanTriVien',N'GiaoVien') ORDER BY CASE WHEN VaiTro=N'QuanTriVien' THEN 0 ELSE 1 END, TaiKhoanID);
+    INSERT INTO DeThi (MonHocID, NguoiTaoID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
+    VALUES (1, @NguoiTaoID, N'Thithu Toan - De 1', N'ThiThu', 10, N'TuDong');
+    INSERT INTO DeThi (MonHocID, NguoiTaoID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
+    VALUES (3, @NguoiTaoID, N'Thithu Hoa Hoc - De 1', N'ThiThu', 10, N'TuDong');
+    INSERT INTO DeThi (MonHocID, NguoiTaoID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
+    VALUES (7, @NguoiTaoID, N'On tap Tin Hoc - Tuan 1', N'OnTap', 10, N'TuDong');
 
     -- Gan 10 cau hoi cho tung de (lay tu mon tuong ung, chi cau trac nghiem, tron ngau nhien)
     ;WITH picked AS (

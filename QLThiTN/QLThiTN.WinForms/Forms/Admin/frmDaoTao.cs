@@ -863,6 +863,15 @@ public class frmDaoTao : Form
             Ui.Label("Lớp:", Ui.Body, Ui.TextMuted), _cboLopLh,
             btnThem, btnSua, btnXoa, btnLamMoi
         ]);
+        var btnLap = Ui.ButtonAccent("Tạo lịch lặp theo tuần", 210);
+        btnLap.Click += (_, _) =>
+        {
+            var lop = LopLhId();
+            if (lop <= 0) { ThongBaoChon(); return; }
+            using var form = new frmLichHocLap(lop);
+            if (form.ShowDialog(FindForm()) == DialogResult.OK) TaiLichHoc();
+        };
+        toolbar.Controls.Add(btnLap);
 
         var note = Ui.Label(
             "Lịch học hiển thị trên website mục «Lịch trình học tập» cho học viên thuộc lớp.",

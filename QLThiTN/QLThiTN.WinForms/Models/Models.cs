@@ -165,9 +165,10 @@ public static class MucDoKho
 /// <summary>Cau hoi + danh sach dap an.</summary>
 public class CauHoi
 {
+    public string NhomTHPT { get; set; } = "ChuaPhanLoai";
     public int CauHoiID { get; set; }
     public int ChuDeID { get; set; }
-    public int GiaoVienID { get; set; }
+    public int NguoiTaoID { get; set; }
     public string NoiDung { get; set; } = "";
     public string LoaiCauHoi { get; set; } = "TracNghiem";
     public string MucDoKho { get; set; } = "ChuaXacDinh";
@@ -200,7 +201,7 @@ public class DeThi
 {
     public int DeThiID { get; set; }
     public int MonHocID { get; set; }
-    public int GiaoVienID { get; set; }
+    public int NguoiTaoID { get; set; }
     public string TenDe { get; set; } = "";
     public string LoaiDe { get; set; } = "ThiThu";
     public int SoLuongCauHoi { get; set; }

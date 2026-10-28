@@ -37,6 +37,18 @@ public class frmStatistics : Form
         Font = Ui.Body;
         BackColor = Color.White;
 
+        void ReviewSelectedAttempt()
+        {
+            if (_gridDiem.CurrentRow?.Cells["BaiLamID"].Value is not int id)
+            {
+                MessageBox.Show(this, "Hãy chọn một bài làm của học viên trong danh sách.", "Chưa chọn bài làm",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using var form = new frmExamReview(0, id);
+            form.ShowDialog(this);
+        }
+
         // Thanh chon dot thi dung chung cho ca 2 tab
         var top = new TableLayoutPanel
         {
@@ -49,10 +61,11 @@ public class frmStatistics : Form
         top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         top.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
         top.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        var selector = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1 };
+        var selector = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = Session.IsQuanTriVien ? 4 : 3, RowCount = 1 };
         selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         selector.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        if (Session.IsQuanTriVien) selector.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         var lblChon = Ui.Label("Chọn đợt thi:", Ui.H2, Ui.Navy);
         _cboDotThi.SelectedIndexChanged += (s, e) => { TaiThongKeDiem(); TaiThongKeCauHoi(); };
         var btnLamMoi = Ui.ButtonOutline("Làm mới", 120, 30);
@@ -65,6 +78,13 @@ public class frmStatistics : Form
         selector.Controls.Add(lblChon, 0, 0);
         selector.Controls.Add(_cboDotThi, 1, 0);
         selector.Controls.Add(btnLamMoi, 2, 0);
+        if (Session.IsQuanTriVien)
+        {
+            var btnAnswers = Ui.ButtonAccent("📝 Xem đáp án thí sinh đã chọn", 250, 30);
+            btnAnswers.Margin = new Padding(10, 4, 0, 0);
+            btnAnswers.Click += (_, _) => ReviewSelectedAttempt();
+            selector.Controls.Add(btnAnswers, 3, 0);
+        }
         _lblTongQuan.AutoSize = false;
         _lblTongQuan.Dock = DockStyle.Fill;
         _lblTongQuan.TextAlign = ContentAlignment.MiddleLeft;
@@ -76,6 +96,12 @@ public class frmStatistics : Form
         // ---------------------------------------------------------------- Tab 1: diem theo ky thi
         var tabDiem = new TabPage("Điểm theo kỳ thi") { BackColor = Color.White };
         Ui.StyleGrid(_gridDiem);
+        if (Session.IsQuanTriVien)
+        {
+            _gridDiem.CellDoubleClick += (_,e) => {if(e.RowIndex>=0)ReviewSelectedAttempt();};
+            var menu=new ContextMenuStrip();menu.Items.Add("Xem từng câu trả lời",null,(_,_)=>ReviewSelectedAttempt());
+            _gridDiem.ContextMenuStrip=menu;
+        }
         _gridDiem.Dock = DockStyle.Fill;
         var lblChart = Ui.Label("Phân bố số bài theo khoảng điểm", Ui.H2, Ui.Navy);
         lblChart.Dock = DockStyle.Top;

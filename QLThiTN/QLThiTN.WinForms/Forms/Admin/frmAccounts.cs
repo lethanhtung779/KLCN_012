@@ -34,10 +34,14 @@ public class frmAccounts : Form
         var btnLamMoi = Ui.ButtonOutline("Làm mới", 100);
         btnLamMoi.Click += (s, e) => { _txtTim.Text = ""; _cboVaiTro.SelectedIndex = 0; TaiLai(); };
 
-        var btnThem = Ui.ButtonAccent("＋ Thêm tài khoản", 170);
-        btnThem.Click += (s, e) => { using var f = new frmAccountEdit(); if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai(); };
+        var btnThem = Ui.ButtonAccent("＋ Thêm quản trị viên", 190);
+        btnThem.Click += (s, e) =>
+        {
+            using var f = new frmAccountEdit(vaiTro: "QuanTriVien", chiQuanTriVien: true);
+            if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
+        };
 
-        var btnSua = Ui.ButtonPrimary("✎ Sửa", 100);
+        var btnSua = Ui.ButtonPrimary("✎ Sửa tài khoản / hồ sơ", 190);
         btnSua.Click += (s, e) => Sua();
 
         var btnKhoa = Ui.ButtonOutline("🔒 Khóa / Mở", 140);
@@ -83,7 +87,7 @@ public class frmAccounts : Form
         panelInfo.Controls.Add(_lblInfo);
 
         var tabs = new TabControl { Dock = DockStyle.Fill, Font = Ui.Body };
-        var accountsTab = new TabPage("Tài khoản") { BackColor = Color.White };
+        var accountsTab = new TabPage("Tài khoản & phân quyền") { BackColor = Color.White };
         accountsTab.Controls.Add(_grid);
         accountsTab.Controls.Add(panelInfo);
         accountsTab.Controls.Add(toolbar);
@@ -155,12 +159,15 @@ public class frmAccounts : Form
         if (IdDangChon() == 0) { MessageBox.Show("Hãy chọn một tài khoản trong danh sách.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
         var row = _grid.CurrentRow!;
         var vaiTro = row.Cells["VaiTro"].Value?.ToString() ?? "HocVien";
-        using var f = new frmAccountEdit(
-            IdDangChon(),
-            row.Cells["TenDangNhap"].Value?.ToString() ?? "",
-            row.Cells["Email"].Value?.ToString() ?? "",
-            row.Cells["HoTen"].Value?.ToString() ?? "",
-            vaiTro);
+        using Form f = vaiTro is "HocVien" or "GiaoVien"
+            ? new frmPersonEdit(vaiTro, IdDangChon())
+            : new frmAccountEdit(
+                IdDangChon(),
+                row.Cells["TenDangNhap"].Value?.ToString() ?? "",
+                row.Cells["Email"].Value?.ToString() ?? "",
+                row.Cells["HoTen"].Value?.ToString() ?? "",
+                vaiTro,
+                chiQuanTriVien: true);
         if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
     }
 

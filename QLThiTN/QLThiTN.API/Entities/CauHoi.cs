@@ -11,7 +11,8 @@ public class CauHoi
 
     public int ChuDeID { get; set; }
 
-    public int GiaoVienID { get; set; }
+    public int NguoiTaoID { get; set; }
+    public string NhomTHPT { get; set; } = "ChuaPhanLoai";
 
     [Required]
     public string NoiDung { get; set; } = string.Empty;
@@ -34,7 +35,7 @@ public class CauHoi
 
     public ChuDe? ChuDe { get; set; }
 
-    public GiaoVien? GiaoVien { get; set; }
+    public TaiKhoan? NguoiTao { get; set; }
 
     public List<DapAn> DapAns { get; set; } = new();
 

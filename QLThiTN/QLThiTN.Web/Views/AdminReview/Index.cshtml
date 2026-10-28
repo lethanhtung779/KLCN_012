@@ -1,0 +1,7 @@
+@model List<QLThiTN.Web.Controllers.AdminReviewController.ExamRow>
+@{ ViewData["Title"]="Duyệt đề thi"; }
+<div class="container py-4"><h1>Duyệt đề thi</h1>
+<p>Xem toàn bộ mã đề và đáp án trước khi duyệt cho thí sinh truy cập.</p>
+<table class="table"><thead><tr><th>Đề thi</th><th>Trạng thái</th><th></th></tr></thead><tbody>
+@foreach(var exam in Model){<tr><td>@exam.TenDe</td><td>@(exam.DaDuyet?"Đã duyệt":"Chờ duyệt")</td><td><a asp-action="Exam" asp-route-id="@exam.DeThiID">Xem mã đề, duyệt và xem bài làm</a></td></tr>}
+</tbody></table></div>

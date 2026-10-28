@@ -8,6 +8,7 @@ public sealed class frmPersonEdit : Form
 {
     private readonly PersonManagementService _service = new();
     private readonly PersonRecord _record;
+    private readonly Dictionary<string, Control> _profileInputs = [];
     private readonly TextBox _username = Ui.Input(330);
     private readonly TextBox _email = Ui.Input(330);
     private readonly TextBox _password = Ui.Input(330);
@@ -36,8 +37,10 @@ public sealed class frmPersonEdit : Form
         Text = $"{(taiKhoanId == 0 ? "Thêm" : "Sửa")} {(student ? "học viên" : "giáo viên")}";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.Sizable;
-        MinimumSize = new Size(760, 600);
-        Size = new Size(820, student ? 590 : 700);
+        MinimumSize = new Size(820, 650);
+        // Hiển thị được ngay những trường bổ sung đầu tiên trên màn hình phổ biến,
+        // thay vì khiến người dùng tưởng rằng form chưa được cập nhật.
+        Size = new Size(900, 760);
         BackColor = Color.White;
         Font = Ui.Body;
 
@@ -89,7 +92,7 @@ public sealed class frmPersonEdit : Form
         profileTitle.Location = new Point(24, 220);
         scroll.Controls.Add(profileTitle);
         AddLabel("Họ và tên *", 24, 258); AddInput(_name, 24, 284);
-        AddLabel("Số điện thoại", 390, 258); AddInput(_phone, 390, 284);
+        AddLabel(taiKhoanId == 0 ? "Số điện thoại *" : "Số điện thoại", 390, 258); AddInput(_phone, 390, 284);
 
         int contentBottom;
         if (student)
@@ -102,7 +105,7 @@ public sealed class frmPersonEdit : Form
             _package.SelectedIndex = _record.LoaiGoi == "DongPhi" ? 1 : 0;
             _birth.Checked = _record.NgaySinh.HasValue;
             _birth.Value = _record.NgaySinh ?? DateTime.Today.AddYears(-18);
-            AddLabel("Ngày sinh (bỏ chọn nếu chưa rõ)", 24, 336); AddInput(_birth, 24, 362);
+            AddLabel(taiKhoanId == 0 ? "Ngày sinh *" : "Ngày sinh (bỏ chọn nếu chưa rõ)", 24, 336); AddInput(_birth, 24, 362);
             AddLabel("Loại học viên *", 390, 336); AddInput(_studentType, 390, 362);
             AddLabel("Gói sử dụng", 24, 414); AddInput(_package, 24, 440);
             var note = Ui.Label("Việc xếp học viên vào lớp được thực hiện ở Khóa học & Lớp → Xếp học viên.", Ui.Small, Ui.TextMuted);
@@ -131,7 +134,43 @@ public sealed class frmPersonEdit : Form
             scroll.Controls.Add(note);
             contentBottom = 590;
         }
-        scroll.AutoScrollMinSize = new Size(760, contentBottom);
+        if (!student)
+        {
+            _birth.Checked = _record.NgaySinh.HasValue;
+            _birth.Value = _record.NgaySinh ?? DateTime.Today.AddYears(-30);
+            AddLabel(taiKhoanId == 0 ? "Ngày sinh *" : "Ngày sinh (bỏ chọn nếu chưa rõ)", 24, contentBottom);
+            AddInput(_birth, 24, contentBottom + 26);
+            contentBottom += 78;
+        }
+        var fields = ProfileFields.ForRole(vaiTro);
+        var extraLink = new LinkLabel
+        {
+            Text = $"Xem {fields.Length} thông tin bổ sung ↓",
+            AutoSize = true,
+            Font = Ui.Body,
+            LinkColor = Ui.Accent,
+            ActiveLinkColor = Ui.Accent2,
+            Location = new Point(490, 220)
+        };
+        extraLink.LinkClicked += (_, _) => scroll.AutoScrollPosition = new Point(0, contentBottom);
+        scroll.Controls.Add(extraLink);
+
+        var extraTitle = Ui.Label("THÔNG TIN BỔ SUNG", Ui.H2, Ui.Navy);
+        extraTitle.Location = new Point(24, contentBottom);
+        scroll.Controls.Add(extraTitle);
+        contentBottom += 38;
+        for (int i = 0; i < fields.Length; i++)
+        {
+            var (key, caption) = fields[i];
+            var x = i % 2 == 0 ? 24 : 390;
+            var y = contentBottom + i / 2 * 78;
+            var currentValue = _record.HoSo.GetValueOrDefault(key, "");
+            var required = taiKhoanId == 0 && key != "GhiChu";
+            var input = CreateProfileInput(key, student, currentValue, required);
+            _profileInputs[key] = input;
+            AddLabel(required ? caption + " *" : caption, x, y); AddInput(input, x, y + 26);
+        }
+        scroll.AutoScrollMinSize = new Size(760, contentBottom + (fields.Length + 1) / 2 * 78);
 
         _error.AutoSize = false;
         _error.Location = new Point(24, 7);
@@ -155,6 +194,36 @@ public sealed class frmPersonEdit : Form
         CancelButton = cancel;
     }
 
+    private static Control CreateProfileInput(string key, bool student, string currentValue, bool required)
+    {
+        string[]? choices = key switch
+        {
+            "GioiTinh" => ["", "Nam", "Nữ", "Khác", "Không muốn cung cấp"],
+            "TrinhDoHocVan" when student => ["", "Lớp 10", "Lớp 11", "Lớp 12", "Đã tốt nghiệp THPT", "Trung cấp", "Cao đẳng", "Đại học", "Sau đại học"],
+            "TrinhDoHocVan" => ["", "Cao đẳng", "Đại học", "Thạc sĩ", "Tiến sĩ", "Khác"],
+            "BangCap" => ["", "Chưa có", "Tốt nghiệp THPT", "Trung cấp", "Cao đẳng", "Cử nhân", "Kỹ sư", "Thạc sĩ", "Tiến sĩ", "Chứng chỉ nghiệp vụ sư phạm", "Khác"],
+            "QuanHeLienHe" => ["", "Cha", "Mẹ", "Anh/Chị/Em", "Ông/Bà", "Người giám hộ", "Vợ/Chồng", "Khác"],
+            _ => null
+        };
+        if (choices is null)
+        {
+            var text = Ui.Input(330);
+            text.MaxLength = 500;
+            text.Text = currentValue;
+            text.PlaceholderText = required ? "Bắt buộc" : "Tùy chọn, có thể bổ sung sau";
+            return text;
+        }
+
+        var combo = Ui.Combo(330);
+        combo.Items.AddRange(choices.Cast<object>().ToArray());
+        // Giữ được dữ liệu cũ nếu trước đây người dùng đã nhập một giá trị ngoài danh sách.
+        if (!string.IsNullOrWhiteSpace(currentValue) && !combo.Items.Contains(currentValue))
+            combo.Items.Add(currentValue);
+        combo.SelectedItem = currentValue;
+        if (combo.SelectedIndex < 0) combo.SelectedIndex = 0;
+        return combo;
+    }
+
     private void Save()
     {
         _error.Text = "";
@@ -165,6 +234,8 @@ public sealed class frmPersonEdit : Form
         _record.HoTen = _name.Text;
         _record.SoDienThoai = _phone.Text;
         _record.TrangThai = _status.SelectedIndex == 1 ? "Khoa" : "HoatDong";
+        _record.NgaySinh = _birth.Checked ? _birth.Value.Date : null;
+        foreach (var (key, input) in _profileInputs) _record.HoSo[key] = input.Text;
         if (_record.VaiTro == "HocVien")
         {
             _record.NgaySinh = _birth.Checked ? _birth.Value.Date : null;

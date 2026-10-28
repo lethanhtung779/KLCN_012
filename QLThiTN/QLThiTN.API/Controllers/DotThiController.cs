@@ -26,6 +26,7 @@ public class DotThiController : ControllerBase
         var eligibleDotIds = await _db.DotThi_LopHocs.Where(x => lopIds.Contains(x.LopHocID))
             .Select(x => x.DotThiID).Distinct().ToListAsync();
         var list = await _db.DotThis
+            .Where(d => d.DeThi!.DaDuyet)
             .Include(d => d.DeThi)
                 .ThenInclude(d => d!.MonHoc)
             .Where(d => d.PhamVi != "TheoLop" || eligibleDotIds.Contains(d.DotThiID))
@@ -143,6 +144,7 @@ public class DotThiController : ControllerBase
         await using var transaction = await ExamTransaction.BeginAsync(_db, $"register:{id}");
         var dot = await _db.DotThis.FirstOrDefaultAsync(d => d.DotThiID == id);
         if (dot is null) return NotFound(new { message = "Khong tim thay dot thi" });
+        if(!await _db.DeThis.AnyAsync(d=>d.DeThiID==dot.DeThiID && d.DaDuyet))return StatusCode(403,new{message="Đề thi chưa được duyệt."});
 
         if (dot.TrangThai == "DaDong" || dot.ThoiGianDongCong < DateTime.Now)
             return BadRequest(new { message = "Dot thi da dong, khong the dang ky" });

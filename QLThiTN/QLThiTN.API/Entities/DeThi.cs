@@ -11,7 +11,10 @@ public class DeThi
 
     public int MonHocID { get; set; }
 
-    public int GiaoVienID { get; set; }
+    public bool DaDuyet { get; set; }
+    public int NguoiTaoID { get; set; }
+    public int? NguoiDuyetID { get; set; }
+    public DateTime? NgayDuyet { get; set; }
 
     [Required, MaxLength(200)]
     public string TenDe { get; set; } = string.Empty;
@@ -29,7 +32,7 @@ public class DeThi
 
     public MonHoc? MonHoc { get; set; }
 
-    public GiaoVien? GiaoVien { get; set; }
+    public TaiKhoan? NguoiTao { get; set; }
 
     public List<DeThi_CauHoi> DeThi_CauHois { get; set; } = new();
 

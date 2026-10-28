@@ -22,6 +22,12 @@ namespace QLThiTN.Web.Services;
 
         /// <summary>Dia chi API dang dung, de ghep duong dan anh tuong doi thanh URL day du.</summary>
         public string BaseUrl => _http.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+        public async Task<T?> AdminReadAsync<T>(string path) => await _http.GetFromJsonAsync<T>("/api/admin-review/" + path, JsonOptions);
+        public async Task<string?> ApproveExamAsync(int id, string fingerprint, bool reviewed)
+        {
+            using var response=await _http.PostAsJsonAsync($"/api/admin-review/exam/{id}/approve",new {fingerprint,reviewed});
+            return response.IsSuccessStatusCode ? null : await ReadErrorMessageAsync(response) ?? "Không duyệt được đề.";
+        }
 
         /// <summary>Doc message tu body loi cua API; body co the la JSON hoac text thuan
         /// (vd trang loi 500 cua developer exception page).</summary>

@@ -86,7 +86,8 @@ public class QLThiTNDbContext : DbContext
         modelBuilder.Entity<MaDe_CauHoi>(e =>
         {
             e.HasKey(x => new { x.MaDeID, x.CauHoiID });
-            e.HasIndex(x => new { x.MaDeID, x.CauHoiID, x.ThuTu }).IsUnique();
+            e.HasIndex(x => new { x.MaDeID, x.ThuTu }).IsUnique()
+                .HasDatabaseName("UQ_MaDe_CauHoi_ThuTu");
             e.HasOne(x => x.MaDeThi).WithMany(x => x.MaDe_CauHois).HasForeignKey(x => x.MaDeID);
             e.HasOne(x => x.CauHoi).WithMany().HasForeignKey(x => x.CauHoiID);
         });
@@ -94,7 +95,8 @@ public class QLThiTNDbContext : DbContext
         modelBuilder.Entity<MaDe_DapAn>(e =>
         {
             e.HasKey(x => new { x.MaDeID, x.CauHoiID, x.DapAnID });
-            e.HasIndex(x => new { x.MaDeID, x.CauHoiID, x.ThuTu }).IsUnique();
+            e.HasIndex(x => new { x.MaDeID, x.CauHoiID, x.ThuTu }).IsUnique()
+                .HasDatabaseName("UQ_MaDe_DapAn_ThuTu");
             e.HasOne(x => x.MaDeThi).WithMany().HasForeignKey(x => x.MaDeID);
             e.HasOne(x => x.CauHoi).WithMany().HasForeignKey(x => x.CauHoiID);
             e.HasOne(x => x.DapAn).WithMany().HasForeignKey(x => x.DapAnID);
@@ -156,7 +158,15 @@ public class QLThiTNDbContext : DbContext
         modelBuilder.Entity<CauHoi>(e =>
         {
             e.HasOne(x => x.ChuDe).WithMany(x => x.CauHois).HasForeignKey(x => x.ChuDeID);
-            e.HasOne(x => x.GiaoVien).WithMany(x => x.CauHois).HasForeignKey(x => x.GiaoVienID);
+            e.HasIndex(x => x.NguoiTaoID);
+            e.HasOne(x => x.NguoiTao).WithMany().HasForeignKey(x => x.NguoiTaoID);
         });
+        modelBuilder.Entity<DeThi>(e =>
+        {
+            e.HasIndex(x => x.NguoiTaoID);
+            e.HasOne(x => x.NguoiTao).WithMany().HasForeignKey(x => x.NguoiTaoID);
+        });
+        foreach (var entity in modelBuilder.Model.GetEntityTypes().ToList())
+            modelBuilder.Entity(entity.ClrType).ToTable(t => t.UseSqlOutputClause(false));
     }
 }

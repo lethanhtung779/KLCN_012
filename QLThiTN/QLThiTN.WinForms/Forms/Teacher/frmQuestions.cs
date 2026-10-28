@@ -25,6 +25,7 @@ public class frmQuestions : Form
     private DataTable? _results;
     private bool _resultsDuplicates;
     private int _page;
+    private int _totalCount;
     private const int PageSize = 100;
     private readonly Button _previous = Ui.ButtonOutline("Trang trước", 120, 30);
     private readonly Button _next = Ui.ButtonOutline("Trang sau", 120, 30);
@@ -111,8 +112,8 @@ public class frmQuestions : Form
         _next.Dock = DockStyle.Right;
         _previous.Dock = DockStyle.Right;
         _previous.Enabled = _next.Enabled = false;
-        _previous.Click += (_, _) => { if (_page > 0) { _page--; HienThiTrang(); } };
-        _next.Click += (_, _) => { if (_results != null && (_page + 1) * PageSize < _results.Rows.Count) { _page++; HienThiTrang(); } };
+        _previous.Click += (_, _) => { if (_page > 0) TaiLai(_page - 1); };
+        _next.Click += (_, _) => { if ((_page + 1) * PageSize < _totalCount) TaiLai(_page + 1); };
         panelBottom.Controls.Add(_previous);
         panelBottom.Controls.Add(_next);
 
@@ -217,12 +218,13 @@ public class frmQuestions : Form
         _cboChuDe.SelectedIndex = 0;
     }
 
-    private async void TaiLai()
+    private async void TaiLai(int page = 0)
     {
         var version = ++_loadVersion;
         try
         {
             UseWaitCursor = true;
+            _previous.Enabled = _next.Enabled = _grid.Enabled = false;
             _lblCount.Text = "Đang tải dữ liệu câu hỏi...";
             var monId = MonId;
             var chuDeId = ChuDeId;
@@ -231,11 +233,19 @@ public class frmQuestions : Form
             var tuKhoa = _txtTuKhoa.Text;
 
             var locTrung = _chkLocTrung.Checked;
-            var dt = await Task.Run(() => _service.TraCuu(monId, chuDeId, loai, muc, tuKhoa, locTrung));
+            var dt = await Task.Run(() => _service.TraCuu(monId, chuDeId, loai, muc, tuKhoa, locTrung, page, PageSize));
+            if (IsDisposed || version != _loadVersion) return;
+            // A concurrent deletion may remove the last page. Reload the first page.
+            if (dt.Rows.Count == 0 && page > 0)
+            {
+                page = 0;
+                dt = await Task.Run(() => _service.TraCuu(monId, chuDeId, loai, muc, tuKhoa, locTrung, page, PageSize));
+            }
             if (IsDisposed || version != _loadVersion) return;
             _results = dt;
             _resultsDuplicates = locTrung;
-            _page = 0;
+            _page = page;
+            _totalCount = dt.Rows.Count == 0 ? 0 : Convert.ToInt32(dt.Rows[0]["TotalCount"]);
             HienThiTrang();
         }
         catch (Exception ex)
@@ -245,7 +255,13 @@ public class frmQuestions : Form
         }
         finally
         {
-            if (!IsDisposed && version == _loadVersion) UseWaitCursor = false;
+            if (!IsDisposed && version == _loadVersion)
+            {
+                UseWaitCursor = false;
+                _grid.Enabled = true;
+                _previous.Enabled = _page > 0;
+                _next.Enabled = (_page + 1) * PageSize < _totalCount;
+            }
         }
     }
 
@@ -254,15 +270,14 @@ public class frmQuestions : Form
             if (_results == null) return;
             var dt = _results;
             var locTrung = _resultsDuplicates;
-            var rows = dt.AsEnumerable().Skip(_page * PageSize).Take(PageSize).ToArray();
-            _grid.DataSource = rows.Length == 0 ? dt.Clone() : rows.CopyToDataTable();
+            _grid.DataSource = dt;
             _previous.Enabled = _page > 0;
-            _next.Enabled = (_page + 1) * PageSize < dt.Rows.Count;
+            _next.Enabled = (_page + 1) * PageSize < _totalCount;
             Ui.RenameColumns(_grid,
                 ("CauHoiID", "ID câu hỏi"), ("NoiDung", "Nội dung câu hỏi"), ("LoaiCauHoi", "Loại"),
                 ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TrangThai", "Trạng thái"),
                 ("TenChuDe", "Chủ đề"), ("TenMon", "Môn"), ("TenGiaoVien", "Người soạn"), ("NgayTao", "Ngày tạo"));
-            Ui.HideColumns(_grid, "ChuDeID", "GiaoVienID", "NgayTao");
+            Ui.HideColumns(_grid, "ChuDeID", "NguoiTaoID", "NgayTao", "TotalCount");
 
             _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             foreach (var (column, width) in new[]
@@ -281,7 +296,7 @@ public class frmQuestions : Form
             if (locTrung)
             {
                 _lblCount.Text = dt.Rows.Count > 0
-                    ? $"⚠ Phát hiện {dt.Rows.Count:N0} câu hỏi bị trùng lặp nội dung trong ngân hàng!"
+                    ? $"⚠ Phát hiện {_totalCount:N0} câu hỏi bị trùng lặp nội dung trong ngân hàng!"
                     : "Không phát hiện câu hỏi nào bị trùng lặp.";
                 foreach (DataGridViewRow r in _grid.Rows)
                 {
@@ -290,9 +305,9 @@ public class frmQuestions : Form
             }
             else
             {
-                _lblCount.Text = $"Tổng cộng: {dt.Rows.Count:N0} câu hỏi";
+                _lblCount.Text = $"Tổng cộng: {_totalCount:N0} câu hỏi";
             }
-            _lblCount.Text += $" · Trang {_page + 1}/{Math.Max(1, (dt.Rows.Count + PageSize - 1) / PageSize)}";
+            _lblCount.Text += $" · Trang {_page + 1}/{Math.Max(1, (_totalCount + PageSize - 1) / PageSize)}";
 
             _lblEmpty.Text = dt.Rows.Count == 0
                 ? locTrung

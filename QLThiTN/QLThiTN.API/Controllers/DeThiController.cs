@@ -21,6 +21,7 @@ public class DeThiController : ControllerBase
         [FromQuery] string? loaiDe)
     {
         var query = _db.DeThis
+            .Where(d => d.DaDuyet)
             .Include(d => d.MonHoc)
             .Include(d => d.DotThis)
             .OrderByDescending(d => d.DeThiID)
@@ -78,7 +79,7 @@ public class DeThiController : ControllerBase
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
 
-        if (de is null) return NotFound();
+        if (de is null || !de.DaDuyet) return NotFound();
         return Ok(ToListItemDto(de));
     }
 
@@ -101,26 +102,40 @@ public class DeThiController : ControllerBase
 
         var pool = await _db.CauHois
             .Where(c => chuDes.Contains(c.ChuDeID) && c.TrangThai == "HoatDong")
-            .Select(c => c.CauHoiID)
+            .Select(c => new {c.CauHoiID,c.LoaiCauHoi,c.NhomTHPT})
             .ToListAsync();
 
         if (pool.Count < request.SoLuongCauHoi)
             return BadRequest(new { message = $"Khong du cau hoi (co {pool.Count}, can {request.SoLuongCauHoi})" });
 
-        var random = Random.Shared;
-        var chosen = pool.OrderBy(_ => random.Next()).Take(request.SoLuongCauHoi).ToList();
-        chosen.Sort();
+        var subject=await _db.MonHocs.Where(m=>m.MonHocID==request.MonHocID).Select(m=>m.TenMon).FirstAsync();
+        QLThiTN.Shared.ExamFormat format;
+        try{format=QLThiTN.Shared.ExamFormat.ForSubject(subject);}
+        catch(InvalidOperationException ex){return BadRequest(new{message=ex.Message});}
+        var tin=subject.Contains("Tin",StringComparison.OrdinalIgnoreCase);
+        if(tin && request.TinHocTrack is not ("KhoaHocMayTinh" or "TinHocUngDung"))return BadRequest(new{message="Định hướng Tin học không hợp lệ."});
+        var parts=tin ? new[]{("TracNghiem",24,""),("DungSai",2,"Chung"),("DungSai",2,request.TinHocTrack)} :
+            new[]{("TracNghiem",format.MultipleChoice,""),("DungSai",format.TrueFalse,""),("TraLoiNgan",format.ShortAnswer,"")};
+        var chosen=new List<int>();
+        foreach(var (type,count,track) in parts)
+        {
+            var ids=pool.Where(c=>c.LoaiCauHoi==type && (track=="" || c.NhomTHPT==track)).OrderBy(_=>Random.Shared.Next()).Take(count).Select(c=>c.CauHoiID).ToList();
+            if(ids.Count!=count)return BadRequest(new{message=$"Không đủ câu {type} {track} theo mẫu môn học; cần {count}."});
+            chosen.AddRange(ids);
+        }
 
         var de = new DeThi
         {
             TenDe = request.TenDe,
             MonHocID = request.MonHocID,
-            GiaoVienID = request.GiaoVienID,
+            NguoiTaoID = User.AccountId(),
             LoaiDe = request.LoaiDe,
             SoLuongCauHoi = chosen.Count,
             HinhThucTao = "TuDong"
         };
         _db.DeThis.Add(de);
+        var maDe = new MaDeThi{DeThi=de,TenMaDe="101"};
+        _db.MaDeThis.Add(maDe);
         for (int i = 0; i < chosen.Count; i++)
         {
             _db.DeThi_CauHois.Add(new DeThi_CauHoi
@@ -129,6 +144,31 @@ public class DeThiController : ControllerBase
                 CauHoiID = chosen[i],
                 ThuTu = i + 1
             });
+        }
+        await _db.SaveChangesAsync();
+
+        var answers = await _db.DapAns
+            .Where(a => chosen.Contains(a.CauHoiID))
+            .OrderBy(a => a.CauHoiID).ThenBy(a => a.ThuTu).ThenBy(a => a.DapAnID)
+            .ToListAsync();
+        for (var i = 0; i < chosen.Count; i++)
+        {
+            var questionId = chosen[i];
+            _db.MaDe_CauHois.Add(new MaDe_CauHoi
+            {
+                MaDeID = maDe.MaDeID,
+                CauHoiID = questionId,
+                ThuTu = i + 1
+            });
+            var questionAnswers = answers.Where(a => a.CauHoiID == questionId).ToList();
+            for (var answerIndex = 0; answerIndex < questionAnswers.Count; answerIndex++)
+                _db.MaDe_DapAns.Add(new MaDe_DapAn
+                {
+                    MaDeID = maDe.MaDeID,
+                    CauHoiID = questionId,
+                    DapAnID = questionAnswers[answerIndex].DapAnID,
+                    ThuTu = answerIndex + 1
+                });
         }
         await _db.SaveChangesAsync();
 
@@ -155,6 +195,7 @@ public class DeThiController : ControllerBase
     [HttpGet("{id:int}/cauhoi")]
     public async Task<IActionResult> GetQuestions(int id, [FromQuery] int? maDeId, [FromQuery] int? hocVienId)
     {
+        if(!await _db.DeThis.AnyAsync(d=>d.DeThiID==id && d.DaDuyet))return NotFound();
         hocVienId = User.StudentId();
         var attempt = await _db.BaiLams.Include(b => b.DotThi).FirstOrDefaultAsync(b =>
             b.HocVienID == hocVienId && b.DotThi!.DeThiID == id && b.TrangThai == "DangLam");
@@ -264,6 +305,7 @@ public class DeThiController : ControllerBase
     [HttpGet("{id:int}/mades")]
     public async Task<IActionResult> GetMaDes(int id)
     {
+        if(!await _db.DeThis.AnyAsync(d=>d.DeThiID==id && d.DaDuyet))return NotFound();
         var list = await _db.MaDeThis
             .Where(m => m.DeThiID == id)
             .OrderBy(m => m.TenMaDe)
@@ -291,6 +333,7 @@ public class DeThiController : ControllerBase
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
         if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
+        if (!de.DaDuyet) return StatusCode(403, new { message = "Đề thi chưa được quản trị viên duyệt." });
 
         var hv = await _db.HocViens.FindAsync(request.HocVienID);
         if (hv is null) return Unauthorized(new { message = "Ban can dang nhap de lam bai thi" });

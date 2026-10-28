@@ -125,7 +125,7 @@ BEGIN
     CREATE TABLE CauHoi (
         CauHoiID        INT IDENTITY(1,1) PRIMARY KEY,
         ChuDeID         INT           NOT NULL,
-        GiaoVienID      INT           NOT NULL,
+        NguoiTaoID      INT           NOT NULL,
         NoiDung         NVARCHAR(MAX) NOT NULL,
         LoaiCauHoi      NVARCHAR(50)  NOT NULL,
         MucDoKho       NVARCHAR(20)  NOT NULL,
@@ -137,7 +137,7 @@ BEGIN
         CONSTRAINT CK_CauHoi_TrangThai  CHECK (TrangThai IN (N'HoatDong', N'An')),
         CONSTRAINT CK_CauHoi_LoaiCauHoi CHECK (LoaiCauHoi IN (N'TracNghiem', N'DungSai', N'TraLoiNgan')),
         CONSTRAINT FK_CauHoi_ChuDe    FOREIGN KEY (ChuDeID)    REFERENCES ChuDe(ChuDeID),
-        CONSTRAINT FK_CauHoi_GiaoVien FOREIGN KEY (GiaoVienID) REFERENCES GiaoVien(GiaoVienID)
+        CONSTRAINT FK_CauHoi_NguoiTao FOREIGN KEY (NguoiTaoID) REFERENCES TaiKhoan(TaiKhoanID)
     );
 END
 GO
@@ -219,13 +219,13 @@ BEGIN
     CREATE TABLE DeThi (
         DeThiID         INT IDENTITY(1,1) PRIMARY KEY,
         MonHocID        INT           NOT NULL,
-        GiaoVienID      INT           NOT NULL,
+        NguoiTaoID      INT           NOT NULL,
         TenDe           NVARCHAR(200) NOT NULL,
         LoaiDe          NVARCHAR(50)  NOT NULL CHECK (LoaiDe IN (N'OnTap', N'ThiThu', N'ChinhThuc')),
         SoLuongCauHoi   INT           NOT NULL,
         HinhThucTao     NVARCHAR(50)  NOT NULL CHECK (HinhThucTao IN (N'ThuCong', N'TuDong', N'MaTranTHPTQG')),
         CONSTRAINT FK_DeThi_MonHoc   FOREIGN KEY (MonHocID)   REFERENCES MonHoc(MonHocID),
-        CONSTRAINT FK_DeThi_GiaoVien FOREIGN KEY (GiaoVienID) REFERENCES GiaoVien(GiaoVienID)
+        CONSTRAINT FK_DeThi_NguoiTao FOREIGN KEY (NguoiTaoID) REFERENCES TaiKhoan(TaiKhoanID)
     );
 END
 GO
@@ -276,7 +276,7 @@ BEGIN
         CauHoiID INT NOT NULL,
         ThuTu    INT NOT NULL,
         CONSTRAINT PK_MaDe_CauHoi PRIMARY KEY (MaDeID, CauHoiID),
-        CONSTRAINT UQ_MaDe_CauHoi_ThuTu UNIQUE (MaDeID, CauHoiID, ThuTu),
+        CONSTRAINT UQ_MaDe_CauHoi_ThuTu UNIQUE (MaDeID, ThuTu),
         CONSTRAINT FK_MDCH_MaDeThi FOREIGN KEY (MaDeID)   REFERENCES MaDeThi(MaDeID),
         CONSTRAINT FK_MDCH_CauHoi  FOREIGN KEY (CauHoiID) REFERENCES CauHoi(CauHoiID)
     );
@@ -405,8 +405,12 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_CauHoi_ChuDe' AND obj
     CREATE INDEX IX_CauHoi_ChuDe ON CauHoi (ChuDeID);
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_CauHoi_GiaoVien' AND object_id = OBJECT_ID(N'dbo.CauHoi'))
-    CREATE INDEX IX_CauHoi_GiaoVien ON CauHoi (GiaoVienID);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_CauHoi_NguoiTao' AND object_id = OBJECT_ID(N'dbo.CauHoi'))
+    CREATE INDEX IX_CauHoi_NguoiTao ON CauHoi (NguoiTaoID);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DeThi_NguoiTao' AND object_id = OBJECT_ID(N'dbo.DeThi'))
+    CREATE INDEX IX_DeThi_NguoiTao ON DeThi (NguoiTaoID);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DapAn_CauHoi' AND object_id = OBJECT_ID(N'dbo.DapAn'))

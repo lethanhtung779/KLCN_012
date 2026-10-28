@@ -5,6 +5,7 @@ namespace QLThiTN.WinForms.Services;
 
 public sealed class PersonRecord
 {
+    public Dictionary<string, string> HoSo { get; set; } = [];
     public int TaiKhoanID { get; set; }
     public string VaiTro { get; set; } = "HocVien";
     public string TenDangNhap { get; set; } = "";
@@ -53,7 +54,7 @@ public sealed class PersonManagementService
                            WHERE gm.GiaoVienID=gv.GiaoVienID ORDER BY mh.TenMon
                            FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, N'') AS MonPhuTrach,
                        (SELECT COUNT(*) FROM PhanCongGiangDay pc WHERE pc.GiaoVienID=gv.GiaoVienID) AS SoLop,
-                       (SELECT COUNT(*) FROM CauHoi c WHERE c.GiaoVienID=gv.GiaoVienID) AS SoCauHoi,
+                       (SELECT COUNT(*) FROM CauHoi c WHERE c.NguoiTaoID=gv.TaiKhoanID) AS SoCauHoi,
                        tk.NgayTao
                 FROM GiaoVien gv JOIN TaiKhoan tk ON tk.TaiKhoanID=gv.TaiKhoanID
                 WHERE tk.VaiTro=N'GiaoVien'
@@ -88,10 +89,11 @@ public sealed class PersonManagementService
         var profile = vaiTro == "HocVien" ? "HocVien" : "GiaoVien";
         var extras = vaiTro == "HocVien"
             ? "p.NgaySinh, p.LoaiHocVien, p.LoaiGoi"
-            : "CAST(NULL AS date) AS NgaySinh, CAST(NULL AS nvarchar(50)) AS LoaiHocVien, CAST(NULL AS nvarchar(20)) AS LoaiGoi";
+            : "p.NgaySinh, CAST(NULL AS nvarchar(50)) AS LoaiHocVien, CAST(NULL AS nvarchar(20)) AS LoaiGoi";
+        var profileFields = ProfileFields.ForRole(vaiTro);
         var data = Database.Query($@"
             SELECT tk.TaiKhoanID, tk.VaiTro, tk.TenDangNhap, tk.Email, tk.TrangThai,
-                   p.HoTen, p.SoDienThoai, {extras}
+                   p.HoTen, p.SoDienThoai, {extras}, {string.Join(",", profileFields.Select(f => "p." + f.Key))}
             FROM TaiKhoan tk JOIN {profile} p ON p.TaiKhoanID=tk.TaiKhoanID
             WHERE tk.TaiKhoanID=@id AND tk.VaiTro=@role", p =>
         {
@@ -113,6 +115,7 @@ public sealed class PersonManagementService
             LoaiGoi = r["LoaiGoi"] == DBNull.Value ? "MienPhi" : r["LoaiGoi"].ToString()!,
             TrangThai = r["TrangThai"].ToString() ?? "HoatDong"
         };
+        foreach (var field in profileFields) item.HoSo[field.Key] = r[field.Key].ToString() ?? "";
         if (vaiTro == "GiaoVien")
             item.MonHocIds = Database.ReadList(@"
                 SELECT gm.MonHocID FROM GiaoVien_MonHoc gm
@@ -130,6 +133,18 @@ public sealed class PersonManagementService
         item.Email = item.Email.Trim();
         item.HoTen = item.HoTen.Trim();
         item.SoDienThoai = string.IsNullOrWhiteSpace(item.SoDienThoai) ? null : item.SoDienThoai.Trim();
+        var profileFields = ProfileFields.ForRole(item.VaiTro);
+        foreach (var field in profileFields)
+        {
+            var value = item.HoSo.GetValueOrDefault(field.Key, "").Trim();
+            if (value.Length > 500) return (false, field.Caption + " tối đa 500 ký tự.", 0);
+            if (field.Key.StartsWith("Sdt") && value.Length > 0 &&
+                (value.Count(char.IsDigit) is < 9 or > 15 || value.Any(c => !char.IsDigit(c) && c is not ('+' or '-' or ' ' or '(' or ')'))))
+                return (false, field.Caption + " không hợp lệ (9–15 chữ số).", 0);
+            item.HoSo[field.Key] = value;
+        }
+        if (item.NgaySinh is { } date && (date.Date > DateTime.Today || date.Year < 1900))
+            return (false, "Ngày sinh không hợp lệ.", 0);
         if (item.TaiKhoanID == 0 && (item.TenDangNhap.Length is < 3 or > 50 || item.TenDangNhap.Any(char.IsWhiteSpace)))
             return (false, "Tên đăng nhập phải có 3–50 ký tự và không chứa khoảng trắng.", 0);
         if (item.HoTen.Length is < 2 or > 100) return (false, "Họ tên phải có 2–100 ký tự.", 0);
@@ -138,6 +153,15 @@ public sealed class PersonManagementService
         if (item.SoDienThoai != null && (item.SoDienThoai.Length is < 9 or > 20 ||
             item.SoDienThoai.Any(c => !char.IsDigit(c) && c is not ('+' or '-' or ' '))))
             return (false, "Số điện thoại phải có 9–20 ký tự gồm số, dấu +, dấu - hoặc khoảng trắng.", 0);
+        if (item.TaiKhoanID == 0)
+        {
+            if (item.SoDienThoai == null) return (false, "Số điện thoại là thông tin bắt buộc.", 0);
+            if (!item.NgaySinh.HasValue) return (false, "Ngày sinh là thông tin bắt buộc.", 0);
+            var missing = ProfileFields.RequiredForRole(item.VaiTro)
+                .FirstOrDefault(field => string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault(field.Key)));
+            if (!string.IsNullOrEmpty(missing.Key))
+                return (false, missing.Caption + " là thông tin bắt buộc.", 0);
+        }
         if (item.TrangThai is not ("HoatDong" or "Khoa")) return (false, "Trạng thái không hợp lệ.", 0);
         if (item.TaiKhoanID == 0 && (matKhau?.Length ?? 0) < 6)
             return (false, "Mật khẩu mới phải có ít nhất 6 ký tự.", 0);
@@ -243,7 +267,7 @@ public sealed class PersonManagementService
                 using var required = new SqlCommand(@"
                     SELECT DISTINCT MonHocID FROM PhanCongGiangDay WHERE GiaoVienID=(SELECT GiaoVienID FROM GiaoVien WHERE TaiKhoanID=@id)
                     UNION SELECT DISTINCT cd.MonHocID FROM CauHoi c JOIN ChuDe cd ON cd.ChuDeID=c.ChuDeID
-                    WHERE c.GiaoVienID=(SELECT GiaoVienID FROM GiaoVien WHERE TaiKhoanID=@id)", conn, tx);
+                    WHERE c.NguoiTaoID=@id", conn, tx);
                 required.Parameters.AddWithValue("@id", id);
                 using var reader = required.ExecuteReader();
                 var requiredIds = new List<int>();
@@ -268,6 +292,15 @@ public sealed class PersonManagementService
                     saveSubjects.Parameters["@subject"].Value = subjectId;
                     saveSubjects.ExecuteNonQuery();
                 }
+            }
+            using (var extra = new SqlCommand($"UPDATE {item.VaiTro} SET NgaySinh=@birth," +
+                string.Join(",", profileFields.Select(f => $"[{f.Key}]=@{f.Key}")) + " WHERE TaiKhoanID=@id", conn, tx))
+            {
+                extra.Parameters.AddWithValue("@id", id);
+                extra.Parameters.AddWithValue("@birth", (object?)item.NgaySinh?.Date ?? DBNull.Value);
+                foreach (var field in profileFields)
+                    extra.Parameters.AddWithValue("@" + field.Key, string.IsNullOrWhiteSpace(item.HoSo[field.Key]) ? DBNull.Value : item.HoSo[field.Key]);
+                extra.ExecuteNonQuery();
             }
             tx.Commit();
             if (item.VaiTro == "HocVien" && oldPackage != "DongPhi" && item.LoaiGoi == "DongPhi")

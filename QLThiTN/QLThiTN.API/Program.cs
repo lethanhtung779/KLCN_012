@@ -33,6 +33,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<QLThiTNDbContext>();
     await db.Database.ExecuteSqlRawAsync(GoiThi.SchemaSql);
+    await db.Database.ExecuteSqlRawAsync(QLThiTN.Shared.WorkflowSchema.Sql);
     await db.Database.ExecuteSqlRawAsync(QLThiTN.API.Controllers.ExamActivityController.SchemaSql);
 }
 

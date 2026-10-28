@@ -13,6 +13,7 @@ internal static class Program
         {
             Database.LoadConfig(AppContext.BaseDirectory);
             Database.EnsureGoiColumns();
+            Database.Execute(QLThiTN.Shared.WorkflowSchema.Sql);
         }
         catch (Exception ex)
         {

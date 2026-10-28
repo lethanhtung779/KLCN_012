@@ -21,7 +21,7 @@ public sealed class QuestionImportRow
         : Errors.Count > 0 ? string.Join("; ", Errors)
         : IsDuplicate ? $"[Trùng lặp] {DuplicateInfo}"
         : "Hợp lệ";
-    public bool CanImport => Errors.Count == 0 && !ImportedId.HasValue;
+    public bool CanImport => Errors.Count == 0 && !IsDuplicate && !ImportedId.HasValue;
 }
 
 /// <summary>Đọc và kiểm tra trước khi ghi DB; ảnh ZIP luôn được đọc trong bộ nhớ.</summary>
@@ -29,7 +29,7 @@ public sealed class QuestionImportService
 {
     public static readonly string[] Headers = ["ChuDe", "NoiDung", "LoaiCauHoi", "MucDoKho", "Diem",
         "DapAnA", "DapAnB", "DapAnC", "DapAnD", "DapAnDung", "Y_a_Dung", "Y_b_Dung", "Y_c_Dung", "Y_d_Dung",
-        "DapSo", "GiaiThich", "AnhCauHoi", "AnhA", "AnhB", "AnhC", "AnhD", "MonHoc"];
+        "DapSo", "GiaiThich", "AnhCauHoi", "AnhA", "AnhB", "AnhC", "AnhD", "MonHoc", "NhomTHPT"];
     private const int MaxRows = 500;
     private const long MaxDataBytes = 20 * 1024 * 1024;
     private readonly IReadOnlyList<ChuDe> _topics;
@@ -91,13 +91,7 @@ public sealed class QuestionImportService
         return rows;
     }
 
-    public static string ChuanHoaNoiDung(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return "";
-        var clean = System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]+>", " ");
-        clean = System.Text.RegularExpressions.Regex.Replace(clean, @"\s+", " ").Trim();
-        return clean.ToLowerInvariant();
-    }
+    public static string ChuanHoaNoiDung(string? text) => QuestionDuplicates.Normalize(text);
 
     private void KiemTraTrungLap(List<QuestionImportRow> rows)
     {
@@ -116,7 +110,12 @@ public sealed class QuestionImportService
         foreach (var eq in existingQuestions)
         {
             var clean = ChuanHoaNoiDung(eq.NoiDung);
-            if (clean.Length == 0) continue;
+            if (clean.Length == 0)
+            {
+                var imgs=Database.ReadList("SELECT DuongDan FROM HinhAnh WHERE CauHoiID=@id AND DapAnID IS NULL ORDER BY ThuTu,HinhAnhID",r=>new QuestionImage{DuongDan=r.GetString(0)},p=>p.AddWithValue("@id",eq.CauHoiID));
+                if(imgs.Count==0)continue;
+                clean="@image:"+QuestionDuplicates.ImageKey(imgs);
+            }
             var keyMon = $"{eq.MonHocID}_{clean}";
             dbLookup.TryAdd(keyMon, (eq.CauHoiID, eq.TenChuDe));
 
@@ -129,9 +128,8 @@ public sealed class QuestionImportService
         foreach (var row in rows)
         {
             if (row.Errors.Count > 0) continue;
-            if (string.IsNullOrWhiteSpace(row.Question.NoiDung)) continue;
-
             var clean = ChuanHoaNoiDung(row.Question.NoiDung);
+            if(clean.Length==0)clean="@image:"+QuestionDuplicates.ImageKey(row.Question.HinhAnhs??[]);
             var topic = _topics.FirstOrDefault(t => t.ChuDeID == row.Question.ChuDeID);
             var monHocId = topic?.MonHocID ?? 0;
             var keyMon = $"{monHocId}_{clean}";
@@ -318,6 +316,8 @@ public sealed class QuestionImportService
             }
             return images;
         }
+        q.NhomTHPT=Get("NhomTHPT").Length==0?"ChuaPhanLoai":Get("NhomTHPT");
+        if(q.NhomTHPT is not ("ChuaPhanLoai" or "Chung" or "KhoaHocMayTinh" or "TinHocUngDung"))row.Errors.Add("NhomTHPT không hợp lệ.");
         q.HinhAnhs = Images("AnhCauHoi");
         if (q.LoaiCauHoi == LoaiCauHoi.TraLoiNgan)
         {

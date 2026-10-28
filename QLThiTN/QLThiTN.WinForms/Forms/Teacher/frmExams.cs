@@ -41,9 +41,11 @@ public class frmExams : Form
         var btnGoiDe = Ui.ButtonAccent("★ Miễn phí / VIP", 170);
         btnGoiDe.Click += (s, e) => DoiGoiDe();
         var btnLamMoi = Ui.ButtonOutline("🔄 Làm mới", 120);
+        var btnDuyet = Ui.ButtonAccent("👁 Xem các mã đề", 190);
+        btnDuyet.Click += (_, _) => MoXemCacMaDe();
         btnLamMoi.Click += (s, e) => TaiLai();
 
-        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnGoiDe, btnLamMoi, btnXoaDe })
+        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, btnDotThi, btnTronDe, btnDuyet, btnGoiDe, btnLamMoi, btnXoaDe })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);
@@ -63,6 +65,7 @@ public class frmExams : Form
         Ui.StyleGrid(_gridDe);
         _gridDe.Dock = DockStyle.Fill;
         _gridDe.SelectionChanged += (s, e) => TaiDotThi();
+        _gridDe.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) MoXemCacMaDe(); };
         _gridDe.DataError += (s, e) => { e.ThrowException = false; };
 
         var panelDe = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
@@ -78,7 +81,7 @@ public class frmExams : Form
             Padding = new Padding(16, 6, 12, 6), BackColor = Color.White
         };
         headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240));
         headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         var lblDot = Ui.Label("Các đợt thi của đề đang chọn (chọn đề phía trên)", Ui.H2, Ui.Navy);
         lblDot.Dock = DockStyle.Fill;
@@ -86,7 +89,7 @@ public class frmExams : Form
         lblDot.AutoEllipsis = true;
         lblDot.TextAlign = ContentAlignment.MiddleLeft;
         lblDot.Margin = new Padding(0, 0, 12, 0);
-        var btnXemDiem = Ui.ButtonAccent("📊 Xem bảng điểm", 160, 32);
+        var btnXemDiem = Ui.ButtonAccent("📝 Bài làm & câu trả lời", 230, 32);
         btnXemDiem.Anchor = AnchorStyles.Left | AnchorStyles.Top;
         btnXemDiem.Margin = new Padding(0, 3, 10, 0);
         btnXemDiem.Click += (s, e) => XemBangDiemDot();
@@ -119,27 +122,7 @@ public class frmExams : Form
 
     private void TaoDe(Func<int, Form> createForm)
     {
-        using var chooser = new Form
-        {
-            Text = "Giáo viên phụ trách đề thi", ClientSize = new Size(510, 180),
-            StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog,
-            MaximizeBox = false, MinimizeBox = false, Font = Ui.Body
-        };
-        var teachers = Database.Query(@"SELECT gv.GiaoVienID, gv.HoTen + N' (' + tk.TenDangNhap + N')' AS Ten
-            FROM GiaoVien gv JOIN TaiKhoan tk ON tk.TaiKhoanID = gv.TaiKhoanID
-            WHERE tk.TrangThai = N'HoatDong' AND tk.VaiTro = N'GiaoVien' ORDER BY gv.HoTen");
-        if (teachers.Rows.Count == 0) { MessageBox.Show("Chưa có giáo viên đang hoạt động để phụ trách đề thi."); return; }
-        var label = Ui.Label("Chọn giáo viên phụ trách đề thi:", Ui.Body, Ui.Navy);
-        label.Location = new Point(20, 20);
-        var combo = Ui.Combo(460); combo.Location = new Point(20, 50);
-        combo.DisplayMember = "Ten"; combo.ValueMember = "GiaoVienID"; combo.DataSource = teachers; combo.SelectedIndex = -1;
-        var next = Ui.ButtonAccent("Tiếp tục", 130); next.Location = new Point(20, 108); next.Enabled = false;
-        combo.SelectedIndexChanged += (_, _) => next.Enabled = combo.SelectedIndex >= 0;
-        next.DialogResult = DialogResult.OK;
-        var cancel = Ui.ButtonOutline("Hủy", 100); cancel.Location = new Point(165, 108); cancel.DialogResult = DialogResult.Cancel;
-        chooser.Controls.AddRange([label, combo, next, cancel]); chooser.AcceptButton = next; chooser.CancelButton = cancel;
-        if (chooser.ShowDialog(FindForm()) != DialogResult.OK || combo.SelectedValue == null) return;
-        using var form = createForm(Convert.ToInt32(combo.SelectedValue));
+        using var form = createForm(0);
         if (form.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
     }
 
@@ -149,7 +132,7 @@ public class frmExams : Form
         Ui.RenameColumns(_gridDe,
             ("DeThiID", "ID"), ("TenDe", "Tên đề"), ("TenMon", "Môn"), ("LoaiDe", "Loại đề"),
             ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Hình thức tạo"), ("QuyenThi", "Quyền thi"),
-            ("SoDotThi", "Số đợt thi"), ("SoMaDe", "Số mã đề"));
+            ("Duyet", "Duyệt web"), ("SoDotThi", "Số đợt thi"), ("SoMaDe", "Số mã đề"));
         Ui.HideColumns(_gridDe, "DeThiID", "LaMienPhi");
         if (_gridDe.Columns.Contains("LoaiDe"))
             foreach (DataGridViewRow row in _gridDe.Rows)
@@ -201,6 +184,20 @@ public class frmExams : Form
         _gridDe.CurrentRow != null && _gridDe.CurrentRow.Cells["DeThiID"].Value != null
             ? Convert.ToInt32(_gridDe.CurrentRow.Cells["DeThiID"].Value)
             : 0;
+
+    private void MoXemCacMaDe()
+    {
+        var id = DeIdDangChon();
+        if (id <= 0)
+        {
+            MessageBox.Show("Hãy chọn một đề thi để xem các mã đề 101, 102, 103...", "Chưa chọn đề",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        using var review = new frmExamReview(id);
+        review.ShowDialog(this);
+        TaiLai();
+    }
 
     private void TaiDotThi()
     {

@@ -18,7 +18,7 @@ public class frmTronDe : Form
     private readonly NumericUpDown _numSoLuong = new() { Width = 110, Minimum = 1, Maximum = 24, Value = 4, Font = Ui.Body };
     private readonly NumericUpDown _numMaBatDau = new() { Width = 110, Minimum = 101, Maximum = 999, Value = 101, Font = Ui.Body };
     private readonly CheckBox _chkXoaCu = new() { Text = "Làm mới (xóa các mã đề cũ chưa có bài thi)", AutoSize = true, Checked = true, Font = Ui.Body };
-    private readonly CheckBox _chkGhimDapAnCuoi = new() { Text = "Cố định đáp án 'Tất cả...' ở vị trí cuối (D)", AutoSize = true, Checked = true, Font = Ui.Body };
+    private readonly CheckBox _chkGhimDapAnCuoi = new() { Text = "Giữ thứ tự ý đúng/sai và đáp án phụ thuộc A/B/C/D", AutoSize = true, Checked = true, Enabled = false, Font = Ui.Body };
     private readonly Button _btnTron;
     private readonly Label _lblThongKe = Ui.Label("", Ui.Body, Ui.Navy);
     private readonly Label _lblCanhBao = Ui.Label("", Ui.Small, Ui.Warning);

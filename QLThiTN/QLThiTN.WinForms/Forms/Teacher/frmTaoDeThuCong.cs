@@ -12,7 +12,6 @@ public class frmTaoDeThuCong : Form
     private readonly ComboBox _cboMon = Ui.Combo(280);
     private readonly ComboBox _cboMuc = Ui.Combo(200);
     private readonly TextBox _txtTenDe = Ui.Input(280);
-    private readonly ComboBox _cboLoaiDe = Ui.Combo(280);
     private readonly DataGridView _grid = new();
     private readonly Label _lblDaChon = Ui.Label("Đã chọn 0 câu", Ui.H2, Ui.Accent2);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
@@ -41,20 +40,14 @@ public class frmTaoDeThuCong : Form
 
         var lblTen = Ui.Label("Tên đề thi *", Ui.H2, Ui.Navy);
         _txtTenDe.Text = $"Đề ôn tập tự chọn - {DateTime.Now:dd/MM/yyyy}";
-        var lblLoai = Ui.Label("Loại đề", Ui.H2, Ui.Navy);
-        _cboLoaiDe.Items.Add(new ComboItem("OnTap", "Bài tập về nhà"));
-        _cboLoaiDe.Items.Add(new ComboItem("ThiThu", "Thi thử"));
-        _cboLoaiDe.Items.Add(new ComboItem("ChinhThuc", "Chính thức"));
-        _cboLoaiDe.SelectedIndex = 0;
-
         var btnChonTatCa = Ui.ButtonOutline("☑ Chọn tất cả", 140, 34);
         btnChonTatCa.Click += (s, e) => { foreach (DataGridViewRow row in _grid.Rows) row.Cells["Chon"].Value = true; CapNhatDem(); };
         var btnBoTatCa = Ui.ButtonOutline("☐ Bỏ chọn tất cả", 160, 34);
         btnBoTatCa.Click += (s, e) => { foreach (DataGridViewRow row in _grid.Rows) row.Cells["Chon"].Value = false; CapNhatDem(); };
 
         Ui.StyleGrid(_grid);
-        _grid.Location = new Point(20, 200);
-        _grid.Size = new Size(980, 380);
+        _grid.Location = new Point(20, 134);
+        _grid.Size = new Size(980, 446);
         _grid.ReadOnly = false;
         _grid.CellValueChanged += (s, e) => { if (e.ColumnIndex == 0) CapNhatDem(); };
         _grid.CurrentCellDirtyStateChanged += (s, e) =>
@@ -101,16 +94,15 @@ public class frmTaoDeThuCong : Form
         var btnHuy = Ui.ButtonOutline("Hủy", 100, 42);
         btnHuy.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-        Controls.AddRange([lblMon, _cboMon, lblMuc, _cboMuc, lblTen, _txtTenDe, lblLoai, _cboLoaiDe,
+        Controls.AddRange([lblMon, _cboMon, lblMuc, _cboMuc, lblTen, _txtTenDe,
             btnChonTatCa, btnBoTatCa, _grid, _lblDaChon, _lblError, btnTao, btnHuy]);
 
         lblMon.Location = new Point(20, 16); _cboMon.Location = new Point(20, 40);
         lblMuc.Location = new Point(320, 16); _cboMuc.Location = new Point(320, 40);
         lblTen.Location = new Point(540, 16); _txtTenDe.Location = new Point(540, 40);
-        lblLoai.Location = new Point(20, 86); _cboLoaiDe.Location = new Point(20, 110);
-        btnChonTatCa.Location = new Point(20, 156);
-        btnBoTatCa.Location = new Point(170, 156);
-        _lblDaChon.Location = new Point(360, 162);
+        btnChonTatCa.Location = new Point(20, 90);
+        btnBoTatCa.Location = new Point(170, 90);
+        _lblDaChon.Location = new Point(360, 96);
         _lblError.Location = new Point(20, 596);
         btnTao.Location = new Point(20, 620);
         btnHuy.Location = new Point(200, 620);
@@ -171,14 +163,12 @@ public class frmTaoDeThuCong : Form
         _lblError.Text = "";
         if (_cboMon.SelectedItem == null) return;
         var mon = (int)(_cboMon.SelectedItem as ComboItem)!.Value!;
-        var loai = (_cboLoaiDe.SelectedItem as ComboItem)?.Value as string ?? "OnTap";
-
         var ids = new List<int>();
         foreach (DataGridViewRow row in _grid.Rows)
             if (Convert.ToBoolean(row.Cells["Chon"].Value ?? false))
                 ids.Add(Convert.ToInt32(row.Cells["CauHoiID"].Value));
 
-        var (id, error) = _examService.TaoDeThuCong(_txtTenDe.Text, mon, loai, ids);
+        var (id, error) = _examService.TaoDeThuCong(_txtTenDe.Text, mon, "ThiThu", ids);
         if (id == 0) { _lblError.Text = "⚠ " + error; return; }
         MessageBox.Show($"Tạo đề thành công! (ID: {id})\nHãy chọn đề và tạo 'Đợt thi' để học viên vào làm.",
             "Hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);

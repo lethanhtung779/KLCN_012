@@ -329,12 +329,18 @@ public class TrainingService
             ORDER BY mh.TenMon",
             p => p.AddWithValue("@lop", lopHocId));
 
+    public DataTable LayMonHocCuaLop(int lopHocId) =>
+        Database.Query(@"SELECT mh.MonHocID, mh.TenMon FROM LopHoc lh
+            JOIN KhoaHoc kh ON kh.KhoaHocID=lh.KhoaHocID
+            JOIN MonHoc mh ON mh.MonHocID=kh.MonHocID
+            WHERE lh.LopHocID=@lop", p => p.AddWithValue("@lop", lopHocId));
+
     public DataTable LayMonHocChuaPhanCong(int lopHocId) =>
         Database.Query(@"
             SELECT mh.MonHocID, mh.TenMon
             FROM MonHoc mh
-            LEFT JOIN LopHoc lh ON lh.LopHocID = @lop
-            LEFT JOIN KhoaHoc kh ON kh.KhoaHocID = lh.KhoaHocID
+            JOIN KhoaHoc kh ON kh.MonHocID = mh.MonHocID
+            JOIN LopHoc lh ON lh.KhoaHocID = kh.KhoaHocID AND lh.LopHocID = @lop
             WHERE NOT EXISTS (
                 SELECT 1 FROM PhanCongGiangDay pc
                 WHERE pc.LopHocID = @lop AND pc.MonHocID = mh.MonHocID)

@@ -16,7 +16,6 @@ public class frmTaoDeTHPTQG : Form
     // Controls thông tin đề
     private readonly ComboBox _cboMon = Ui.Combo(240);
     private readonly TextBox _txtTenDe = Ui.Input(360);
-    private readonly ComboBox _cboLoaiDe = Ui.Combo(180);
     private readonly NumericUpDown _numSoMaDe = new() { Width = 80, Minimum = 1, Maximum = 24, Value = 4, Font = Ui.Body };
     private readonly NumericUpDown _numSoChuDeToiThieu = new() { Width = 70, Minimum = 1, Maximum = 99, Value = 1, Font = Ui.Body };
     private readonly NumericUpDown _numCauMoiChuDe = new() { Width = 70, Minimum = 1, Maximum = 99, Value = 1, Font = Ui.Body };
@@ -79,14 +78,6 @@ public class frmTaoDeTHPTQG : Form
         lblTen.Location = new Point(280, 12);
         _txtTenDe.Location = new Point(280, 34);
 
-        var lblLoai = Ui.Label("Loại đề", Ui.Body, Ui.Navy);
-        lblLoai.Location = new Point(660, 12);
-        _cboLoaiDe.Location = new Point(660, 34);
-        _cboLoaiDe.Items.Add(new ComboItem("ThiThu", "Thi thử"));
-        _cboLoaiDe.Items.Add(new ComboItem("ChinhThuc", "Chính thức"));
-        _cboLoaiDe.Items.Add(new ComboItem("OnTap", "Bài tập về nhà"));
-        _cboLoaiDe.SelectedIndex = 0;
-
         var btnNapChuan = Ui.ButtonAccent("Nạp gợi ý cấu trúc môn", 250, 36);
         btnNapChuan.Location = new Point(20, 68);
         btnNapChuan.Click += (s, e) => NapMaTranChuanBo();
@@ -94,7 +85,7 @@ public class frmTaoDeTHPTQG : Form
         _lblGoiYChuan.Location = new Point(290, 76);
         _lblGoiYChuan.AutoSize = true;
 
-        pnlConfig.Controls.AddRange([lblMon, _cboMon, lblTen, _txtTenDe, lblLoai, _cboLoaiDe, btnNapChuan, _lblGoiYChuan]);
+        pnlConfig.Controls.AddRange([lblMon, _cboMon, lblTen, _txtTenDe, btnNapChuan, _lblGoiYChuan]);
 
         // Center Panel: Bảng Ma trận
         var pnlGridWrap = new Panel
@@ -282,45 +273,21 @@ public class frmTaoDeTHPTQG : Form
     {
         if (_gridMaTran.Rows.Count == 0 || _cboMon.SelectedItem == null) return;
         var tenMon = (_cboMon.SelectedItem as ComboItem)!.ToString() ?? "";
-
-        int chuanTN = 18;
-        int chuanDS = 4;
-        int chuanTLN = 6;
-
-        if (tenMon.Contains("Ngữ văn", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Ngu van", StringComparison.OrdinalIgnoreCase))
+        int chuanTN, chuanDS, chuanTLN;
+        try
+        {
+            var format = QLThiTN.Shared.ExamFormat.ForSubject(tenMon);
+            chuanTN = format.MultipleChoice;
+            chuanDS = format.TrueFalse;
+            chuanTLN = format.ShortAnswer;
+            _lblGoiYChuan.Text = $"Chuẩn {tenMon}: {chuanTN} TN, {chuanDS} Đ/S, {chuanTLN} trả lời ngắn.";
+            if (tenMon.Contains("Tin", StringComparison.OrdinalIgnoreCase))
+                _lblGoiYChuan.Text += " Câu Đ/S Tin học phải được phân nhóm chung/định hướng.";
+        }
+        catch (InvalidOperationException ex)
         {
             chuanTN = chuanDS = chuanTLN = 0;
-            _lblGoiYChuan.Text = "Ngữ văn là bài tự luận; màn hình ma trận trắc nghiệm này chưa tạo được đề Văn.";
-        }
-        else if (tenMon.Contains("Toan", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Toán", StringComparison.OrdinalIgnoreCase))
-        {
-            chuanTN = 12;
-            chuanDS = 4;
-            chuanTLN = 6;
-            _lblGoiYChuan.Text = "Gợi ý Toán: 12 TN, 4 Đ/S, 6 trả lời ngắn. Kiểm tra lại trước khi tạo.";
-        }
-        else if (tenMon.Contains("Tiếng", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Tieng", StringComparison.OrdinalIgnoreCase)
-            || tenMon.Contains("Ngoại ngữ", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Ngoai ngu", StringComparison.OrdinalIgnoreCase))
-        {
-            chuanTN = 40;
-            chuanDS = 0;
-            chuanTLN = 0;
-            _lblGoiYChuan.Text = "Gợi ý Ngoại ngữ: 40 câu TN. Các bài đọc chung ngữ liệu cần chọn và duyệt riêng.";
-        }
-        else if (tenMon.Contains("Lich Su", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Lịch sử", StringComparison.OrdinalIgnoreCase)
-            || tenMon.Contains("Kinh tế", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Kinh te", StringComparison.OrdinalIgnoreCase)
-            || tenMon.Contains("Công nghệ", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Cong nghe", StringComparison.OrdinalIgnoreCase)
-            || tenMon.Contains("Tin học", StringComparison.OrdinalIgnoreCase) || tenMon.Contains("Tin hoc", StringComparison.OrdinalIgnoreCase))
-        {
-            chuanTN = 24;
-            chuanDS = 4;
-            chuanTLN = 0;
-            _lblGoiYChuan.Text = "Gợi ý: 24 TN, 4 Đ/S. Tin học có nhánh tự chọn cần biên tập riêng.";
-        }
-        else
-        {
-            // Vật lý, Hóa học, Sinh học, Địa lí, Tin học, Công nghệ
-            _lblGoiYChuan.Text = $"Gợi ý {tenMon}: 18 TN, 4 Đ/S, 6 trả lời ngắn. Kiểm tra lại trước khi tạo.";
+            _lblGoiYChuan.Text = ex.Message;
         }
 
         // Phân bổ đều và thông minh theo số câu có sẵn trong kho
@@ -347,6 +314,16 @@ public class frmTaoDeTHPTQG : Form
         PhanBoCauTheoMucDo(rows, "SoTLN", "KhoTLN", chuanTLN);
 
         CapNhatTongKet();
+        var actualTN = rows.Sum(r => Convert.ToInt32(r.Cells["SoTN"].Value ?? 0));
+        var actualDS = rows.Sum(r => Convert.ToInt32(r.Cells["SoDS"].Value ?? 0));
+        var actualTLN = rows.Sum(r => Convert.ToInt32(r.Cells["SoTLN"].Value ?? 0));
+        var missing = new List<string>();
+        if (actualTN < chuanTN) missing.Add($"TN thiếu {chuanTN - actualTN}");
+        if (actualDS < chuanDS) missing.Add($"Đ/S thiếu {chuanDS - actualDS}");
+        if (actualTLN < chuanTLN) missing.Add($"TL ngắn thiếu {chuanTLN - actualTLN}");
+        _lblError.Text = missing.Count == 0
+            ? ""
+            : "⚠ Ngân hàng chưa đủ cấu trúc chuẩn: " + string.Join(", ", missing) + ".";
     }
 
     private void PhanBoCauTheoMucDo(List<DataGridViewRow> rows, string colSo, string colKho, int canPhanBo)
@@ -437,8 +414,6 @@ public class frmTaoDeTHPTQG : Form
             _lblError.Text = "Môn Ngữ văn là đề tự luận; màn hình trắc nghiệm này chưa hỗ trợ tạo đề Văn.";
             return;
         }
-        var loaiDe = (_cboLoaiDe.SelectedItem as ComboItem)?.Value?.ToString() ?? "ThiThu";
-
         var maTran = new List<MaTranChuDeItem>();
         foreach (DataGridViewRow r in _gridMaTran.Rows)
         {
@@ -478,7 +453,7 @@ public class frmTaoDeTHPTQG : Form
             var (id, err) = _examService.TaoDeTheoMaTranTHPTQG(
                 _txtTenDe.Text.Trim(),
                 monId,
-                loaiDe,
+                "ThiThu",
                 maTran,
                 tuDongTron,
                 soLuongMa,

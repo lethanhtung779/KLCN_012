@@ -16,13 +16,15 @@ public class frmAccountEdit : Form
     private readonly ComboBox _cboVaiTro = Ui.Combo(300);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
 
-    public frmAccountEdit(int id = 0, string tenDangNhap = "", string email = "", string hoTen = "", string vaiTro = "HocVien")
+    public frmAccountEdit(int id = 0, string tenDangNhap = "", string email = "", string hoTen = "", string vaiTro = "HocVien", bool chiQuanTriVien = false)
     {
         _id = id;
         _tenDangNhap = tenDangNhap;
         _vaiTro = vaiTro;
 
-        Text = id == 0 ? "Thêm tài khoản mới" : $"Sửa tài khoản: {tenDangNhap}";
+        Text = id == 0
+            ? (chiQuanTriVien ? "Thêm quản trị viên" : "Thêm tài khoản mới")
+            : $"Sửa tài khoản: {tenDangNhap}";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false; MinimizeBox = false;
@@ -42,14 +44,18 @@ public class frmAccountEdit : Form
         _cboVaiTro.Items.AddRange(new[] { "HocVien", "GiaoVien", "QuanTriVien" }.Select(c => new DirectoryRules.RoleOption(c)).ToArray());
         _cboVaiTro.SelectedItem = _cboVaiTro.Items.Cast<DirectoryRules.RoleOption>().First(x => x.Code == vaiTro);
         Label? lblVaiTroCoDinh = null;
-        if (id == 0)
+        if (id == 0 && !chiQuanTriVien)
         {
             _cboVaiTro.Enabled = true;
         }
         else
         {
             _cboVaiTro.Visible = false;
-            lblVaiTroCoDinh = Ui.Label($"Vai trò: {TenVaiTro(vaiTro)} (không đổi khi sửa)", Ui.Body, Ui.TextMuted);
+            lblVaiTroCoDinh = Ui.Label(
+                chiQuanTriVien && id == 0
+                    ? "Vai trò: Quản trị viên"
+                    : $"Vai trò: {TenVaiTro(vaiTro)} (không đổi khi sửa)",
+                Ui.Body, Ui.TextMuted);
         }
 
         var lblMatKhau = Ui.Label(id == 0 ? "Mật khẩu * (tối thiểu 6 ký tự)" : "Mật khẩu mới (để trống để giữ nguyên)", Ui.Body, Ui.Navy);
@@ -66,7 +72,7 @@ public class frmAccountEdit : Form
             lblTen, _txtTen, lblEmail, _txtEmail, lblHoTen, _txtHoTen,
             lblMatKhau, _txtMatKhau, _lblError, btnLuu, btnHuy
         };
-        if (id == 0)
+        if (id == 0 && !chiQuanTriVien)
             controls.InsertRange(6, [lblVaiTro, _cboVaiTro]);
         else if (lblVaiTroCoDinh != null)
             controls.Insert(6, lblVaiTroCoDinh);
@@ -76,7 +82,7 @@ public class frmAccountEdit : Form
         lblTen.Location = new Point(30, y); _txtTen.Location = new Point(30, y + 26); y += 66;
         lblEmail.Location = new Point(30, y); _txtEmail.Location = new Point(30, y + 26); y += 66;
         lblHoTen.Location = new Point(30, y); _txtHoTen.Location = new Point(30, y + 26); y += 66;
-        if (id == 0)
+        if (id == 0 && !chiQuanTriVien)
         {
             lblVaiTro.Location = new Point(30, y); _cboVaiTro.Location = new Point(30, y + 26); y += 66;
         }
@@ -111,7 +117,8 @@ public class frmAccountEdit : Form
         {
             if (_id == 0)
             {
-                var (ok, error, _) = _service.Them(_txtTen.Text, _txtEmail.Text, _txtHoTen.Text, (_cboVaiTro.SelectedItem as DirectoryRules.RoleOption)?.Code ?? "", _txtMatKhau.Text);
+                var (ok, error, _) = _service.Them(_txtTen.Text, _txtEmail.Text, _txtHoTen.Text,
+                    (_cboVaiTro.SelectedItem as DirectoryRules.RoleOption)?.Code ?? _vaiTro, _txtMatKhau.Text);
                 if (!ok) { _lblError.Text = "⚠ " + error; return; }
             }
             else

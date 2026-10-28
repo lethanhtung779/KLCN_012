@@ -19,5 +19,4 @@ public class GiaoVien
 
     public TaiKhoan? TaiKhoan { get; set; }
 
-    public List<CauHoi> CauHois { get; set; } = new();
 }

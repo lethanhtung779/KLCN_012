@@ -109,6 +109,20 @@ public class frmChiTietLopHoc : Form
         _tabHocVien = TaoTab("Học viên", _students, _studentHint);
         _tabGiaoVien = TaoTabGiaoVien();
         _tabLichHoc = TaoTab("Lịch học", _schedule, _scheduleHint);
+        if (Session.IsQuanTriVien)
+        {
+            var repeat = Ui.ButtonAccent("Tạo lịch lặp theo tuần", 220);
+            repeat.Dock = DockStyle.Top;
+            repeat.Click += (_, _) =>
+            {
+                if (_lopDangXem <= 0) return;
+                using var form = new frmLichHocLap(_lopDangXem);
+                if (form.ShowDialog(this) == DialogResult.OK) NapDanhSach(_lopDangXem);
+            };
+            var body = _tabLichHoc.Controls[0];
+            _tabLichHoc.Controls.Add(repeat);
+            body.BringToFront();
+        }
         _tabs.TabPages.AddRange([_tabHocVien, _tabGiaoVien, _tabLichHoc]);
         _schedule.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0 && Session.IsQuanTriVien) SuaLich(); };
         right.Controls.Add(_title, 0, 0);

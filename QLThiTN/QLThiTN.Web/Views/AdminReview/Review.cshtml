@@ -1,0 +1,19 @@
+@model QLThiTN.Shared.ReviewDocument
+@using QLThiTN.Shared
+@{ ViewData["Title"]="Xem đề và bài làm"; }
+<div class="container py-4">
+<a asp-action="Index">← Danh sách đề</a>
+@if(TempData["ReviewMessage"] is string message){<div class="alert alert-info">@message</div>}
+@if(Model.Student==null){
+    <h2>Bài làm của thí sinh</h2>
+    <ul>@foreach(var attempt in (List<QLThiTN.Web.Controllers.AdminReviewController.AttemptRow>)ViewBag.Attempts){<li><a asp-action="Attempt" asp-route-id="@attempt.BaiLamID">@attempt.HoTen · bài #@attempt.BaiLamID · @attempt.TrangThai · @attempt.TongDiem điểm</a></li>}</ul>
+}
+@Html.Raw(ExamReview.Html(Model,img=>((string)ViewBag.ApiBase)+"/api/hinhanh/"+img.Id))
+@if(Model.Student==null){
+    <form asp-action="Approve" method="post" class="my-4">
+        <input type="hidden" name="id" value="@Model.Id"/><input type="hidden" name="fingerprint" value="@Model.Fingerprint"/>
+        <label><input type="checkbox" name="reviewed" value="true" required/> Tôi đã xem các mã đề, nội dung và đáp án ở trên.</label>
+        <button class="btn btn-primary" type="submit">Duyệt đề lên web</button>
+    </form>
+}
+</div>

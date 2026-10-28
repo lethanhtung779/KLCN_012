@@ -240,8 +240,8 @@ public class AccountService
                 SELECT
                     (SELECT COUNT(*) FROM BaiLam bl JOIN HocVien hv ON hv.HocVienID=bl.HocVienID WHERE hv.TaiKhoanID=@id)
                   + (SELECT COUNT(*) FROM DangKyDotThi dk JOIN HocVien hv ON hv.HocVienID=dk.HocVienID WHERE hv.TaiKhoanID=@id)
-                  + (SELECT COUNT(*) FROM CauHoi c JOIN GiaoVien gv ON gv.GiaoVienID=c.GiaoVienID WHERE gv.TaiKhoanID=@id)
-                  + (SELECT COUNT(*) FROM DeThi d JOIN GiaoVien gv ON gv.GiaoVienID=d.GiaoVienID WHERE gv.TaiKhoanID=@id)
+                  + (SELECT COUNT(*) FROM CauHoi c WHERE c.NguoiTaoID=@id)
+                  + (SELECT COUNT(*) FROM DeThi d WHERE d.NguoiTaoID=@id)
                   + (SELECT COUNT(*) FROM PhanCongGiangDay pc JOIN GiaoVien gv ON gv.GiaoVienID=pc.GiaoVienID WHERE gv.TaiKhoanID=@id)", conn, tx);
             dependencies.Parameters.AddWithValue("@id", taiKhoanId);
             if (Convert.ToInt32(dependencies.ExecuteScalar()) > 0)

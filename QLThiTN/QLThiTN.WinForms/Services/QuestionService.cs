@@ -56,15 +56,19 @@ public class QuestionService
     }
 
     // ------------------------------------------------------------------ tra cuu
-    public DataTable TraCuu(int? monHocId, int? chuDeId, string? loai, string? mucDo, string? tuKhoa, bool chiLocTrung = false)
+    public DataTable TraCuu(int? monHocId, int? chuDeId, string? loai, string? mucDo, string? tuKhoa, bool chiLocTrung = false,
+        int? page = null, int pageSize = 100)
     {
+        if (page < 0 || pageSize < 1 || pageSize > 500) throw new ArgumentOutOfRangeException(nameof(page));
         if (Session.IsGiaoVien)
         {
             if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
         }
         else Session.YeuCauQuanTriVien();
+        // Compile for the selected filters instead of reusing the all-subject plan.
+        // Serial execution also avoids parallel-query memory grants on SQL Express.
         var sql = $@"
-            SELECT c.CauHoiID, c.NoiDung,
+            SELECT {(page.HasValue ? "COUNT(*) OVER() AS TotalCount," : "")} c.CauHoiID, c.NoiDung,
                    CASE c.LoaiCauHoi
                        WHEN 'TracNghiem' THEN N'Trắc nghiệm'
                        WHEN 'DungSai' THEN N'Đúng/Sai'
@@ -81,11 +85,15 @@ public class QuestionService
                    CASE c.TrangThai
                        WHEN 'HoatDong' THEN N'Hoạt động'
                        ELSE N'Đã ẩn' END AS TrangThai,
-                   cd.TenChuDe, m.TenMon, gv.HoTen AS TenGiaoVien, c.NgayTao, c.ChuDeID, c.GiaoVienID
+                   cd.TenChuDe, m.TenMon,
+                   COALESCE(gv.HoTen, qtv.HoTen, tk.TenDangNhap, N'(không rõ)') AS TenGiaoVien,
+                   c.NgayTao, c.ChuDeID, c.NguoiTaoID
             FROM CauHoi c
             JOIN ChuDe cd ON cd.ChuDeID = c.ChuDeID
             JOIN MonHoc m ON m.MonHocID = cd.MonHocID
-            LEFT JOIN GiaoVien gv ON gv.GiaoVienID = c.GiaoVienID
+            LEFT JOIN TaiKhoan tk ON tk.TaiKhoanID = c.NguoiTaoID
+            LEFT JOIN GiaoVien gv ON gv.TaiKhoanID = tk.TaiKhoanID
+            LEFT JOIN QuanTriVien qtv ON qtv.TaiKhoanID = tk.TaiKhoanID
             WHERE (@mon = 0 OR cd.MonHocID = @mon)
               AND (@chuDe = 0 OR c.ChuDeID = @chuDe)
               AND (@loai = N'' OR c.LoaiCauHoi = @loai)
@@ -101,7 +109,9 @@ public class QuestionService
                     GROUP BY c2.NoiDung 
                     HAVING COUNT(*) > 1
                 )" : "")}
-            ORDER BY {(chiLocTrung ? "c.NoiDung, c.CauHoiID" : "c.CauHoiID DESC")}";
+            ORDER BY {(chiLocTrung ? "c.NoiDung, c.CauHoiID" : "c.CauHoiID DESC")}
+            {(page.HasValue ? "OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY" : "")}
+            OPTION (RECOMPILE, MAXDOP 1)";
         return Database.Query(sql, p =>
         {
             p.AddWithValue("@mon", monHocId ?? 0);
@@ -111,6 +121,11 @@ public class QuestionService
             p.AddWithValue("@tu", tuKhoa?.Trim() ?? "");
             p.AddWithValue("@isGv", Session.IsGiaoVien ? 1 : 0);
             p.AddWithValue("@gvId", Session.GiaoVienID);
+            if (page.HasValue)
+            {
+                p.AddWithValue("@offset", checked(page.Value * pageSize));
+                p.AddWithValue("@pageSize", pageSize);
+            }
         });
     }
 
@@ -125,8 +140,7 @@ public class QuestionService
             SELECT c.CauHoiID, c.ChuDeID, cd.TenChuDe, cd.MonHocID, c.NoiDung 
             FROM CauHoi c 
             JOIN ChuDe cd ON cd.ChuDeID = c.ChuDeID
-            WHERE c.TrangThai = N'HoatDong' 
-              AND cd.MonHocID IN (SELECT DISTINCT MonHocID FROM ChuDe WHERE ChuDeID IN ({pNames}))";
+            WHERE cd.MonHocID IN (SELECT DISTINCT MonHocID FROM ChuDe WHERE ChuDeID IN ({pNames}))";
 
         return Database.ReadList(sql,
             r => (r.GetInt32(0), r.GetInt32(1), r.GetString(2), r.GetInt32(3), r.GetString(4)),
@@ -144,21 +158,22 @@ public class QuestionService
                 p => p.AddWithValue("@id", cauHoiId)));
         else Session.YeuCauQuanTriVien();
         var cau = Database.ReadList(@"
-            SELECT c.CauHoiID, c.ChuDeID, c.GiaoVienID, c.NoiDung, c.LoaiCauHoi, c.MucDoKho,
-                   c.Diem, c.TrangThai, c.NgayTao, c.GiaiThichDapAn
+            SELECT c.CauHoiID, c.ChuDeID, c.NguoiTaoID, c.NoiDung, c.LoaiCauHoi, c.MucDoKho,
+                   c.Diem, c.TrangThai, c.NgayTao, c.GiaiThichDapAn, c.NhomTHPT
             FROM CauHoi c WHERE c.CauHoiID = @id",
             r => new CauHoi
             {
                 CauHoiID = r.GetInt32(0),
                 ChuDeID = r.GetInt32(1),
-                GiaoVienID = r.GetInt32(2),
+                NguoiTaoID = r.IsDBNull(2)?0:r.GetInt32(2),
                 NoiDung = r.GetString(3),
                 LoaiCauHoi = r.GetString(4),
                 MucDoKho = r.GetString(5),
                 Diem = r.GetDecimal(6),
                 TrangThai = r.GetString(7),
                 NgayTao = r.GetDateTime(8),
-                GiaiThichDapAn = r.IsDBNull(9) ? null : r.GetString(9)
+                GiaiThichDapAn = r.IsDBNull(9) ? null : r.GetString(9),
+                NhomTHPT = r.GetString(10)
             },
             p => p.AddWithValue("@id", cauHoiId)).FirstOrDefault();
 
@@ -234,11 +249,10 @@ public class QuestionService
         if (!Session.IsGiaoVien) { Session.YeuCauQuanTriVien(); return; }
         KiemTraPhanCongMon(Database.ExecuteScalarInt("SELECT ChuDeID FROM CauHoi WHERE CauHoiID=@id",
             p => p.AddWithValue("@id", cauHoiId)));
-        var gvId = Session.GiaoVienID;
         var authorId = Database.ExecuteScalarInt(
-            "SELECT GiaoVienID FROM CauHoi WHERE CauHoiID = @id",
+            "SELECT NguoiTaoID FROM CauHoi WHERE CauHoiID = @id",
             p => p.AddWithValue("@id", cauHoiId));
-        if (authorId != gvId)
+        if (authorId != Session.Current!.TaiKhoanID)
             throw new UnauthorizedAccessException("Bạn chỉ được phép chỉnh sửa hoặc xóa câu hỏi do chính mình tạo.");
     }
 
@@ -250,16 +264,17 @@ public class QuestionService
         using var files = new QuestionImageStore.Batch();
         using var conn = Database.Open();
         using var tx = conn.BeginTransaction(IsolationLevel.Serializable);
+        QuestionDuplicates.Reject(conn, tx, c);
         if (!themMoi) KiemTraChoPhepThayDoi(conn, tx, c.CauHoiID);
         using var cmd = new SqlCommand(themMoi ? @"
-            INSERT INTO CauHoi (ChuDeID, GiaoVienID, NoiDung, LoaiCauHoi, MucDoKho, Diem, TrangThai, NgayTao, GiaiThichDapAn)
-            VALUES (@cd, @gv, @nd, @loai, @muc, @diem, N'HoatDong', SYSDATETIME(), @gt);
+            INSERT INTO CauHoi (ChuDeID, NguoiTaoID, NoiDung, LoaiCauHoi, MucDoKho, Diem, TrangThai, NgayTao, GiaiThichDapAn)
+            VALUES (@cd, @author, @nd, @loai, @muc, @diem, N'HoatDong', SYSDATETIME(), @gt);
             SELECT CAST(SCOPE_IDENTITY() AS INT);" : @"
             UPDATE CauHoi SET ChuDeID = @cd, NoiDung = @nd, LoaiCauHoi = @loai,
                 MucDoKho = @muc, Diem = @diem, GiaiThichDapAn = @gt WHERE CauHoiID = @id;
             SELECT @id;", conn, tx);
         cmd.Parameters.AddWithValue("@cd", c.ChuDeID);
-        cmd.Parameters.AddWithValue("@gv", Session.GiaoVienID);
+        cmd.Parameters.AddWithValue("@author", Session.Current!.TaiKhoanID);
         cmd.Parameters.AddWithValue("@nd", c.NoiDung.Trim());
         cmd.Parameters.AddWithValue("@loai", c.LoaiCauHoi);
         cmd.Parameters.AddWithValue("@muc", c.MucDoKho);
@@ -267,6 +282,11 @@ public class QuestionService
         cmd.Parameters.AddWithValue("@gt", (object?)c.GiaiThichDapAn ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@id", c.CauHoiID);
         var id = Convert.ToInt32(cmd.ExecuteScalar());
+        using (var track=new SqlCommand("UPDATE CauHoi SET NhomTHPT=@track WHERE CauHoiID=@id",conn,tx))
+        {
+            if(c.NhomTHPT is not ("ChuaPhanLoai" or "Chung" or "KhoaHocMayTinh" or "TinHocUngDung"))throw new InvalidOperationException("Nhánh Tin học không hợp lệ.");
+            track.Parameters.AddWithValue("@track",c.NhomTHPT);track.Parameters.AddWithValue("@id",id);track.ExecuteNonQuery();
+        }
         LuuHinhAnh(conn, tx, files, id, null, c.HinhAnhs);
 
         // Giu ID dap an va hinh anh khi sua noi dung; khong xoa du lieu bai lam.

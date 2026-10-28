@@ -38,9 +38,9 @@ public class DeThiDetailDto
 
 public class CreateDeThiRequestDto
 {
+    public string TinHocTrack { get; set; } = "KhoaHocMayTinh";
     public string TenDe { get; set; } = string.Empty;
     public int MonHocID { get; set; }
-    public int GiaoVienID { get; set; } = 1;
     public string LoaiDe { get; set; } = "ThiThu";
     public int SoLuongCauHoi { get; set; } = 10;
 }

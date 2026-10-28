@@ -11,6 +11,7 @@ public class frmQuestionEdit : Form
     private readonly ComboBox _cboChuDe = Ui.Combo(300);
     private readonly ComboBox _cboLoai = Ui.Combo(240);
     private readonly ComboBox _cboMuc = Ui.Combo(180);
+    private readonly ComboBox _track = Ui.Combo(240);
     private readonly NumericUpDown _numDiem = new() { Width = 80, DecimalPlaces = 2, Increment = 0.25m, Minimum = 0.01m, Maximum = 100m, Value = 0.25m };
     private readonly QuestionContentEditor _question = new() { Height = 350 };
     private readonly QuestionContentEditor[] _answers = Enumerable.Range(0, 4).Select(_ => new QuestionContentEditor()).ToArray();
@@ -44,6 +45,9 @@ public class frmQuestionEdit : Form
         AddField(metadata, "Loại câu hỏi *", _cboLoai);
         AddField(metadata, "Độ khó", _cboMuc);
         AddField(metadata, "Điểm", _numDiem);
+        _track.Items.AddRange(new object[]{new ComboItem("ChuaPhanLoai","Chưa phân loại"),new ComboItem("Chung","Phần chung"),new ComboItem("KhoaHocMayTinh","Khoa học máy tính"),new ComboItem("TinHocUngDung","Tin học ứng dụng")});
+        _track.SelectedIndex=0;
+        AddField(metadata,"Nhánh THPT (câu Đ/S môn Tin học)",_track);
         var contentPage = new TabPage("Nội dung câu hỏi") { AutoScroll = true, Padding = new Padding(12), BackColor = Color.White };
         var explanationTitle = new Label { Text = "Giải thích đáp án (có thể nhập công thức $...$)", Dock = DockStyle.Top, Height = 30 };
         contentPage.Controls.Add(_explanation); contentPage.Controls.Add(explanationTitle); contentPage.Controls.Add(_question);
@@ -141,6 +145,7 @@ public class frmQuestionEdit : Form
         _loading = true;
         Select(_cboMon, topic.MonHocID); Select(_cboChuDe, q.ChuDeID);
         Select(_cboLoai, q.LoaiCauHoi); Select(_cboMuc, q.MucDoKho);
+        Select(_track,q.NhomTHPT);
         _numDiem.Maximum = Math.Max(_numDiem.Maximum, q.Diem); _numDiem.Value = Math.Max(_numDiem.Minimum, q.Diem);
         _question.Input.Text = q.NoiDung; _question.LoadImages(q.HinhAnhs);
         _explanation.Text = q.GiaiThichDapAn ?? "";
@@ -159,6 +164,7 @@ public class frmQuestionEdit : Form
         var q = new CauHoi
         {
             CauHoiID = _id, ChuDeID = (_cboChuDe.SelectedItem as ComboItem)?.Value as int? ?? 0,
+            NhomTHPT = (_track.SelectedItem as ComboItem)?.Value as string ?? "ChuaPhanLoai",
             NoiDung = _question.Input.Text.Trim(), HinhAnhs = _question.Images,
             LoaiCauHoi = QuestionType, MucDoKho = (_cboMuc.SelectedItem as ComboItem)?.Value as string ?? MucDoKho.ChuaXacDinh,
             Diem = _numDiem.Value, GiaiThichDapAn = _explanation.Text.Trim()

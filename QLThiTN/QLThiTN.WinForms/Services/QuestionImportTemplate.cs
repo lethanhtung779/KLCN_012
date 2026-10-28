@@ -20,6 +20,7 @@ public static class QuestionImportTemplate
         tn[5] = "$1$"; tn[6] = "$2$"; tn[7] = "$3$"; tn[8] = "$4$"; tn[9] = "A";
         tn[15] = @"Ta có $\frac{1}{2}+\frac{1}{2}=1$.";
         var ds = Row("DungSai", "Xét các khẳng định sau:");
+        ds[22] = "Chung";
         ds[5] = "$1+1=2$"; ds[6] = "$2+2=5$"; ds[7] = "$3>2$"; ds[8] = "$4<1$";
         ds[10] = "D"; ds[11] = "S"; ds[12] = "D"; ds[13] = "S";
         var shortAnswer = Row("TraLoiNgan", @"Tính $\sqrt{9}$."); shortAnswer[14] = "3";
@@ -53,6 +54,8 @@ public static class QuestionImportTemplate
         {
             "Mẫu minh họa cách nhập. Sửa chủ đề/môn học và thay nội dung trước khi dùng.",
             "ChuDe phải đúng tên có trong hệ thống. MonHoc giúp phân biệt các chủ đề trùng tên.",
+            "NhomTHPT dùng cho câu Đúng/Sai môn Tin học: Chung, KhoaHocMayTinh hoặc TinHocUngDung.",
+            "Câu trùng nội dung trong cùng môn không thể nhập. Hệ thống vẫn hiển thị dòng trùng và ID câu đã có.",
             "Công thức toán: nhập văn bản LaTeX $...$ hoặc $$...$$. Không dùng công thức Excel (=...) hay Equation.",
             "Ảnh: ZIP gồm đúng một file dữ liệu (.xlsx/.txt/.csv) và thư mục images. Không dán ảnh trực tiếp vào Excel.",
             "AnhCauHoi, AnhA, AnhB, AnhC, AnhD: đường dẫn tương đối so với file dữ liệu. Ví dụ images/cau1.png.",

@@ -13,13 +13,14 @@ public class StatisticsService
         var coQuyen = Database.ExecuteScalarInt(@"
             SELECT COUNT(1) FROM DotThi dt
             JOIN DeThi d ON d.DeThiID = dt.DeThiID
-            WHERE dt.DotThiID = @dt AND (d.GiaoVienID=@gv OR EXISTS (
+            WHERE dt.DotThiID = @dt AND (d.NguoiTaoID=@account OR EXISTS (
                 SELECT 1 FROM DotThi_LopHoc dl JOIN PhanCongGiangDay pc ON pc.LopHocID=dl.LopHocID
                 WHERE dl.DotThiID=dt.DotThiID AND pc.GiaoVienID=@gv AND pc.MonHocID=d.MonHocID))",
             p =>
             {
                 p.AddWithValue("@dt", dotThiId);
                 p.AddWithValue("@gv", Session.GiaoVienID);
+                p.AddWithValue("@account", Session.Current!.TaiKhoanID);
             }) > 0;
         if (!coQuyen)
             throw new UnauthorizedAccessException("Bạn không được phân công phụ trách môn học của đợt thi này.");
@@ -34,11 +35,15 @@ public class StatisticsService
                 SELECT dt.DotThiID, dt.TenDotThi + N' — ' + d.TenDe AS HienThi
                 FROM DotThi dt
                 JOIN DeThi d ON d.DeThiID = dt.DeThiID
-                WHERE d.GiaoVienID=@gv OR EXISTS (
+                WHERE d.NguoiTaoID=@account OR EXISTS (
                     SELECT 1 FROM DotThi_LopHoc dl JOIN PhanCongGiangDay pc ON pc.LopHocID=dl.LopHocID
                     WHERE dl.DotThiID=dt.DotThiID AND pc.GiaoVienID=@gv AND pc.MonHocID=d.MonHocID)
                 ORDER BY dt.ThoiGianMoCong DESC",
-                p => p.AddWithValue("@gv", Session.GiaoVienID));
+                p =>
+                {
+                    p.AddWithValue("@gv", Session.GiaoVienID);
+                    p.AddWithValue("@account", Session.Current!.TaiKhoanID);
+                });
         }
         Session.YeuCauQuanTriVien();
         return Database.Query(@"

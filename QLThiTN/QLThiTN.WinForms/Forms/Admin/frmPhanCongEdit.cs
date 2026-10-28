@@ -9,9 +9,9 @@ public class frmPhanCongEdit : Form
     private readonly TrainingService _service = new();
     private readonly int _lopHocId;
     private readonly bool _sua;
-    private readonly int _monHocIdCoDinh;
+    private int _monHocIdCoDinh;
     private readonly int _giaoVienIdBanDau;
-    private readonly ComboBox _cboMon = Ui.Combo(460);
+    private readonly Label _lblMonHoc = Ui.Label("", Ui.Body, Ui.Navy);
     private readonly ComboBox _cboGiaoVien = Ui.Combo(460);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
 
@@ -30,7 +30,7 @@ public class frmPhanCongEdit : Form
         ClientSize = new Size(520, 260);
         BackColor = Color.White;
 
-        var lblMon = Ui.Label("Môn học *", Ui.H2, Ui.Navy);
+        var lblMon = Ui.Label("Môn học theo khóa học", Ui.H2, Ui.Navy);
         var lblGv = Ui.Label("Giáo viên *", Ui.H2, Ui.Navy);
         var btnLuu = Ui.ButtonAccent("Lưu", 120, 40);
         Ui.GradientButton(btnLuu, Ui.Accent, Ui.Accent2);
@@ -38,51 +38,39 @@ public class frmPhanCongEdit : Form
         var btnHuy = Ui.ButtonOutline("Hủy", 100, 40);
         btnHuy.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
 
-        Controls.AddRange([lblMon, _cboMon, lblGv, _cboGiaoVien, _lblError, btnLuu, btnHuy]);
-        lblMon.Location = new Point(28, 20); _cboMon.Location = new Point(28, 44);
+        Controls.AddRange([lblMon, _lblMonHoc, lblGv, _cboGiaoVien, _lblError, btnLuu, btnHuy]);
+        lblMon.Location = new Point(28, 20); _lblMonHoc.Location = new Point(28, 48);
+        _lblMonHoc.AutoSize = false;
+        _lblMonHoc.Size = new Size(460, 28);
+        _lblMonHoc.AutoEllipsis = true;
         lblGv.Location = new Point(28, 82); _cboGiaoVien.Location = new Point(28, 106);
         _lblError.Location = new Point(28, 144);
         btnLuu.Location = new Point(28, 172);
         btnHuy.Location = new Point(158, 172);
 
-        _cboMon.SelectedIndexChanged += (_, _) => NapGiaoVienTheoMon();
-
         Load += (_, _) =>
         {
-            if (_sua)
+            try
             {
-                NapMonCoDinh(_monHocIdCoDinh);
-                _cboMon.Enabled = false;
+                var mon = _service.LayMonHocCuaLop(_lopHocId);
+                if (mon.Rows.Count == 0)
+                    throw new InvalidOperationException("Không tìm thấy môn học của lớp.");
+                var monId = Convert.ToInt32(mon.Rows[0]["MonHocID"]);
+                if (_sua && monHocId != monId)
+                    throw new InvalidOperationException("Phân công cũ không khớp môn của khóa học. Hãy xóa và phân công lại.");
+                _monHocIdCoDinh = monId;
+                _lblMonHoc.Text = mon.Rows[0]["TenMon"].ToString();
+                NapGiaoVienTheoMon(_giaoVienIdBanDau);
             }
-            else
+            catch (Exception ex)
             {
-                _cboMon.DisplayMember = "TenMon";
-                _cboMon.ValueMember = "MonHocID";
-                _cboMon.DataSource = _service.LayMonHocChuaPhanCong(_lopHocId);
+                _lblError.Text = ex.Message;
+                btnLuu.Enabled = false;
             }
-            NapGiaoVienTheoMon(_giaoVienIdBanDau);
         };
     }
 
-    private void NapMonCoDinh(int monHocId)
-    {
-        var dt = _service.LayDanhSachMonHoc();
-        _cboMon.DisplayMember = "TenMon";
-        _cboMon.ValueMember = "MonHocID";
-        _cboMon.DataSource = dt;
-        if (monHocId > 0) _cboMon.SelectedValue = monHocId;
-    }
-
-    private int LayMonIdDangChon()
-    {
-        if (_sua) return _monHocIdCoDinh;
-        if (_cboMon.SelectedValue is int m && m > 0) return m;
-        if (_cboMon.SelectedItem is DataRowView drv && drv["MonHocID"] != DBNull.Value)
-            return Convert.ToInt32(drv["MonHocID"]);
-        if (int.TryParse(_cboMon.SelectedValue?.ToString(), out var parsed) && parsed > 0)
-            return parsed;
-        return 0;
-    }
+    private int LayMonIdDangChon() => _monHocIdCoDinh;
 
     private void NapGiaoVienTheoMon(int? chonGv = null)
     {
@@ -113,7 +101,7 @@ public class frmPhanCongEdit : Form
         var gvId = GetSelectedId(_cboGiaoVien, "GiaoVienID");
         if (monId <= 0 || gvId <= 0)
         {
-            _lblError.Text = "⚠ Hãy chọn đủ môn học và giáo viên.";
+            _lblError.Text = "⚠ Hãy chọn giáo viên phù hợp với môn của lớp.";
             return;
         }
         var (ok, error) = _service.LuuPhanCong(_lopHocId, monId, gvId, _sua);
