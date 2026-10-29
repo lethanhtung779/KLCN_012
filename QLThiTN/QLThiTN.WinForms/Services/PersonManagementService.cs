@@ -149,10 +149,20 @@ public sealed class PersonManagementService
                 return (false, field.Caption + " không hợp lệ (9–15 chữ số).", 0);
             item.HoSo[field.Key] = value;
         }
+        if (item.VaiTro == "HocVien")
         foreach (var parent in new[] { (Status: "TinhTrangCha", Name: "HoTenCha", Phone: "SdtCha", Label: "cha"),
                                         (Status: "TinhTrangMe", Name: "HoTenMe", Phone: "SdtMe", Label: "mẹ") })
         {
             var status = item.HoSo.GetValueOrDefault(parent.Status, "");
+            // Bỏ trống toàn bộ cụm cha/mẹ đồng nghĩa chưa cung cấp thông tin.
+            // Chuẩn hóa về trạng thái cũ đã có trong DB để không cần thay đổi schema.
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                item.HoSo[parent.Status] = "Không rõ thông tin";
+                item.HoSo[parent.Name] = "";
+                item.HoSo[parent.Phone] = "";
+                continue;
+            }
             if (status is not ("Còn sống" or "Đã mất" or "Không rõ thông tin"))
                 return (false, $"Hãy chọn tình trạng của {parent.Label}.", 0);
             if (status == "Còn sống")
@@ -170,6 +180,14 @@ public sealed class PersonManagementService
         }
         if (item.NgaySinh is { } date && (date.Date > DateTime.Today || date.Year < 1900))
             return (false, "Ngày sinh không hợp lệ.", 0);
+        var bothParentsDeceased = item.VaiTro == "HocVien" &&
+                                  item.HoSo.GetValueOrDefault("TinhTrangCha") == "Đã mất" &&
+                                  item.HoSo.GetValueOrDefault("TinhTrangMe") == "Đã mất";
+        var guardianRequired = bothParentsDeceased && item.NgaySinh is { } guardianBirth &&
+                               guardianBirth.Date > DateTime.Today.AddYears(-18);
+        if (item.VaiTro == "HocVien" && !guardianRequired)
+            foreach (var key in new[] { "HoTenNguoiGiamHo", "QuanHeNguoiGiamHo", "SdtNguoiGiamHo" })
+                item.HoSo[key] = "";
         if (item.TaiKhoanID == 0 && (item.TenDangNhap.Length is < 3 or > 50 || item.TenDangNhap.Any(char.IsWhiteSpace)))
             return (false, "Tên đăng nhập phải có 3–50 ký tự và không chứa khoảng trắng.", 0);
         if (item.HoTen.Length is < 2 or > 100) return (false, "Họ tên phải có 2–100 ký tự.", 0);
@@ -186,6 +204,24 @@ public sealed class PersonManagementService
                 .FirstOrDefault(field => string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault(field.Key)));
             if (!string.IsNullOrEmpty(missing.Key))
                 return (false, missing.Caption + " là thông tin bắt buộc.", 0);
+        }
+        if (item.VaiTro == "HocVien" && item.NgaySinh is { } studentBirth &&
+            studentBirth.Date > DateTime.Today.AddYears(-18))
+        {
+            var hasFather = item.HoSo.GetValueOrDefault("TinhTrangCha") == "Còn sống" &&
+                            !string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault("HoTenCha")) &&
+                            !string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault("SdtCha"));
+            var hasMother = item.HoSo.GetValueOrDefault("TinhTrangMe") == "Còn sống" &&
+                            !string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault("HoTenMe")) &&
+                            !string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault("SdtMe"));
+            var hasGuardian = guardianRequired &&
+                              !string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault("HoTenNguoiGiamHo")) &&
+                              !string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault("QuanHeNguoiGiamHo")) &&
+                              !string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault("SdtNguoiGiamHo"));
+            if (!hasFather && !hasMother && !hasGuardian)
+                return (false, bothParentsDeceased
+                    ? "Học viên dưới 18 tuổi có cả cha và mẹ đã mất phải nhập đầy đủ họ tên, quan hệ và số điện thoại người giám hộ."
+                    : "Học viên dưới 18 tuổi phải nhập đầy đủ họ tên và số điện thoại của ít nhất một cha hoặc mẹ.", 0);
         }
         if (item.TrangThai is not ("HoatDong" or "Khoa")) return (false, "Trạng thái không hợp lệ.", 0);
         if (item.TaiKhoanID == 0 && (matKhau?.Length ?? 0) < 6)

@@ -18,6 +18,7 @@ public static class WorkflowSchema
         SELECT t.n,c.n FROM (VALUES(N'HocVien'),(N'GiaoVien')) t(n)
         CROSS JOIN (VALUES(N'DiaChi'),(N'GioiTinh'),(N'HoTenCha'),(N'SdtCha'),(N'HoTenMe'),(N'SdtMe'),
           (N'NguoiLienHe'),(N'SdtLienHe'),(N'QuanHeLienHe'),(N'GhiChu')) c(n)
+        UNION ALL SELECT N'HocVien',c.n FROM (VALUES(N'HoTenNguoiGiamHo'),(N'QuanHeNguoiGiamHo'),(N'SdtNguoiGiamHo')) c(n)
         UNION ALL SELECT N'GiaoVien',c.n FROM (VALUES(N'TrinhDoHocVan'),(N'BangCap'),(N'TruongHoc'),
           (N'ChuyenNganh'),(N'DonViCongTac')) c(n);
         OPEN fields; FETCH NEXT FROM fields INTO @table,@column;
@@ -31,6 +32,16 @@ public static class WorkflowSchema
             FETCH NEXT FROM fields INTO @table,@column;
         END
         CLOSE fields; DEALLOCATE fields;
+        IF COL_LENGTH('HocVien','LaNguoiGiamHo') IS NOT NULL
+        BEGIN
+            EXEC sp_executesql N'UPDATE HocVien SET HoTenNguoiGiamHo=COALESCE(HoTenNguoiGiamHo,NguoiLienHe), QuanHeNguoiGiamHo=COALESCE(QuanHeNguoiGiamHo,QuanHeLienHe), SdtNguoiGiamHo=COALESCE(SdtNguoiGiamHo,SdtLienHe) WHERE LaNguoiGiamHo=1';
+            SET @sql=NULL;
+            SELECT @sql=N'ALTER TABLE HocVien DROP CONSTRAINT '+QUOTENAME(dc.name) FROM sys.default_constraints dc
+              JOIN sys.columns c ON c.default_object_id=dc.object_id WHERE c.object_id=OBJECT_ID('HocVien') AND c.name='LaNguoiGiamHo';
+            IF @sql IS NOT NULL EXEC sp_executesql @sql;
+            EXEC sp_executesql N'ALTER TABLE HocVien DROP COLUMN LaNguoiGiamHo';
+            SET @sql=NULL;
+        END
         IF COL_LENGTH('HocVien','TinhTrangCha') IS NULL EXEC(N'ALTER TABLE HocVien ADD TinhTrangCha nvarchar(30) NULL');
         IF COL_LENGTH('HocVien','TinhTrangMe') IS NULL EXEC(N'ALTER TABLE HocVien ADD TinhTrangMe nvarchar(30) NULL');
         IF COL_LENGTH('GiaoVien','TinhTrangCha') IS NULL EXEC(N'ALTER TABLE GiaoVien ADD TinhTrangCha nvarchar(30) NULL');

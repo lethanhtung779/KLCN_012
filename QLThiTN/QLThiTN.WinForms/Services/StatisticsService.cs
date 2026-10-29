@@ -125,11 +125,18 @@ public class StatisticsService
     }
 
     /// <summary>Thong ke tong quan toan he thong (cho man hinh chinh).</summary>
-    public (int CauHoi, int DeThi, int HocVien, int BaiThi) ThongKeTongQuan() =>
-        (
-            Database.ExecuteScalarInt("SELECT COUNT(1) FROM CauHoi WHERE TrangThai = N'HoatDong'"),
-            Database.ExecuteScalarInt("SELECT COUNT(1) FROM DeThi"),
-            Database.ExecuteScalarInt("SELECT COUNT(1) FROM HocVien"),
-            Database.ExecuteScalarInt("SELECT COUNT(1) FROM BaiLam WHERE TrangThai <> N'DangLam'")
-        );
+    public (int CauHoi, int DeThi, int HocVien, int BaiThi) ThongKeTongQuan()
+    {
+        // Lấy cả bốn số liệu trong cùng một kết nối. Cách cũ mở bốn kết nối
+        // liên tiếp nên dashboard dễ bị timeout khi SQL Server vừa khởi động
+        // hoặc đang chờ một khóa schema ngắn hạn.
+        var row = Database.Query(@"
+            SELECT
+                (SELECT COUNT_BIG(1) FROM CauHoi WHERE TrangThai=N'HoatDong') AS CauHoi,
+                (SELECT COUNT_BIG(1) FROM DeThi) AS DeThi,
+                (SELECT COUNT_BIG(1) FROM HocVien) AS HocVien,
+                (SELECT COUNT_BIG(1) FROM BaiLam WHERE TrangThai<>N'DangLam') AS BaiThi").Rows[0];
+        return (Convert.ToInt32(row["CauHoi"]), Convert.ToInt32(row["DeThi"]),
+                Convert.ToInt32(row["HocVien"]), Convert.ToInt32(row["BaiThi"]));
+    }
 }

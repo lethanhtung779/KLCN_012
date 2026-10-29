@@ -9,6 +9,8 @@ public sealed class frmPersonEdit : Form
     private readonly PersonManagementService _service = new();
     private readonly PersonRecord _record;
     private readonly Dictionary<string, Control> _profileInputs = [];
+    private readonly Dictionary<string, Label> _profileLabels = [];
+    private Label? _guardianSection;
     private readonly TextBox _username = Ui.Input(330);
     private readonly TextBox _email = Ui.Input(330);
     private readonly TextBox _password = Ui.Input(330);
@@ -67,12 +69,13 @@ public sealed class frmPersonEdit : Form
             Padding = new Padding(24, 12, 24, 12) };
         root.Controls.Add(footer, 0, 1);
 
-        void AddLabel(string caption, int x, int y)
+        Label AddLabel(string caption, int x, int y)
         {
             var label = Ui.Label(caption, Ui.Body, Ui.Navy);
             label.Location = new Point(x, y);
             label.AutoSize = true;
             scroll.Controls.Add(label);
+            return label;
         }
         void AddInput(Control control, int x, int y)
         {
@@ -112,7 +115,13 @@ public sealed class frmPersonEdit : Form
             note.Location = new Point(24, 490);
             note.AutoSize = true;
             scroll.Controls.Add(note);
-            contentBottom = 526;
+            var minorNote = Ui.Label("Dưới 18 tuổi: bắt buộc ít nhất một cha/mẹ; nếu cả hai đã mất, bắt buộc người giám hộ.",
+                Ui.Small, Ui.TextMuted);
+            minorNote.Location = new Point(24, 514);
+            minorNote.MaximumSize = new Size(710, 0);
+            minorNote.AutoSize = true;
+            scroll.Controls.Add(minorNote);
+            contentBottom = 550;
         }
         else
         {
@@ -167,6 +176,7 @@ public sealed class frmPersonEdit : Form
             {
                 "TinhTrangCha" => "THÔNG TIN CHA / MẸ",
                 "NguoiLienHe" => "LIÊN HỆ KHẨN CẤP",
+                "HoTenNguoiGiamHo" => "THÔNG TIN NGƯỜI GIÁM HỘ",
                 "TrinhDoHocVan" => "TRÌNH ĐỘ & CÔNG TÁC",
                 _ => ""
             };
@@ -176,6 +186,7 @@ public sealed class frmPersonEdit : Form
                 sectionLabel.Location = new Point(24, profileY + 4);
                 sectionLabel.AutoSize = true;
                 scroll.Controls.Add(sectionLabel);
+                if (firstKey == "HoTenNguoiGiamHo") _guardianSection = sectionLabel;
                 profileY += 38;
             }
 
@@ -187,13 +198,18 @@ public sealed class frmPersonEdit : Form
                 var required = taiKhoanId == 0 && ProfileFields.IsAlwaysRequired(key);
                 var input = CreateProfileInput(key, student, currentValue, required);
                 _profileInputs[key] = input;
-                AddLabel(required ? caption + " *" : caption, x, profileY);
+                _profileLabels[key] = AddLabel(required ? caption + " *" : caption, x, profileY);
                 AddInput(input, x, profileY + 26);
             }
             profileY += 78;
         }
-        ConfigureParentStatus("Cha");
-        ConfigureParentStatus("Me");
+        if (student)
+        {
+            ConfigureParentStatus("Cha");
+            ConfigureParentStatus("Me");
+            _birth.ValueChanged += (_, _) => UpdateGuardianVisibility();
+            UpdateGuardianVisibility();
+        }
         scroll.AutoScrollMinSize = new Size(760, profileY + 18);
 
         _error.AutoSize = false;
@@ -227,7 +243,7 @@ public sealed class frmPersonEdit : Form
             "TrinhDoHocVan" when student => ["", "Lớp 10", "Lớp 11", "Lớp 12", "Đã tốt nghiệp THPT", "Trung cấp", "Cao đẳng", "Đại học", "Sau đại học"],
             "TrinhDoHocVan" => ["", "Cao đẳng", "Đại học", "Thạc sĩ", "Tiến sĩ", "Khác"],
             "BangCap" => ["", "Chưa có", "Tốt nghiệp THPT", "Trung cấp", "Cao đẳng", "Cử nhân", "Kỹ sư", "Thạc sĩ", "Tiến sĩ", "Chứng chỉ nghiệp vụ sư phạm", "Khác"],
-            "QuanHeLienHe" => ["", "Cha", "Mẹ", "Anh/Chị/Em", "Ông/Bà", "Người giám hộ", "Vợ/Chồng", "Khác"],
+            "QuanHeLienHe" or "QuanHeNguoiGiamHo" => ["", "Anh/Chị/Em", "Ông/Bà", "Cô/Dì/Chú/Bác", "Vợ/Chồng", "Khác"],
             _ => null
         };
         if (choices is null)
@@ -264,8 +280,28 @@ public sealed class frmPersonEdit : Form
             if (!alive) phone.Text = "";
             if (!alive && !deceased) name.Text = "";
         }
-        status.SelectedIndexChanged += (_, _) => Apply(true);
+        status.SelectedIndexChanged += (_, _) => { Apply(true); UpdateGuardianVisibility(); };
         Apply(false);
+    }
+
+    private void UpdateGuardianVisibility()
+    {
+        if (!_profileInputs.TryGetValue("HoTenNguoiGiamHo", out _)) return;
+        var bothDeceased = _profileInputs["TinhTrangCha"].Text == "Đã mất" &&
+                           _profileInputs["TinhTrangMe"].Text == "Đã mất";
+        var required = bothDeceased && _birth.Checked && _birth.Value.Date > DateTime.Today.AddYears(-18);
+        foreach (var key in new[] { "HoTenNguoiGiamHo", "QuanHeNguoiGiamHo", "SdtNguoiGiamHo" })
+        {
+            _profileLabels[key].Visible = required;
+            _profileInputs[key].Visible = required;
+            // Control được hiện sau khi Panel đã cuộn có thể không nhận cùng
+            // độ lệch AutoScroll với Label. Căn lại theo nhãn để ô nhập luôn
+            // nằm ngay bên dưới thay vì bị đẩy xuống cuối vùng cuộn.
+            if (required)
+                _profileInputs[key].Location = new Point(_profileLabels[key].Left, _profileLabels[key].Top + 26);
+            _profileLabels[key].Text = ProfileFields.StudentGuardian.First(x => x.Key == key).Caption + (required ? " *" : "");
+        }
+        if (_guardianSection != null) _guardianSection.Visible = required;
     }
 
     private void Save()

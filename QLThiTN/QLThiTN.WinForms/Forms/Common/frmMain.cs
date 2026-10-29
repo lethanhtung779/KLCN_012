@@ -185,7 +185,29 @@ public class frmMain : Form
     private Form TaoTongQuan()
     {
         var f = new Form { Dock = DockStyle.Fill };
-        var (cauHoi, deThi, hocVien, baiThi) = _stats.ThongKeTongQuan();
+        int cauHoi, deThi, hocVien, baiThi;
+        try
+        {
+            (cauHoi, deThi, hocVien, baiThi) = _stats.ThongKeTongQuan();
+        }
+        catch (Exception ex)
+        {
+            // Thống kê chỉ là dữ liệu phụ; SQL tạm nghẽn không được làm sập
+            // toàn bộ ứng dụng sau khi người dùng đã đăng nhập.
+            var message = Ui.Label(
+                "Chưa tải được số liệu tổng quan. SQL Server có thể đang bận.\n" +
+                "Bạn vẫn có thể sử dụng các chức năng khác hoặc bấm Thử lại.\n\n" + ex.Message,
+                Ui.Body, Ui.Danger);
+            message.AutoSize = true;
+            message.MaximumSize = new Size(760, 0);
+            message.Location = new Point(28, 28);
+            var retry = Ui.ButtonAccent("Thử lại", 120, 40);
+            retry.Location = new Point(28, 142);
+            retry.Click += (_, _) => MoManHinh("Tổng quan", TaoTongQuan);
+            f.BackColor = Ui.BgSoft;
+            f.Controls.AddRange([message, retry]);
+            return f;
+        }
 
         (string Title, string Value, Color Color)[] cards =
         [
