@@ -159,18 +159,42 @@ public sealed class frmPersonEdit : Form
         extraTitle.Location = new Point(24, contentBottom);
         scroll.Controls.Add(extraTitle);
         contentBottom += 38;
-        for (int i = 0; i < fields.Length; i++)
+        var profileY = contentBottom;
+        for (int i = 0; i < fields.Length; i += 2)
         {
-            var (key, caption) = fields[i];
-            var x = i % 2 == 0 ? 24 : 390;
-            var y = contentBottom + i / 2 * 78;
-            var currentValue = _record.HoSo.GetValueOrDefault(key, "");
-            var required = taiKhoanId == 0 && key != "GhiChu";
-            var input = CreateProfileInput(key, student, currentValue, required);
-            _profileInputs[key] = input;
-            AddLabel(required ? caption + " *" : caption, x, y); AddInput(input, x, y + 26);
+            var firstKey = fields[i].Key;
+            var section = firstKey switch
+            {
+                "TinhTrangCha" => "THÔNG TIN CHA / MẸ",
+                "NguoiLienHe" => "LIÊN HỆ KHẨN CẤP",
+                "TrinhDoHocVan" => "TRÌNH ĐỘ & CÔNG TÁC",
+                _ => ""
+            };
+            if (section.Length > 0)
+            {
+                var sectionLabel = Ui.Label(section, Ui.H2, Ui.Navy);
+                sectionLabel.Location = new Point(24, profileY + 4);
+                sectionLabel.AutoSize = true;
+                scroll.Controls.Add(sectionLabel);
+                profileY += 38;
+            }
+
+            for (var column = 0; column < 2 && i + column < fields.Length; column++)
+            {
+                var (key, caption) = fields[i + column];
+                var x = column == 0 ? 24 : 390;
+                var currentValue = _record.HoSo.GetValueOrDefault(key, "");
+                var required = taiKhoanId == 0 && ProfileFields.IsAlwaysRequired(key);
+                var input = CreateProfileInput(key, student, currentValue, required);
+                _profileInputs[key] = input;
+                AddLabel(required ? caption + " *" : caption, x, profileY);
+                AddInput(input, x, profileY + 26);
+            }
+            profileY += 78;
         }
-        scroll.AutoScrollMinSize = new Size(760, contentBottom + (fields.Length + 1) / 2 * 78);
+        ConfigureParentStatus("Cha");
+        ConfigureParentStatus("Me");
+        scroll.AutoScrollMinSize = new Size(760, profileY + 18);
 
         _error.AutoSize = false;
         _error.Location = new Point(24, 7);
@@ -199,6 +223,7 @@ public sealed class frmPersonEdit : Form
         string[]? choices = key switch
         {
             "GioiTinh" => ["", "Nam", "Nữ", "Khác", "Không muốn cung cấp"],
+            "TinhTrangCha" or "TinhTrangMe" => ["", "Còn sống", "Đã mất", "Không rõ thông tin"],
             "TrinhDoHocVan" when student => ["", "Lớp 10", "Lớp 11", "Lớp 12", "Đã tốt nghiệp THPT", "Trung cấp", "Cao đẳng", "Đại học", "Sau đại học"],
             "TrinhDoHocVan" => ["", "Cao đẳng", "Đại học", "Thạc sĩ", "Tiến sĩ", "Khác"],
             "BangCap" => ["", "Chưa có", "Tốt nghiệp THPT", "Trung cấp", "Cao đẳng", "Cử nhân", "Kỹ sư", "Thạc sĩ", "Tiến sĩ", "Chứng chỉ nghiệp vụ sư phạm", "Khác"],
@@ -222,6 +247,25 @@ public sealed class frmPersonEdit : Form
         combo.SelectedItem = currentValue;
         if (combo.SelectedIndex < 0) combo.SelectedIndex = 0;
         return combo;
+    }
+
+    private void ConfigureParentStatus(string parent)
+    {
+        var status = (ComboBox)_profileInputs["TinhTrang" + parent];
+        var name = _profileInputs["HoTen" + parent];
+        var phone = _profileInputs["Sdt" + parent];
+        void Apply(bool clear)
+        {
+            var alive = status.Text == "Còn sống";
+            var deceased = status.Text == "Đã mất";
+            name.Enabled = alive || deceased;
+            phone.Enabled = alive;
+            if (!clear) return;
+            if (!alive) phone.Text = "";
+            if (!alive && !deceased) name.Text = "";
+        }
+        status.SelectedIndexChanged += (_, _) => Apply(true);
+        Apply(false);
     }
 
     private void Save()

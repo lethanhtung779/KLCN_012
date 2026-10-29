@@ -18,11 +18,13 @@ var profileService=new PersonManagementService();
 foreach(var role in new[]{"HocVien","GiaoVien"})
 {
     var person=new PersonRecord{VaiTro=role,TenDangNhap="workflow_"+Guid.NewGuid().ToString("N")[..12],Email=Guid.NewGuid()+"@example.test",HoTen="Kiểm tra hồ sơ",SoDienThoai="0912345678",NgaySinh=new DateTime(2000,1,1),MonHocIds=[1]};
-    foreach(var field in ProfileFields.ForRole(role))person.HoSo[field.Key]=field.Key.StartsWith("Sdt")?"0912345678":"Nội dung "+field.Caption;
+    foreach(var field in ProfileFields.ForRole(role))person.HoSo[field.Key]=field.Key.StartsWith("TinhTrang")?"Còn sống":field.Key.StartsWith("Sdt")?"0912345678":"Nội dung "+field.Caption;
     var saved=profileService.Luu(person,"TemporaryPass123!");Check(saved.Ok,role+" create: "+saved.Message);
     var read=profileService.LayChiTiet(role,saved.TaiKhoanID)!;
     Check(read.HoSo.All(x=>x.Value==person.HoSo[x.Key]) && read.NgaySinh==person.NgaySinh,role+" extended fields round trip");
-    read.HoSo["SdtCha"]="abc";Check(!profileService.Luu(read,"").Ok,"Reject parent phone");
+    read.HoSo["SdtCha"]="";Check(!profileService.Luu(read,"").Ok,"Require living parent phone");
+    read.HoSo["TinhTrangCha"]="Đã mất";Check(profileService.Luu(read,"").Ok,"Deceased parent does not require phone");
+    read.HoSo["TinhTrangCha"]="Còn sống";read.HoSo["SdtCha"]="abc";Check(!profileService.Luu(read,"").Ok,"Reject invalid living parent phone");
 }
 Check(QuestionDuplicates.Normalize(" <b>HÀM</b>\n số &amp; đồ thị ")==QuestionDuplicates.Normalize("hàm số & đồ thị"),"Normalized exact duplicate");
 Check(QuestionDuplicates.Normalize("x² + 1")!=QuestionDuplicates.Normalize("x² - 1"),"Do not collapse math differences");

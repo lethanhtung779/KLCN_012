@@ -138,10 +138,35 @@ public sealed class PersonManagementService
         {
             var value = item.HoSo.GetValueOrDefault(field.Key, "").Trim();
             if (value.Length > 500) return (false, field.Caption + " tối đa 500 ký tự.", 0);
-            if (field.Key.StartsWith("Sdt") && value.Length > 0 &&
+            var validatePhone = field.Key switch
+            {
+                "SdtCha" => item.HoSo.GetValueOrDefault("TinhTrangCha", "").Trim() == "Còn sống",
+                "SdtMe" => item.HoSo.GetValueOrDefault("TinhTrangMe", "").Trim() == "Còn sống",
+                _ => true
+            };
+            if (field.Key.StartsWith("Sdt") && validatePhone && value.Length > 0 &&
                 (value.Count(char.IsDigit) is < 9 or > 15 || value.Any(c => !char.IsDigit(c) && c is not ('+' or '-' or ' ' or '(' or ')'))))
                 return (false, field.Caption + " không hợp lệ (9–15 chữ số).", 0);
             item.HoSo[field.Key] = value;
+        }
+        foreach (var parent in new[] { (Status: "TinhTrangCha", Name: "HoTenCha", Phone: "SdtCha", Label: "cha"),
+                                        (Status: "TinhTrangMe", Name: "HoTenMe", Phone: "SdtMe", Label: "mẹ") })
+        {
+            var status = item.HoSo.GetValueOrDefault(parent.Status, "");
+            if (status is not ("Còn sống" or "Đã mất" or "Không rõ thông tin"))
+                return (false, $"Hãy chọn tình trạng của {parent.Label}.", 0);
+            if (status == "Còn sống")
+            {
+                if (string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault(parent.Name)))
+                    return (false, $"Họ tên {parent.Label} là thông tin bắt buộc khi chọn Còn sống.", 0);
+                if (string.IsNullOrWhiteSpace(item.HoSo.GetValueOrDefault(parent.Phone)))
+                    return (false, $"Số điện thoại {parent.Label} là thông tin bắt buộc khi chọn Còn sống.", 0);
+            }
+            else
+            {
+                item.HoSo[parent.Phone] = "";
+                if (status == "Không rõ thông tin") item.HoSo[parent.Name] = "";
+            }
         }
         if (item.NgaySinh is { } date && (date.Date > DateTime.Today || date.Year < 1900))
             return (false, "Ngày sinh không hợp lệ.", 0);
