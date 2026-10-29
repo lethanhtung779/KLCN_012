@@ -1,5 +1,6 @@
 using System.Drawing.Imaging;
 using System.Text.Json;
+using QLThiTN.Shared;
 using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
@@ -15,7 +16,7 @@ public static class QuestionImageStore
             var root = doc.RootElement.TryGetProperty("HinhAnhRoot", out var value) ? value.GetString() : null;
             if (string.IsNullOrWhiteSpace(root))
                 throw new InvalidOperationException("Chưa cấu hình thư mục HinhAnhRoot dùng chung với website trong appsettings.json.");
-            return Path.GetFullPath(root);
+            return PortableDataPath.ResolveExistingDirectory(root, AppContext.BaseDirectory);
         }
     }
 

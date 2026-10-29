@@ -10,7 +10,9 @@ Trong **Ngân hàng câu hỏi → Thêm câu hỏi/Sửa**:
 
 ## Cấu hình
 
-`HinhAnhRoot` trong `appsettings.json` của WinForms phải trỏ đến cùng thư mục ảnh với API; tài khoản chạy WinForms cần quyền ghi và API cần quyền đọc. Nếu chạy trên hai máy, dùng thư mục chia sẻ mà cả hai máy truy cập được. Database chỉ lưu đường dẫn tương đối `winforms/<GUID>.png`.
+API và WinForms cùng dùng `..\data\tai_nguyen`, tính tương đối từ thư mục dự án. Vì vậy khi chuyển sang máy khác phải sao chép hoặc clone trọn bộ dự án, gồm cả thư mục `data`; không cần sửa đường dẫn theo ổ đĩa. Tài khoản chạy WinForms cần quyền ghi và API cần quyền đọc thư mục này. Database chỉ lưu đường dẫn tương đối như `winforms/<GUID>.png`.
+
+Nếu API và WinForms chạy trên hai máy khác nhau, hãy chuyển ảnh lên máy chủ/dịch vụ lưu trữ tập trung hoặc cấu hình một thư mục chia sẻ mà cả hai máy đều truy cập được.
 
 Ảnh mới chỉ được ghi khi lưu; lỗi lưu sẽ rollback database và dọn file mới của lần lưu đó. Xóa ảnh khỏi câu hỏi chỉ gỡ liên kết database, không xóa file cũ có thể đang được sử dụng ở nơi khác. Giới hạn ảnh nhập là 15 MB và 25 triệu điểm ảnh. GIF được lấy khung ảnh hiện tại, không giữ hoạt ảnh.
 

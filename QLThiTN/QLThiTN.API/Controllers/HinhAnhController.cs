@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QLThiTN.API.Data;
+using QLThiTN.Shared;
 
 namespace QLThiTN.API.Controllers;
 
@@ -18,11 +19,16 @@ public class HinhAnhController : ControllerBase
     private readonly QLThiTNDbContext _db;
     private readonly string _root;
 
-    public HinhAnhController(QLThiTNDbContext db, IConfiguration config)
+    public HinhAnhController(
+        QLThiTNDbContext db,
+        IConfiguration config,
+        IHostEnvironment environment)
     {
         _db = db;
-        _root = Path.GetFullPath(
-            config["HinhAnhRoot"] ?? @"D:\KLCN\tach_cau_hoi\tai_nguyen");
+        _root = PortableDataPath.ResolveExistingDirectory(
+            config["HinhAnhRoot"]
+                ?? throw new InvalidOperationException("Chưa cấu hình HinhAnhRoot."),
+            environment.ContentRootPath);
     }
 
     /// <summary>Tra ve danh sach duong dan cua mot cau hoi (de canh bao file mat).</summary>
