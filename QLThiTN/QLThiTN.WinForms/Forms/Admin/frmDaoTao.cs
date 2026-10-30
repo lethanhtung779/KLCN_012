@@ -596,7 +596,7 @@ public class frmDaoTao : Form
         finally { _bindingClass = false; }
         Ui.RenameColumns(_gridLop,
             ("MaLop", "Mã lớp"), ("LopHocID", "ID"), ("TenLop", "Tên lớp"), ("TenKhoaHoc", "Khóa học"),
-            ("TenMon", "Môn"), ("SoHocVien", "Số học viên"),
+            ("TenMon", "Môn"), ("TenGiaoVienPhuTrach", "Giáo viên phụ trách"), ("SoHocVien", "Số học viên"),
             ("TrangThaiPhanCong", "Phân công GV"));
         Ui.HideColumns(_gridLop, "KhoaHocID", "LopHocID");
 
@@ -608,6 +608,7 @@ public class frmDaoTao : Form
         if (_gridLop.Columns.Contains("TenLop")) _gridLop.Columns["TenLop"]!.FillWeight = 220;
         if (_gridLop.Columns.Contains("TenKhoaHoc")) _gridLop.Columns["TenKhoaHoc"]!.FillWeight = 220;
         if (_gridLop.Columns.Contains("TenMon")) _gridLop.Columns["TenMon"]!.FillWeight = 110;
+        if (_gridLop.Columns.Contains("TenGiaoVienPhuTrach")) _gridLop.Columns["TenGiaoVienPhuTrach"]!.FillWeight = 175;
         if (_gridLop.Columns.Contains("SoHocVien"))
         {
             _gridLop.Columns["SoHocVien"]!.FillWeight = 85;

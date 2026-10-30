@@ -99,6 +99,12 @@ public class TrainingService
         var sql = @"
             SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000')) AS MaLop, lh.TenLop, lh.KhoaHocID, kh.TenKhoaHoc, mh.TenMon,
                    (SELECT COUNT(1) FROM HocVien_Lop hvl WHERE hvl.LopHocID = lh.LopHocID AND hvl.TrangThai = N'DangHoc') AS SoHocVien,
+                   COALESCE((
+                       SELECT STRING_AGG(CONVERT(nvarchar(max), gv.HoTen), N', ')
+                       FROM PhanCongGiangDay pc
+                       INNER JOIN GiaoVien gv ON gv.GiaoVienID = pc.GiaoVienID
+                       WHERE pc.LopHocID = lh.LopHocID
+                   ), N'Chưa phân công') AS TenGiaoVienPhuTrach,
                    CASE WHEN EXISTS (SELECT 1 FROM PhanCongGiangDay pc WHERE pc.LopHocID = lh.LopHocID)
                         THEN N'Đã phân công' ELSE N'Chưa phân công' END AS TrangThaiPhanCong
             FROM LopHoc lh
@@ -107,7 +113,12 @@ public class TrainingService
             WHERE (@khoaHocId IS NULL OR lh.KhoaHocID = @khoaHocId)
               AND (@classId = 0 OR lh.LopHocID = @classId)
               AND (@tuKhoa = N''
-                   OR lh.TenLop LIKE N'%' + @tuKhoa + N'%' OR kh.TenKhoaHoc LIKE N'%' + @tuKhoa + N'%')
+                   OR lh.TenLop LIKE N'%' + @tuKhoa + N'%'
+                   OR kh.TenKhoaHoc LIKE N'%' + @tuKhoa + N'%'
+                   OR EXISTS (
+                       SELECT 1 FROM PhanCongGiangDay pc
+                       INNER JOIN GiaoVien gv ON gv.GiaoVienID = pc.GiaoVienID
+                       WHERE pc.LopHocID = lh.LopHocID AND gv.HoTen LIKE N'%' + @tuKhoa + N'%'))
             ORDER BY lh.LopHocID DESC";
         return Database.Query(sql, p =>
         {
@@ -126,6 +137,12 @@ public class TrainingService
         return Database.Query(@"
             SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000')) AS MaLop, lh.TenLop, kh.TenKhoaHoc, mh.TenMon,
                    (SELECT COUNT(*) FROM HocVien_Lop hl WHERE hl.LopHocID = lh.LopHocID AND hl.TrangThai = N'DangHoc') AS SoHocVien,
+                   COALESCE((
+                       SELECT STRING_AGG(CONVERT(nvarchar(max), gv.HoTen), N', ')
+                       FROM PhanCongGiangDay pc
+                       INNER JOIN GiaoVien gv ON gv.GiaoVienID = pc.GiaoVienID
+                       WHERE pc.LopHocID = lh.LopHocID
+                   ), N'Chưa phân công') AS TenGiaoVienPhuTrach,
                    CASE WHEN EXISTS (SELECT 1 FROM PhanCongGiangDay pc WHERE pc.LopHocID = lh.LopHocID)
                         THEN N'Đã phân công' ELSE N'Chưa phân công' END AS TrangThaiPhanCong
             FROM LopHoc lh
@@ -137,7 +154,11 @@ public class TrainingService
               AND (@classId = 0 OR lh.LopHocID = @classId)
               AND (@search = N''
                    OR lh.TenLop LIKE N'%' + @search + N'%'
-                   OR kh.TenKhoaHoc LIKE N'%' + @search + N'%')
+                   OR kh.TenKhoaHoc LIKE N'%' + @search + N'%'
+                   OR EXISTS (
+                       SELECT 1 FROM PhanCongGiangDay pc
+                       INNER JOIN GiaoVien gv ON gv.GiaoVienID = pc.GiaoVienID
+                       WHERE pc.LopHocID = lh.LopHocID AND gv.HoTen LIKE N'%' + @search + N'%'))
             ORDER BY lh.LopHocID DESC", p =>
         {
             p.AddWithValue("@admin", Session.IsQuanTriVien);

@@ -93,6 +93,13 @@ internal static class Program
             var tabs = Field<TabControl>(courses, "_tabs");
             tabs.SelectedIndex = 1; Application.DoEvents();
             var grid = Field<DataGridView>(courses, "_gridLop");
+            Check(grid.Columns.Contains("TenGiaoVienPhuTrach"), "Class list shows assigned teacher names");
+            if (args.Length > 1)
+            {
+                using var bitmap = new Bitmap(courses.Width, courses.Height);
+                courses.DrawToBitmap(bitmap, new Rectangle(Point.Empty, courses.Size));
+                bitmap.Save(Path.Combine(args[1], "class-list-teachers.png"));
+            }
             if (grid.Rows.Count > 1)
             {
                 grid.CurrentCell = grid.Rows[1].Cells["TenLop"];

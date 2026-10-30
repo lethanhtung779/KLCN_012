@@ -213,10 +213,12 @@ public class frmChiTietLopHoc : Form
         if (IsDisposed || Disposing || version != _listVersion) return;
         _dangNapDanhSach = true;
         _classes.DataSource = table;
-        Ui.RenameColumns(_classes, ("MaLop", "Mã lớp"), ("TenLop", "Lớp học"), ("SoHocVien", "HV"),
+        Ui.RenameColumns(_classes, ("MaLop", "Mã lớp"), ("TenLop", "Lớp học"),
+            ("TenGiaoVienPhuTrach", "Giáo viên phụ trách"), ("SoHocVien", "HV"),
             ("TrangThaiPhanCong", "Phân công GV"));
         Ui.HideColumns(_classes, "LopHocID", "TenKhoaHoc", "TenMon");
         if (_classes.Columns.Contains("TenLop")) _classes.Columns["TenLop"]!.FillWeight = 150;
+        if (_classes.Columns.Contains("TenGiaoVienPhuTrach")) _classes.Columns["TenGiaoVienPhuTrach"]!.FillWeight = 135;
         if (_classes.Columns.Contains("SoHocVien")) _classes.Columns["SoHocVien"]!.FillWeight = 35;
         if (_classes.Columns.Contains("TrangThaiPhanCong")) _classes.Columns["TrangThaiPhanCong"]!.FillWeight = 105;
         var unassigned = 0;
