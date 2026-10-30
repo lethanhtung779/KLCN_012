@@ -269,7 +269,7 @@
                 var text = '';
                 if (h > 0) text += (h < 10 ? '0' : '') + h + ':';
                 text += (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
-                display.text(text);
+                display.html('<i class="bi bi-alarm me-2"></i>' + text);
 
                 if (remaining <= 300) display.addClass('critical');
 

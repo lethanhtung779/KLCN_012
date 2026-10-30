@@ -21,7 +21,35 @@ public static class Database
 IF COL_LENGTH('HocVien', 'LoaiGoi') IS NULL
     ALTER TABLE HocVien ADD LoaiGoi NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi';
 IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
-    ALTER TABLE DeThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DeThi_LaMienPhi DEFAULT 0;");
+    ALTER TABLE DeThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DeThi_LaMienPhi DEFAULT 0;
+
+DECLARE @constraint sysname;
+DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+SELECT name FROM sys.check_constraints
+WHERE parent_object_id = OBJECT_ID(N'dbo.DeThi')
+  AND definition LIKE N'%HinhThucTao%'
+  AND definition NOT LIKE N'%MaTranTHPTQG%';
+OPEN cur;
+FETCH NEXT FROM cur INTO @constraint;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    DECLARE @dropSql nvarchar(max) = N'ALTER TABLE dbo.DeThi DROP CONSTRAINT ' + QUOTENAME(@constraint);
+    EXEC sp_executesql @dropSql;
+    FETCH NEXT FROM cur INTO @constraint;
+END
+CLOSE cur;
+DEALLOCATE cur;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.check_constraints
+    WHERE parent_object_id = OBJECT_ID(N'dbo.DeThi')
+      AND definition LIKE N'%HinhThucTao%'
+      AND definition LIKE N'%MaTranTHPTQG%'
+)
+BEGIN
+    ALTER TABLE dbo.DeThi WITH CHECK ADD CONSTRAINT CK_DeThi_HinhThucTao
+        CHECK (HinhThucTao IN (N'ThuCong', N'TuDong', N'MaTranTHPTQG'));
+END");
     }
 
     public static void LoadConfig(string baseDir)

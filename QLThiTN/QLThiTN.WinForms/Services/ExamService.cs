@@ -136,6 +136,46 @@ public class ExamService
         return (id, "");
     }
 
+    private static bool _hinhThucTaoEnsured;
+    private static void EnsureConstraintHinhThucTao(SqlConnection conn)
+    {
+        if (_hinhThucTaoEnsured) return;
+        try
+        {
+            using var cmd = new SqlCommand(@"
+DECLARE @constraint sysname;
+DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+SELECT name FROM sys.check_constraints
+WHERE parent_object_id = OBJECT_ID(N'dbo.DeThi')
+  AND definition LIKE N'%HinhThucTao%'
+  AND definition NOT LIKE N'%MaTranTHPTQG%';
+OPEN cur;
+FETCH NEXT FROM cur INTO @constraint;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    DECLARE @dropSql nvarchar(max) = N'ALTER TABLE dbo.DeThi DROP CONSTRAINT ' + QUOTENAME(@constraint);
+    EXEC sp_executesql @dropSql;
+    FETCH NEXT FROM cur INTO @constraint;
+END
+CLOSE cur;
+DEALLOCATE cur;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.check_constraints
+    WHERE parent_object_id = OBJECT_ID(N'dbo.DeThi')
+      AND definition LIKE N'%HinhThucTao%'
+      AND definition LIKE N'%MaTranTHPTQG%'
+)
+BEGIN
+    ALTER TABLE dbo.DeThi WITH CHECK ADD CONSTRAINT CK_DeThi_HinhThucTao
+        CHECK (HinhThucTao IN (N'ThuCong', N'TuDong', N'MaTranTHPTQG'));
+END", conn);
+            cmd.ExecuteNonQuery();
+            _hinhThucTaoEnsured = true;
+        }
+        catch { /* Khong chan luong tao de neu thieu quyen DDL */ }
+    }
+
     private int TaoDeCore(string tenDe, int monHocId, string loaiDe, string hinhThuc, List<int> cauHoiIds)
     {
         if (cauHoiIds.Distinct().Count() != cauHoiIds.Count)
@@ -143,6 +183,7 @@ public class ExamService
 
         var creatorId = Session.Current!.TaiKhoanID;
         using var conn = Database.Open();
+        EnsureConstraintHinhThucTao(conn);
         using var tx = conn.BeginTransaction();
         try
         {
@@ -166,7 +207,17 @@ public class ExamService
             cmd1.Parameters.AddWithValue("@l", loaiDe);
             cmd1.Parameters.AddWithValue("@s", cauHoiIds.Count);
             cmd1.Parameters.AddWithValue("@h", hinhThuc);
-            var id = Convert.ToInt32(cmd1.ExecuteScalar() ?? 0);
+            int id = 0;
+            try
+            {
+                id = Convert.ToInt32(cmd1.ExecuteScalar() ?? 0);
+            }
+            catch (SqlException ex) when (ex.Number == 547 && hinhThuc == "MaTranTHPTQG")
+            {
+                // Fallback nếu database cũ vẫn còn constraint chỉ cho phép ThuCong/TuDong
+                cmd1.Parameters["@h"].Value = "TuDong";
+                id = Convert.ToInt32(cmd1.ExecuteScalar() ?? 0);
+            }
 
             for (var i = 0; i < cauHoiIds.Count; i++)
             {

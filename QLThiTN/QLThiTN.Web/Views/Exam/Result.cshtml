@@ -131,7 +131,7 @@
                         {
                             <span class="badge-status bg-warning text-dark">@q.DiemDat.ToString("0.##")/@q.DiemToiDa.ToString("0.##") điểm</span>
                         }
-                        <div class="fw-medium">Câu @(q.OrderIndex): @Html.Raw(q.Content)</div>
+                        <div class="fw-medium question-content">Câu @(q.OrderIndex): @Html.Raw(q.Content)</div>
                     </div>
                     <partial name="_QuestionImages" model="@q.Images" />
 

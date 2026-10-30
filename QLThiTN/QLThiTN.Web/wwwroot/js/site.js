@@ -32,4 +32,35 @@ $(function () {
         localStorage.setItem('qlthitn_theme', next);
         syncThemeIcon();
     });
+
+    // Dam bao toan bo chu cua cau hoi hien thi lien mach o tren, anh luon nam rieng ben duoi
+    function repositionQuestionImages() {
+        $('.question-card').each(function () {
+            var $card = $(this);
+            var $content = $card.find('.question-content').first();
+            if ($content.length === 0) return;
+
+            var $inlineImgs = $content.find('img, figure');
+            if ($inlineImgs.length === 0) return;
+
+            var $imgWrap = $card.find('.question-images').first();
+            if ($imgWrap.length === 0) {
+                $imgWrap = $('<div class="question-images my-3"></div>');
+                $content.after($imgWrap);
+            }
+
+            $inlineImgs.each(function () {
+                var $elem = $(this);
+                if ($elem.is('figure')) {
+                    $imgWrap.append($elem);
+                } else if ($elem.parent('figure').length === 0) {
+                    var $fig = $('<figure class="question-image"></figure>');
+                    $fig.append($elem);
+                    $imgWrap.append($fig);
+                }
+            });
+        });
+    }
+
+    repositionQuestionImages();
 });

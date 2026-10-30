@@ -948,8 +948,10 @@ body.zen-mode .site-footer {
 .question-images {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    justify-content: center;
+    gap: 1.25rem;
+    margin: 1rem 0 1.5rem 0;
+    width: 100%;
 }
 
 .question-images:empty {
@@ -957,24 +959,30 @@ body.zen-mode .site-footer {
 }
 
 .question-image {
-    margin: 0;
+    margin: 0 auto;
     max-width: 100%;
+    text-align: center;
 }
 
 .question-image img {
     max-width: 100%;
-    max-height: 320px;
+    max-height: 360px;
     height: auto;
     border: 1px solid var(--border-soft);
     border-radius: 10px;
     background: #fff;
-    padding: .25rem;
+    padding: .35rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    display: block;
+    margin: 0 auto;
 }
 
 .question-image figcaption {
-    font-size: .78rem;
+    font-size: .82rem;
     color: #6c757d;
-    margin-top: .35rem;
+    margin-top: .4rem;
+    text-align: center;
+    font-style: italic;
 }
 
 /* Anh nam trong phuong an: can chieu rong het option-item */
@@ -1012,19 +1020,24 @@ p .katex-display {
     border-radius: 4px;
 }
 
-/* Anh nhung truc tiep trong noi dung cau hoi / phuong an (the <img> do import_db.py sinh) */
+/* Anh nhung truc tiep trong noi dung cau hoi / phuong an:
+   LUON hien thi block doc lap, xuong dong rieng biet o duoi text, khong lam rach dong chu */
+.question-card img,
+.question-content img,
 p img,
 .option-item img,
 .question-card span img {
+    display: block !important;
+    margin: 0.85rem auto !important;
     max-width: 100%;
-    max-height: 340px;
+    max-height: 360px;
     height: auto;
-    vertical-align: middle;
+    clear: both;
     background: #fff;
     border: 1px solid #e3e6ea;
-    border-radius: 4px;
-    padding: 2px;
-    margin: 4px 0;
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 
 /* MathJax fallback: can giong kich thuoc voi KaTeX de dong deu */

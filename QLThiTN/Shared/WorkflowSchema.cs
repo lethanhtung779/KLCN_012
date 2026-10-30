@@ -13,6 +13,20 @@ public static class WorkflowSchema
         IF COL_LENGTH('DeThi','NguoiTaoID') IS NULL ALTER TABLE DeThi ADD NguoiTaoID int NULL REFERENCES TaiKhoan(TaiKhoanID);
         IF COL_LENGTH('DeThi','NguoiDuyetID') IS NULL ALTER TABLE DeThi ADD NguoiDuyetID int NULL REFERENCES TaiKhoan(TaiKhoanID);
         IF COL_LENGTH('DeThi','NgayDuyet') IS NULL ALTER TABLE DeThi ADD NgayDuyet datetime2 NULL;
+
+        DECLARE @cName sysname;
+        DECLARE curCk CURSOR LOCAL FAST_FORWARD FOR
+        SELECT name FROM sys.check_constraints
+        WHERE parent_object_id=OBJECT_ID(N'dbo.DeThi') AND definition LIKE N'%HinhThucTao%' AND definition NOT LIKE N'%MaTranTHPTQG%';
+        OPEN curCk; FETCH NEXT FROM curCk INTO @cName;
+        WHILE @@FETCH_STATUS=0
+        BEGIN
+            DECLARE @dropCkSql nvarchar(max)=N'ALTER TABLE dbo.DeThi DROP CONSTRAINT '+QUOTENAME(@cName); EXEC sp_executesql @dropCkSql;
+            FETCH NEXT FROM curCk INTO @cName;
+        END
+        CLOSE curCk; DEALLOCATE curCk;
+        IF NOT EXISTS(SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.DeThi') AND definition LIKE N'%HinhThucTao%' AND definition LIKE N'%MaTranTHPTQG%')
+            ALTER TABLE dbo.DeThi WITH CHECK ADD CONSTRAINT CK_DeThi_HinhThucTao CHECK (HinhThucTao IN (N'ThuCong', N'TuDong', N'MaTranTHPTQG'));
         DECLARE @table sysname, @column sysname, @sql nvarchar(max);
         DECLARE fields CURSOR LOCAL FAST_FORWARD FOR
         SELECT t.n,c.n FROM (VALUES(N'HocVien'),(N'GiaoVien')) t(n)

@@ -211,6 +211,12 @@ try {
         & $sqlCmd -S $SqlServer -E -i $patchEmail | Out-Null
     }
 
+    $patchMaTran = Join-Path $Root "Database\fix_constraint_matran.sql"
+    if (Test-Path $patchMaTran) {
+        Write-Host ">> Cap nhat schema (constraint tao de ma tran)..." -ForegroundColor Cyan
+        & $sqlCmd -S $SqlServer -E -i $patchMaTran | Out-Null
+    }
+
     Copy-AppSettingsToOutput
 
     if (-not $SkipBuild) {
