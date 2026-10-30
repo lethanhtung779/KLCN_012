@@ -13,6 +13,7 @@ public class frmTaoDeTuDong : Form
     private readonly ComboBox _track = Ui.Combo(300);
     private readonly NumericUpDown _numSoCau = new() { Width = 300, Minimum = 1, Maximum = 50, Value = 10, Font = Ui.Body };
     private readonly TextBox _txtTenDe = Ui.Input(300);
+    private readonly ComboBox _cboQuyenThi = Ui.Combo(300);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
     private readonly Label _lblPool = Ui.Label("", Ui.Small, Ui.TextMuted);
     private readonly Label _lblTrack = Ui.Label("Định hướng Tin học *", Ui.H2, Ui.Navy);
@@ -20,6 +21,8 @@ public class frmTaoDeTuDong : Form
     public frmTaoDeTuDong(int? giaoVienId = null)
     {
         _examService = new ExamService(giaoVienId);
+        _cboQuyenThi.Items.AddRange(["Chỉ tài khoản VIP", "Miễn phí cho mọi tài khoản"]);
+        _cboQuyenThi.SelectedIndex = 0;
         Text = "Tạo đề ngẫu nhiên theo cấu trúc THPT của môn";
         _numSoCau.Enabled=false;
         StartPosition = FormStartPosition.CenterParent;
@@ -45,6 +48,7 @@ public class frmTaoDeTuDong : Form
         var lblSoCau = Ui.Label("Số lượng câu hỏi *", Ui.H2, Ui.Navy);
         var lblTen = Ui.Label("Tên đề thi *", Ui.H2, Ui.Navy);
         _txtTenDe.Text = $"Đề thi thử - {DateTime.Now:dd/MM/yyyy}";
+        var lblQuyenThi = Ui.Label("Quyền làm bài *", Ui.H2, Ui.Navy);
 
         var lblGoiY = Ui.Label("Chọn ngẫu nhiên theo môn/độ khó; không kiểm soát tỷ lệ chủ đề.\nMuốn cân bằng chủ đề và mức độ, hãy dùng Tạo đề chuẩn THPTQG.",
             Ui.Small, Ui.TextMuted);
@@ -55,13 +59,15 @@ public class frmTaoDeTuDong : Form
         var btnHuy = Ui.ButtonOutline("Hủy", 100, 42);
         btnHuy.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-        Controls.AddRange([lblMon, _cboMon, lblMuc, _cboMuc, lblSoCau, _numSoCau, lblTen, _txtTenDe, _lblPool, lblGoiY, _lblTrack, _track, _lblError, btnTao, btnHuy]);
+        Controls.AddRange([lblMon, _cboMon, lblMuc, _cboMuc, lblSoCau, _numSoCau, lblTen, _txtTenDe,
+            lblQuyenThi, _cboQuyenThi, _lblPool, lblGoiY, _lblTrack, _track, _lblError, btnTao, btnHuy]);
 
         var y = 18;
         lblMon.Location = new Point(30, y); _cboMon.Location = new Point(30, y + 24); y += 62;
         lblMuc.Location = new Point(30, y); _cboMuc.Location = new Point(30, y + 24); y += 62;
         lblSoCau.Location = new Point(30, y); _numSoCau.Location = new Point(30, y + 24); y += 62;
         lblTen.Location = new Point(30, y); _txtTenDe.Location = new Point(30, y + 24); y += 62;
+        lblQuyenThi.Location = new Point(30, y); _cboQuyenThi.Location = new Point(30, y + 24); y += 62;
         _lblPool.Location = new Point(30, y); y += 24;
         lblGoiY.Location = new Point(30, y); y += 44;
         _lblTrack.Location = new Point(30, y);
@@ -109,9 +115,10 @@ public class frmTaoDeTuDong : Form
         _lblError.Text = "";
         var mon = (int)(_cboMon.SelectedItem as ComboItem)!.Value!;
         var muc = (_cboMuc.SelectedItem as ComboItem)?.Value as string ?? "";
-        var (id, error) = _examService.TaoDeTuDong(_txtTenDe.Text, mon, (int)_numSoCau.Value, muc, "ThiThu",((_track.SelectedItem as ComboItem)?.Value as string)!);
+        var (id, error) = _examService.TaoDeTuDong(_txtTenDe.Text, mon, (int)_numSoCau.Value, muc,
+            "ThiThu", ((_track.SelectedItem as ComboItem)?.Value as string)!, _cboQuyenThi.SelectedIndex == 1);
         if (id == 0) { _lblError.Text = "⚠ " + error; return; }
-        MessageBox.Show($"Tạo đề thành công! (ID: {id})\nHãy chọn đề và tạo 'Đợt thi' để học viên vào làm.",
+        MessageBox.Show($"Tạo đề thành công! (ID: {id})\nHãy xem và duyệt đề, sau đó tạo lịch thi cho học viên.",
             "Hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
         DialogResult = DialogResult.OK;
         Close();

@@ -12,6 +12,7 @@ public class frmTaoDeThuCong : Form
     private readonly ComboBox _cboMon = Ui.Combo(280);
     private readonly ComboBox _cboMuc = Ui.Combo(200);
     private readonly TextBox _txtTenDe = Ui.Input(280);
+    private readonly ComboBox _cboQuyenThi = Ui.Combo(280);
     private readonly DataGridView _grid = new();
     private readonly Label _lblDaChon = Ui.Label("Đã chọn 0 câu", Ui.H2, Ui.Accent2);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
@@ -20,6 +21,8 @@ public class frmTaoDeThuCong : Form
     public frmTaoDeThuCong(int? giaoVienId = null)
     {
         _examService = new ExamService(giaoVienId);
+        _cboQuyenThi.Items.AddRange(["Chỉ tài khoản VIP", "Miễn phí cho mọi tài khoản"]);
+        _cboQuyenThi.SelectedIndex = 0;
         Text = "Tạo đề thi thủ công — chọn câu hỏi từ ngân hàng";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -40,14 +43,15 @@ public class frmTaoDeThuCong : Form
 
         var lblTen = Ui.Label("Tên đề thi *", Ui.H2, Ui.Navy);
         _txtTenDe.Text = $"Đề ôn tập tự chọn - {DateTime.Now:dd/MM/yyyy}";
+        var lblQuyenThi = Ui.Label("Quyền làm bài *", Ui.H2, Ui.Navy);
         var btnChonTatCa = Ui.ButtonOutline("☑ Chọn tất cả", 140, 34);
         btnChonTatCa.Click += (s, e) => { foreach (DataGridViewRow row in _grid.Rows) row.Cells["Chon"].Value = true; CapNhatDem(); };
         var btnBoTatCa = Ui.ButtonOutline("☐ Bỏ chọn tất cả", 160, 34);
         btnBoTatCa.Click += (s, e) => { foreach (DataGridViewRow row in _grid.Rows) row.Cells["Chon"].Value = false; CapNhatDem(); };
 
         Ui.StyleGrid(_grid);
-        _grid.Location = new Point(20, 134);
-        _grid.Size = new Size(980, 446);
+        _grid.Location = new Point(20, 142);
+        _grid.Size = new Size(980, 438);
         _grid.ReadOnly = false;
         _grid.CellValueChanged += (s, e) => { if (e.ColumnIndex == 0) CapNhatDem(); };
         _grid.CurrentCellDirtyStateChanged += (s, e) =>
@@ -94,12 +98,13 @@ public class frmTaoDeThuCong : Form
         var btnHuy = Ui.ButtonOutline("Hủy", 100, 42);
         btnHuy.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-        Controls.AddRange([lblMon, _cboMon, lblMuc, _cboMuc, lblTen, _txtTenDe,
+        Controls.AddRange([lblMon, _cboMon, lblMuc, _cboMuc, lblTen, _txtTenDe, lblQuyenThi, _cboQuyenThi,
             btnChonTatCa, btnBoTatCa, _grid, _lblDaChon, _lblError, btnTao, btnHuy]);
 
         lblMon.Location = new Point(20, 16); _cboMon.Location = new Point(20, 40);
         lblMuc.Location = new Point(320, 16); _cboMuc.Location = new Point(320, 40);
         lblTen.Location = new Point(540, 16); _txtTenDe.Location = new Point(540, 40);
+        lblQuyenThi.Location = new Point(540, 78); _cboQuyenThi.Location = new Point(540, 100);
         btnChonTatCa.Location = new Point(20, 90);
         btnBoTatCa.Location = new Point(170, 90);
         _lblDaChon.Location = new Point(360, 96);
@@ -168,9 +173,10 @@ public class frmTaoDeThuCong : Form
             if (Convert.ToBoolean(row.Cells["Chon"].Value ?? false))
                 ids.Add(Convert.ToInt32(row.Cells["CauHoiID"].Value));
 
-        var (id, error) = _examService.TaoDeThuCong(_txtTenDe.Text, mon, "ThiThu", ids);
+        var (id, error) = _examService.TaoDeThuCong(_txtTenDe.Text, mon, "ThiThu", ids,
+            _cboQuyenThi.SelectedIndex == 1);
         if (id == 0) { _lblError.Text = "⚠ " + error; return; }
-        MessageBox.Show($"Tạo đề thành công! (ID: {id})\nHãy chọn đề và tạo 'Đợt thi' để học viên vào làm.",
+        MessageBox.Show($"Tạo đề thành công! (ID: {id})\nHãy xem và duyệt đề, sau đó tạo lịch thi cho học viên.",
             "Hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
         DialogResult = DialogResult.OK;
         Close();

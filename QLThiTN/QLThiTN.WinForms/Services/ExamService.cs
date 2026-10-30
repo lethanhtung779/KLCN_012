@@ -94,7 +94,8 @@ public class ExamService
 
     /// <summary>Tao de tu dong: chon ngau nhien so cau theo mon (+ do kho tuy chon)
     /// tu cac cau HoatDong. Tra ve DeThiID moi.</summary>
-    public (int DeThiID, string Error) TaoDeTuDong(string tenDe, int monHocId, int soCau, string? mucDo, string loaiDe, string tinHocTrack="KhoaHocMayTinh")
+    public (int DeThiID, string Error) TaoDeTuDong(string tenDe, int monHocId, int soCau, string? mucDo,
+        string loaiDe, string tinHocTrack="KhoaHocMayTinh", bool laMienPhi=false)
     {
         YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(tenDe)) return (0, "Chưa nhập tên đề.");
@@ -119,7 +120,7 @@ public class ExamService
                 if(pool.Count<count)return (0,$"Thiếu câu {type} {track}: cần {count}, chỉ có {pool.Count}. Không tạo đề sai cấu trúc.");
                 chosen.AddRange(pool.Take(count));
             }
-            var id=TaoDeCore(tenDe,monHocId,loaiDe,"TuDong",chosen);
+            var id=TaoDeCore(tenDe,monHocId,loaiDe,"TuDong",chosen,laMienPhi);
             return (id, "");
         }
         catch(InvalidOperationException ex){return (0,ex.Message);}
@@ -127,12 +128,13 @@ public class ExamService
     }
 
     /// <summary>Tao de thu cong tu danh sach cau hoi nguoi dung chon (giu dung thu tu).</summary>
-    public (int DeThiID, string Error) TaoDeThuCong(string tenDe, int monHocId, string loaiDe, List<int> cauHoiIds)
+    public (int DeThiID, string Error) TaoDeThuCong(string tenDe, int monHocId, string loaiDe,
+        List<int> cauHoiIds, bool laMienPhi=false)
     {
         YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(tenDe)) return (0, "Chưa nhập tên đề.");
         if (cauHoiIds.Count == 0) return (0, "Chưa chọn câu hỏi nào cho đề.");
-        var id = TaoDeCore(tenDe, monHocId, loaiDe, "ThuCong", cauHoiIds);
+        var id = TaoDeCore(tenDe, monHocId, loaiDe, "ThuCong", cauHoiIds, laMienPhi);
         return (id, "");
     }
 
@@ -176,7 +178,8 @@ END", conn);
         catch { /* Khong chan luong tao de neu thieu quyen DDL */ }
     }
 
-    private int TaoDeCore(string tenDe, int monHocId, string loaiDe, string hinhThuc, List<int> cauHoiIds)
+    private int TaoDeCore(string tenDe, int monHocId, string loaiDe, string hinhThuc,
+        List<int> cauHoiIds, bool laMienPhi)
     {
         if (cauHoiIds.Distinct().Count() != cauHoiIds.Count)
             throw new InvalidOperationException("Danh sách câu hỏi trong đề không được trùng lặp.");
@@ -198,8 +201,8 @@ END", conn);
                     throw new InvalidOperationException("Đề có câu hỏi khác môn, đã ẩn hoặc không còn tồn tại.");
             }
             using var cmd1 = new SqlCommand(@"
-                INSERT INTO DeThi (MonHocID, NguoiTaoID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao)
-                VALUES (@m, @gv, @t, @l, @s, @h);
+                INSERT INTO DeThi (MonHocID, NguoiTaoID, TenDe, LoaiDe, SoLuongCauHoi, HinhThucTao, LaMienPhi)
+                VALUES (@m, @gv, @t, @l, @s, @h, @free);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, tx);
             cmd1.Parameters.AddWithValue("@m", monHocId);
             cmd1.Parameters.AddWithValue("@gv", creatorId);
@@ -207,6 +210,7 @@ END", conn);
             cmd1.Parameters.AddWithValue("@l", loaiDe);
             cmd1.Parameters.AddWithValue("@s", cauHoiIds.Count);
             cmd1.Parameters.AddWithValue("@h", hinhThuc);
+            cmd1.Parameters.AddWithValue("@free", laMienPhi);
             int id = 0;
             try
             {
@@ -941,7 +945,8 @@ END", conn);
         bool tuDongTronMaDe = true,
         int soLuongMaDe = 4,
         int soChuDeToiThieu = 1,
-        int soCauMoiChuDeToiThieu = 1)
+        int soCauMoiChuDeToiThieu = 1,
+        bool laMienPhi = false)
     {
         YeuCauQuanTriVien();
         if (string.IsNullOrWhiteSpace(tenDe))
@@ -1046,7 +1051,7 @@ END", conn);
 
         if (allQuestionIds.Count != tongCau)
             return (0, "Ngân hàng câu hỏi vừa thay đổi; vui lòng nạp lại ma trận và thử lại.");
-        var deThiId = TaoDeCore(tenDe, monHocId, loaiDe, "MaTranTHPTQG", allQuestionIds);
+        var deThiId = TaoDeCore(tenDe, monHocId, loaiDe, "MaTranTHPTQG", allQuestionIds, laMienPhi);
 
         // Tự động trộn mã đề nếu được yêu cầu
         if (tuDongTronMaDe)

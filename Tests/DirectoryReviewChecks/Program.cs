@@ -71,6 +71,23 @@ internal static class Program
                 bitmap.Save(Path.Combine(args[1], "exam-form.png"));
             }
             form.Close();
+            using var exams = new frmExams { Size = new Size(1500, 850) };
+            typeof(frmExams).GetMethod("TaiLai", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(exams, null);
+            exams.Show(); exams.PerformLayout(); Application.DoEvents();
+            var examGrid = Field<DataGridView>(exams, "_gridDe");
+            Check(exams.Text == "Đề thi & Lịch thi", "Exam screen uses business-friendly title");
+            Check(examGrid.Columns.Contains("TrangThaiWeb"), "Exam grid explains Web visibility");
+            Check(Field<Button>(exams, "_btnDuyet").Text.Contains("duyệt", StringComparison.OrdinalIgnoreCase) ||
+                Field<Button>(exams, "_btnDuyet").Text.Contains("nội dung", StringComparison.OrdinalIgnoreCase), "Review action is explicit");
+            Check(Field<Button>(exams, "_btnDotThi").Text == "Tạo lịch thi", "Schedule action is explicit");
+            if (args.Length > 1)
+            {
+                Directory.CreateDirectory(args[1]);
+                using var bitmap = new Bitmap(exams.Width, exams.Height);
+                exams.DrawToBitmap(bitmap, new Rectangle(Point.Empty, exams.Size));
+                bitmap.Save(Path.Combine(args[1], "exams-workflow.png"));
+            }
+            exams.Close();
             using var courses = new frmDaoTao { Size = new Size(1100, 730) };
             courses.Show(); Application.DoEvents();
             var tabs = Field<TabControl>(courses, "_tabs");

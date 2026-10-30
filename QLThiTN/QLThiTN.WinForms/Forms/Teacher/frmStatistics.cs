@@ -229,7 +229,7 @@ public class frmStatistics : Form
         if (_cboDotThi.Items.Count == 0)
         {
             var message = Session.IsGiaoVien
-                ? "Chưa có đợt thi thuộc môn bạn được phân công.\nQuản trị viên cần phân công môn và tạo đợt thi để thống kê xuất hiện ở đây."
+                ? "Chưa có đợt thi thuộc môn bạn được phân công.\nHãy kiểm tra phân công môn hoặc tạo đợt thi cho môn đó."
                 : "Chưa có đợt thi nào. Hãy tạo đề thi và đợt thi trước khi xem thống kê.";
             _cboDotThi.Items.Add(new ComboItem(0, "Chưa có đợt thi để thống kê"));
             _cboDotThi.SelectedIndex = 0;

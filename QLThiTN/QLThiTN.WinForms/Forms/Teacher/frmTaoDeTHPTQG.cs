@@ -16,6 +16,7 @@ public class frmTaoDeTHPTQG : Form
     // Controls thông tin đề
     private readonly ComboBox _cboMon = Ui.Combo(240);
     private readonly TextBox _txtTenDe = Ui.Input(360);
+    private readonly ComboBox _cboQuyenThi = Ui.Combo(240);
     private readonly NumericUpDown _numSoMaDe = new() { Width = 80, Minimum = 1, Maximum = 24, Value = 4, Font = Ui.Body };
     private readonly NumericUpDown _numSoChuDeToiThieu = new() { Width = 70, Minimum = 1, Maximum = 99, Value = 1, Font = Ui.Body };
     private readonly NumericUpDown _numCauMoiChuDe = new() { Width = 70, Minimum = 1, Maximum = 99, Value = 1, Font = Ui.Body };
@@ -35,6 +36,8 @@ public class frmTaoDeTHPTQG : Form
     public frmTaoDeTHPTQG(int? giaoVienId = null)
     {
         _examService = new ExamService(giaoVienId);
+        _cboQuyenThi.Items.AddRange(["Chỉ tài khoản VIP", "Miễn phí cho mọi tài khoản"]);
+        _cboQuyenThi.SelectedIndex = 0;
         Text = "Tạo đề thi theo ma trận chủ đề và mức độ";
         StartPosition = FormStartPosition.CenterParent;
         Size = new Size(1120, 760);
@@ -78,6 +81,10 @@ public class frmTaoDeTHPTQG : Form
         lblTen.Location = new Point(280, 12);
         _txtTenDe.Location = new Point(280, 34);
 
+        var lblQuyenThi = Ui.Label("Quyền làm bài *", Ui.Body, Ui.Navy);
+        lblQuyenThi.Location = new Point(660, 12);
+        _cboQuyenThi.Location = new Point(660, 34);
+
         var btnNapChuan = Ui.ButtonAccent("Nạp gợi ý cấu trúc môn", 250, 36);
         btnNapChuan.Location = new Point(20, 68);
         btnNapChuan.Click += (s, e) => NapMaTranChuanBo();
@@ -85,7 +92,8 @@ public class frmTaoDeTHPTQG : Form
         _lblGoiYChuan.Location = new Point(290, 76);
         _lblGoiYChuan.AutoSize = true;
 
-        pnlConfig.Controls.AddRange([lblMon, _cboMon, lblTen, _txtTenDe, btnNapChuan, _lblGoiYChuan]);
+        pnlConfig.Controls.AddRange([lblMon, _cboMon, lblTen, _txtTenDe, lblQuyenThi, _cboQuyenThi,
+            btnNapChuan, _lblGoiYChuan]);
 
         // Center Panel: Bảng Ma trận
         var pnlGridWrap = new Panel
@@ -458,7 +466,8 @@ public class frmTaoDeTHPTQG : Form
                 tuDongTron,
                 soLuongMa,
                 (int)_numSoChuDeToiThieu.Value,
-                (int)_numCauMoiChuDe.Value);
+                (int)_numCauMoiChuDe.Value,
+                _cboQuyenThi.SelectedIndex == 1);
 
             if (id == 0)
             {

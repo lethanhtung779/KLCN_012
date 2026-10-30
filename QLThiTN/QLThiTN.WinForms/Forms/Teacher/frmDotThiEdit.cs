@@ -28,7 +28,7 @@ public class frmDotThiEdit : Form
     public frmDotThiEdit(int deThiId, string tenDe)
     {
         _deThiId = deThiId; _tenDe = tenDe;
-        Text = "Tạo đợt thi";
+        Text = "Tạo lịch thi cho đề";
         StartPosition = FormStartPosition.CenterParent;
         MinimumSize = new Size(780, 620); ClientSize = new Size(860, 760);
         BackColor = Color.White; Font = Ui.Body;
@@ -42,10 +42,10 @@ public class frmDotThiEdit : Form
         scroll.Controls.Add(fields); root.Controls.Add(scroll, 0, 0);
         void Add(Control control, int col, int row, bool span = false)
         { fields.Controls.Add(control, col, row); if (span) fields.SetColumnSpan(control, 2); }
-        var title = Ui.Label("Đề thi: " + tenDe, Ui.H2, Ui.Navy);
+        var title = Ui.Label("Đang lên lịch cho đề: " + tenDe, Ui.H2, Ui.Navy);
         title.MaximumSize = new Size(720, 0); Add(title, 0, 0, true);
-        _name.Text = "Đợt thi - " + tenDe;
-        Add(Field("Tên đợt thi *", _name), 0, 1, true);
+        _name.Text = "Lịch thi - " + tenDe;
+        Add(Field("Tên lịch thi *", _name), 0, 1, true);
         Add(Field("Mở cổng · chọn ngày và giờ", DateTimeInput(_openDate, _openTime)), 0, 2);
         Add(Field("Đóng cổng · chọn ngày và giờ", DateTimeInput(_closeDate, _closeTime)), 1, 2);
         Add(Field("Thời lượng mỗi bài (phút)", _duration), 0, 3);
@@ -69,7 +69,7 @@ public class frmDotThiEdit : Form
         _error.Dock = DockStyle.Fill; _error.AutoSize = false; footer.Controls.Add(_error, 0, 0);
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
         var cancel = Ui.ButtonOutline("Hủy", 100, 38); cancel.DialogResult = DialogResult.Cancel;
-        var create = Ui.ButtonAccent("Tạo đợt thi", 155, 38); create.Click += (_, _) => CreateSession();
+        var create = Ui.ButtonAccent("Lưu lịch thi", 155, 38); create.Click += (_, _) => CreateSession();
         buttons.Controls.AddRange([cancel, create]); footer.Controls.Add(buttons, 0, 1);
         root.Controls.Add(footer, 0, 1); Controls.Add(root); AcceptButton = create; CancelButton = cancel;
         var now = DateTime.Now; _openDate.Value = now; _openTime.Value = now;
@@ -116,7 +116,7 @@ public class frmDotThiEdit : Form
                 CongBoDiemSom = _publish.Checked, PhamVi = _scope.SelectedIndex == 1 ? "TheoLop" : "ToanTruong",
                 SoLanThiToiDa = (int)_attempts.Value };
             var id = _service.TaoDotThi(dot, _classes.CheckedItems.Cast<ClassOption>().Select(x => x.Id).ToArray());
-            MessageBox.Show(this, $"Đã tạo đợt thi #{id}.\nMở cổng: {Opens:dd/MM/yyyy HH:mm}\nĐóng cổng: {Closes:dd/MM/yyyy HH:mm}", "Hoàn tất");
+            MessageBox.Show(this, $"Đã tạo lịch thi #{id}.\nMở cổng: {Opens:dd/MM/yyyy HH:mm}\nĐóng cổng: {Closes:dd/MM/yyyy HH:mm}", "Hoàn tất");
             DialogResult = DialogResult.OK; Close();
         }
         catch (Exception ex) { _error.Text = ex.Message; }
