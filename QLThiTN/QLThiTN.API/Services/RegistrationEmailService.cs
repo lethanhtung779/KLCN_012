@@ -70,7 +70,7 @@ public class RegistrationEmailService(
         var html = $@"
 <h2>Xác minh email đăng ký tài khoản</h2>
 <p>Xin chào <strong>{WebUtilityEncode(fullName)}</strong>,</p>
-<p>Bạn vừa đăng ký tài khoản học viên trên hệ thống QLThiTN. Đây là email <strong>xác minh địa chỉ email</strong> — tài khoản chưa được tạo cho đến khi bạn bấm liên kết bên dưới.</p>
+<p>Bạn vừa đăng ký tài khoản học viên trên Luyện Thi 247. Đây là email <strong>xác minh địa chỉ email</strong> — tài khoản chưa được tạo cho đến khi bạn bấm liên kết bên dưới.</p>
 <p style=""margin:16px 0;padding:12px;background:#f4f6fa;border-radius:6px;font-size:14px"">
   <strong>Lưu ý:</strong> Email này <em>không</em> phải thông báo nâng VIP hay cấp quyền đóng phí. Sau khi xác minh, tài khoản mới là <strong>gói miễn phí</strong> (chỉ làm các đề miễn phí).
 </p>
@@ -82,7 +82,7 @@ public class RegistrationEmailService(
 
         try
         {
-            await emailSender.SendAsync(email, "[QLThiTN] Vui lòng xác minh email đăng ký", html);
+            await emailSender.SendAsync(email, "[Luyện Thi 247] Vui lòng xác minh email đăng ký", html);
         }
         catch (Exception ex)
         {

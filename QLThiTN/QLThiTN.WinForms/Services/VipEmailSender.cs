@@ -36,10 +36,10 @@ public static class VipEmailSender
             var fromAddress = string.IsNullOrWhiteSpace(cfg.FromAddress) ? cfg.SmtpUser : cfg.FromAddress;
             var message = new MimeMessage();
             message.From.Add(new MailboxAddress(
-                string.IsNullOrWhiteSpace(cfg.FromName) ? "QLThiTN" : cfg.FromName,
+                string.IsNullOrWhiteSpace(cfg.FromName) ? "Luyện Thi 247" : cfg.FromName,
                 fromAddress));
             message.To.Add(MailboxAddress.Parse(toEmail.Trim()));
-            message.Subject = "[QLThiTN] Tài khoản của bạn đã được nâng lên VIP";
+            message.Subject = "[Luyện Thi 247] Tài khoản của bạn đã được nâng lên VIP";
             message.Body = new TextPart("html") { Text = html };
 
             var secure = cfg.SmtpPort == 465
