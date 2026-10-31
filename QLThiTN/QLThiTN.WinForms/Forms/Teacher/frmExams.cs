@@ -263,6 +263,15 @@ public class frmExams : Form
             if (result == DialogResult.Yes) MoManHinhTronDe();
             return;
         }
+        var mappingError = _service.LayLoiMaDe(id);
+        if (mappingError != null)
+        {
+            var result = MessageBox.Show(
+                mappingError + "\n\nHãy trộn lại mã đề trước khi xem hoặc duyệt. Mở màn hình trộn mã đề ngay?",
+                "Mã đề chưa đồng bộ", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (result == DialogResult.Yes) MoManHinhTronDe();
+            return;
+        }
         using var review = new frmExamReview(id);
         review.ShowDialog(this);
         TaiLai();
@@ -463,8 +472,19 @@ public class frmExams : Form
         var ten = _gridDe.CurrentRow!.Cells["TenDe"].Value;
         if (MessageBox.Show($"Xóa đề '{ten}' cùng đợt thi và đăng ký liên quan? Đề đã có bài làm sẽ không thể xóa.\nHành động này KHÔNG THỂ hoàn tác!",
                 "Xác nhận xóa", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-        _service.XoaDe(id);
-        TaiLai();
+        try
+        {
+            _service.XoaDe(id);
+            TaiLai();
+        }
+        catch (InvalidOperationException ex)
+        {
+            MessageBox.Show(ex.Message, "Không thể xóa đề", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Xóa đề không thành công:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
     }
 
     private void MoManHinhTronDe()

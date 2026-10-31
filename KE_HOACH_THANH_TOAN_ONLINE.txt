@@ -1,0 +1,173 @@
+KE HOACH TRIEN KHAI CHUC NANG THANH TOAN ONLINE
+
+1. PHUONG AN DE XUAT
+
+- Su dung payOS Hosted Checkout va VietQR.
+- Tien thanh toan chuyen vao tai khoan ngan hang lien ket voi payOS.
+- Web chi hien thi giao dien mua goi va ket qua thanh toan.
+- API tao don, lam viec voi payOS va xac minh webhook.
+- SQL Server luu goi VIP, don thanh toan va lich su xu ly.
+- WinForms dung de quan tri, doi soat giao dich va cap VIP thu cong khi can.
+
+2. LUONG THANH TOAN
+
+1) Hoc vien dang nhap va chon goi VIP.
+2) Web goi API de tao don thanh toan.
+3) API lay gia goi tu database, luu don o trang thai Cho thanh toan.
+4) API goi payOS de tao lien ket thanh toan va ma QR.
+5) Hoc vien thanh toan bang ung dung ngan hang.
+6) payOS gui webhook ve API.
+7) API kiem tra chu ky, ma don, so tien va trang thai.
+8) Neu hop le, API cap VIP cho hoc vien va danh dau don Da thanh toan.
+9) He thong gui email xac nhan va hien thi ket qua cho hoc vien.
+
+Luu y: returnUrl chi dung de hien thi ket qua. He thong chi cap VIP sau khi
+xac minh webhook hop le tu payOS.
+
+3. QUY TAC NGHIEP VU
+
+- Goi ban dau de xuat: VIP 30 ngay.
+- Gia goi do quan tri vien cau hinh.
+- VIP bat dau tu luc thanh toan thanh cong.
+- Neu hoc vien dang con VIP, so ngay mua them duoc cong vao ngay het han.
+- Moi don thanh toan chi duoc cap VIP mot lan.
+- Don chua thanh toan khong duoc thay doi quyen loi tai khoan.
+- Quan tri vien co the cap VIP thu cong nhung phai nhap ly do va luu lich su.
+
+4. THAY DOI DATABASE
+
+Bang GoiVip:
+- GoiVipID
+- TenGoi
+- Gia
+- SoNgay
+- MoTa
+- DangHoatDong
+- NgayTao
+
+Bang DonThanhToan:
+- DonThanhToanID
+- OrderCode, duy nhat
+- HocVienID
+- GoiVipID
+- SoTien
+- NhaCungCap
+- PaymentLinkId
+- CheckoutUrl
+- TrangThai
+- MaThamChieuNganHang
+- NgayTao
+- NgayHetHan
+- NgayThanhToan
+
+Trang thai don:
+- ChoThanhToan
+- DaThanhToan
+- DaHuy
+- HetHan
+- ThatBai
+
+Bang NhatKyWebhookThanhToan:
+- Noi dung webhook
+- Ma giao dich
+- Chu ky
+- Thoi gian nhan
+- Ket qua xu ly
+- Loi neu co
+
+Bo sung vao bang HocVien:
+- VipTuNgay
+- VipDenNgay
+
+Co the tam giu cot LoaiGoi hien tai de tuong thich voi code cu.
+
+5. API CAN XAY DUNG
+
+- GET  /api/vip/packages
+- POST /api/payments/payos
+- GET  /api/payments/{id}
+- GET  /api/payments/my-history
+- POST /api/payments/payos/webhook
+- POST /api/payments/{id}/cancel
+
+Hoc vien chi duoc xem giao dich cua minh. Quan tri vien duoc xem tat ca.
+So tien phai do API lay tu database, khong tin so tien gui tu trinh duyet.
+
+6. GIAO DIEN WEB
+
+- Trang Nang cap VIP.
+- Danh sach cac goi VIP va quyen loi.
+- Nut Thanh toan.
+- Trang hien thi ma QR hoac chuyen den payOS.
+- Trang ket qua: dang xu ly, thanh cong, that bai, da huy.
+- Trang lich su thanh toan.
+- Hien thi ngay het han VIP tren thong tin tai khoan.
+
+7. WINFORMS QUAN TRI
+
+- Them muc Thanh toan va VIP.
+- Xem danh sach giao dich.
+- Loc theo hoc vien, thoi gian va trang thai.
+- Xem so tien, ma don va ma tham chieu ngan hang.
+- Doi soat don dang cho thanh toan.
+- Xem lich su cap VIP.
+- Cap VIP thu cong kem ly do.
+- Khong cho sua truc tiep giao dich da thanh toan.
+
+8. BAO MAT
+
+- Client ID, API Key va Checksum Key chi dat trong API.
+- Khong dua khoa payOS vao Web, JavaScript hoac GitHub.
+- Kiem tra chu ky HMAC cua webhook.
+- Doi chieu OrderCode, so tien va trang thai.
+- Dung transaction SQL khi cap VIP va cap nhat giao dich.
+- Tao rang buoc duy nhat de tranh xu ly mot giao dich nhieu lan.
+- Khong ghi API key vao log.
+- Gioi han so lan tao don lien tuc.
+
+9. YEU CAU TRIEN KHAI
+
+- API webhook phai co dia chi HTTPS cong khai va on dinh.
+- Khi chay tren may ca nhan co the dung Cloudflare Tunnel de demo.
+- Khong nen dung URL tunnel tam thoi cho thanh toan that lau dai.
+- Khi trien khai chinh thuc, API can duoc dat tren hosting co HTTPS.
+- payOS hien khong co sandbox rieng, vi vay chi thu giao dich that voi so tien nho
+  sau khi da hoan thanh kiem thu tu dong.
+
+10. CAC TRUONG HOP CAN KIEM THU
+
+- Thanh toan thanh cong.
+- Nguoi dung huy thanh toan.
+- Don het han.
+- Webhook bi gui lap lai.
+- Webhook sai chu ky.
+- So tien webhook khong khop.
+- Webhook den truoc hoac sau khi trinh duyet quay ve.
+- Nguoi dung bam tao thanh toan nhieu lan.
+- Nguoi dung co truy cap giao dich cua nguoi khac.
+- API mat ket noi trong luc xu ly.
+- Hoc vien dang co VIP mua them goi.
+- Tien da ve ngan hang nhung webhook bi gian doan.
+- Quan tri vien cap VIP thu cong.
+
+11. THU TU TRIEN KHAI
+
+1) Chot gia va thoi han goi VIP.
+2) Tao tai khoan payOS, xac minh va lien ket ngan hang.
+3) Cap nhat database va file SQL.
+4) Xay dung service tich hop payOS.
+5) Lam API tao don va webhook.
+6) Lam giao dien mua VIP tren Web.
+7) Lam man hinh quan ly giao dich tren WinForms.
+8) Viet kiem thu chu ky, trang thai va chong xu ly trung.
+9) Mo HTTPS hoac tunnel va dang ky webhook.
+10) Thu giao dich that voi so tien nho.
+11) Doi chieu tien vao tai khoan ngan hang truoc khi dua vao su dung.
+
+12. THONG TIN CAN CHOT TRUOC KHI LAP TRINH
+
+- Gia goi VIP.
+- Thoi han goi VIP.
+- Tai khoan ngan hang se lien ket voi payOS.
+- Co cho phep mua nhieu goi de cong don thoi han hay khong.
+- Chinh sach huy hoac hoan tien.

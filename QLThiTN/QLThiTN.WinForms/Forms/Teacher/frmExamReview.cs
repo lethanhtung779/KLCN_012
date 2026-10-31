@@ -13,19 +13,31 @@ public sealed class frmExamReview : Form
     private readonly string _folder=Path.Combine(Path.GetTempPath(),"QLThiTN-review-"+Guid.NewGuid().ToString("N"));
     private ReviewDocument? _report;
     private bool _rendered;
+    private string? _approvalError;
     public frmExamReview(int examId, int? attemptId=null)
     {
         Session.YeuCauQuanTriVien();
         Text=attemptId.HasValue?"Chi tiết câu trả lời của thí sinh":"Xem các mã đề và duyệt đề";
         Size=new Size(1100,800);StartPosition=FormStartPosition.CenterParent;
         _web.CreationProperties=new CoreWebView2CreationProperties{UserDataFolder=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"QLThiTN","WebView2")};
-        var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=58,AutoScroll=true};
+        var footer=new FlowLayoutPanel{Dock=DockStyle.Bottom,Height=76,AutoScroll=true,Padding=new Padding(8,4,8,4)};
         var confirmed=new CheckBox{Text="Tôi đã xem nội dung và đáp án của tất cả mã đề",AutoSize=true,Margin=new Padding(10,14,10,0)};
         var approve=Ui.ButtonAccent("Duyệt lên web",170);approve.Enabled=false;
-        confirmed.CheckedChanged+=(_,_)=>approve.Enabled=confirmed.Checked&&_report!=null&&_rendered;
+        var validationStatus=Ui.Label("",Ui.Small,Ui.Danger);
+        validationStatus.AutoSize=true;
+        validationStatus.MaximumSize=new Size(760,0);
+        validationStatus.Margin=new Padding(10,8,10,0);
+        confirmed.CheckedChanged+=(_,_)=>approve.Enabled=confirmed.Checked&&_report!=null&&_rendered&&_approvalError==null;
         approve.Click+=async(_,_)=>
         {
             if(_report==null)return;
+            _approvalError=ExamReview.GetApprovalValidationError(_report);
+            if(_approvalError!=null)
+            {
+                MessageBox.Show(this,_approvalError,"Đề chưa đủ điều kiện duyệt",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+                confirmed.Checked=false;
+                return;
+            }
             approve.Enabled=false;
             try
             {
@@ -36,7 +48,7 @@ public sealed class frmExamReview : Form
             }
             catch(Exception ex){MessageBox.Show(this,ex.Message,"Không duyệt được đề");confirmed.Checked=false;}
         };
-        if(!attemptId.HasValue)footer.Controls.AddRange([confirmed,approve]);
+        if(!attemptId.HasValue)footer.Controls.AddRange([confirmed,approve,validationStatus]);
         Controls.Add(_web);Controls.Add(footer);
         Shown+=async(_,_)=>
         {
@@ -44,6 +56,13 @@ public sealed class frmExamReview : Form
             {
                 _report=await Task.Run(()=>{using var conn=Database.Open();return ExamReview.Read(conn,examId,attemptId);});
                 if(IsDisposed)return;
+                _approvalError=attemptId.HasValue?null:ExamReview.GetApprovalValidationError(_report);
+                if(_approvalError!=null)
+                {
+                    confirmed.Visible=false;
+                    approve.Visible=false;
+                    validationStatus.Text="⚠ Đề chưa thể duyệt: "+_approvalError;
+                }
                 Directory.CreateDirectory(_folder);
                 string ImageUrl(ReviewImage img)
                 {
@@ -61,7 +80,8 @@ public sealed class frmExamReview : Form
                         return "";
                     }
                 }
-                var body=ExamReview.Html(_report,ImageUrl);
+                var warning=_approvalError==null?"":$"<div style='border:1px solid #f0a020;background:#fff5dc;color:#7a4300;padding:14px 16px;border-radius:8px;margin-bottom:18px'><b>Đề chưa đủ điều kiện duyệt.</b><br>{System.Net.WebUtility.HtmlEncode(_approvalError)}</div>";
+                var body=warning+ExamReview.Html(_report,ImageUrl);
                 var html="""
                     <!doctype html><html lang="vi"><meta charset="utf-8">
                     <link rel="stylesheet" href="https://assets.local/katex/katex.min.css">
@@ -78,7 +98,7 @@ public sealed class frmExamReview : Form
                 _web.CoreWebView2.SetVirtualHostNameToFolderMapping("assets.local",Path.Combine(AppContext.BaseDirectory,"Assets"),CoreWebView2HostResourceAccessKind.DenyCors);
                 _web.CoreWebView2.NavigationStarting+=(_,e)=>{if(!e.Uri.StartsWith("https://review.local/"))e.Cancel=true;};
                 _web.CoreWebView2.NewWindowRequested+=(_,e)=>e.Handled=true;
-                _web.CoreWebView2.NavigationCompleted+=(_,e)=>{_rendered=e.IsSuccess;approve.Enabled=e.IsSuccess&&confirmed.Checked;};
+                _web.CoreWebView2.NavigationCompleted+=(_,e)=>{_rendered=e.IsSuccess;approve.Enabled=e.IsSuccess&&confirmed.Checked&&_approvalError==null;};
                 _web.CoreWebView2.Navigate("https://review.local/review.html");
             }
             catch(Exception ex){_report=null;approve.Enabled=false;MessageBox.Show(this,ex.Message,"Không mở được xem trước");}

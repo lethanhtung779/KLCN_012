@@ -92,6 +92,41 @@ public class ExamService
             r => r.GetInt32(0),
             p => p.AddWithValue("@id", deThiId));
 
+    public string? LayLoiMaDe(int deThiId)
+    {
+        var soCau = Database.ExecuteScalarInt("SELECT COUNT(*) FROM DeThi_CauHoi WHERE DeThiID=@id",
+            p => p.AddWithValue("@id", deThiId));
+        if (soCau == 0) return "Đề chưa có câu hỏi.";
+        if (Database.ExecuteScalarInt("SELECT COUNT(*) FROM MaDeThi WHERE DeThiID=@id",
+                p => p.AddWithValue("@id", deThiId)) == 0)
+            return "Đề chưa có mã đề.";
+
+        var badQuestionOrder = Database.Query(@"
+            SELECT TOP (1) md.TenMaDe,COUNT(mc.CauHoiID) AS SoThuTu,COUNT(DISTINCT mc.ThuTu) AS SoThuTuKhac
+            FROM MaDeThi md LEFT JOIN MaDe_CauHoi mc ON mc.MaDeID=md.MaDeID
+            WHERE md.DeThiID=@id
+            GROUP BY md.MaDeID,md.TenMaDe
+            HAVING COUNT(mc.CauHoiID)<>@questions OR COUNT(DISTINCT mc.ThuTu)<>@questions",
+            p => { p.AddWithValue("@id", deThiId); p.AddWithValue("@questions", soCau); });
+        if (badQuestionOrder.Rows.Count > 0)
+            return $"Mã đề {badQuestionOrder.Rows[0]["TenMaDe"]} chưa có đủ thứ tự cho {soCau} câu hỏi.";
+
+        var badAnswerOrder = Database.Query(@"
+            SELECT TOP (1) md.TenMaDe,dc.CauHoiID,
+                   (SELECT COUNT(*) FROM DapAn a WHERE a.CauHoiID=dc.CauHoiID) AS SoDapAn,
+                   (SELECT COUNT(*) FROM MaDe_DapAn x WHERE x.MaDeID=md.MaDeID AND x.CauHoiID=dc.CauHoiID) AS SoThuTu
+            FROM MaDeThi md CROSS JOIN DeThi_CauHoi dc
+            WHERE md.DeThiID=@id AND dc.DeThiID=@id
+              AND ((SELECT COUNT(*) FROM DapAn a WHERE a.CauHoiID=dc.CauHoiID) <>
+                   (SELECT COUNT(*) FROM MaDe_DapAn x WHERE x.MaDeID=md.MaDeID AND x.CauHoiID=dc.CauHoiID)
+                OR (SELECT COUNT(DISTINCT x.ThuTu) FROM MaDe_DapAn x WHERE x.MaDeID=md.MaDeID AND x.CauHoiID=dc.CauHoiID) <>
+                   (SELECT COUNT(*) FROM DapAn a WHERE a.CauHoiID=dc.CauHoiID))",
+            p => p.AddWithValue("@id", deThiId));
+        if (badAnswerOrder.Rows.Count > 0)
+            return $"Mã đề {badAnswerOrder.Rows[0]["TenMaDe"]}, câu ID {badAnswerOrder.Rows[0]["CauHoiID"]} chưa có đủ thứ tự đáp án.";
+        return null;
+    }
+
     /// <summary>Tao de tu dong: chon ngau nhien so cau theo mon (+ do kho tuy chon)
     /// tu cac cau HoatDong. Tra ve DeThiID moi.</summary>
     public (int DeThiID, string Error) TaoDeTuDong(string tenDe, int monHocId, int soCau, string? mucDo,
@@ -516,13 +551,18 @@ END", conn);
 
         try
         {
-            var subject=Database.ExecuteScalarString("SELECT m.TenMon FROM DeThi d JOIN MonHoc m ON m.MonHocID=d.MonHocID WHERE d.DeThiID=@id",p=>p.AddWithValue("@id",deThiId));
-            QLThiTN.Shared.ExamFormat.ForSubject(subject).Validate(dtCauHoi.AsEnumerable().Select(r=>r["LoaiCauHoi"].ToString()!));
-            if(subject.Contains("Tin",StringComparison.OrdinalIgnoreCase))
+            var examInfo=Database.Query("SELECT m.TenMon,d.HinhThucTao FROM DeThi d JOIN MonHoc m ON m.MonHocID=d.MonHocID WHERE d.DeThiID=@id",p=>p.AddWithValue("@id",deThiId));
+            var subject=examInfo.Rows[0]["TenMon"].ToString()!;
+            var followsNationalFormat=examInfo.Rows[0]["HinhThucTao"].ToString()=="MaTranTHPTQG";
+            if(followsNationalFormat)
             {
-                var tracks=Database.ReadList("SELECT c.NhomTHPT FROM CauHoi c JOIN DeThi_CauHoi d ON d.CauHoiID=c.CauHoiID WHERE d.DeThiID=@id AND c.LoaiCauHoi=N'DungSai'",r=>r.GetString(0),p=>p.AddWithValue("@id",deThiId));
-                if(tracks.Count(t=>t=="Chung")!=2 || !(tracks.Count(t=>t=="KhoaHocMayTinh")==2 || tracks.Count(t=>t=="TinHocUngDung")==2))
-                    return(false,"Tin học cần 2 câu Đ/S chung và 2 câu cùng định hướng. Hãy phân loại nhánh trong ngân hàng và chọn lại câu hỏi.",new());
+                QLThiTN.Shared.ExamFormat.ForSubject(subject).Validate(dtCauHoi.AsEnumerable().Select(r=>r["LoaiCauHoi"].ToString()!));
+                if(subject.Contains("Tin",StringComparison.OrdinalIgnoreCase))
+                {
+                    var tracks=Database.ReadList("SELECT c.NhomTHPT FROM CauHoi c JOIN DeThi_CauHoi d ON d.CauHoiID=c.CauHoiID WHERE d.DeThiID=@id AND c.LoaiCauHoi=N'DungSai'",r=>r.GetString(0),p=>p.AddWithValue("@id",deThiId));
+                    if(tracks.Count(t=>t=="Chung")!=2 || !(tracks.Count(t=>t=="KhoaHocMayTinh")==2 || tracks.Count(t=>t=="TinHocUngDung")==2))
+                        return(false,"Tin học cần 2 câu Đ/S chung và 2 câu cùng định hướng. Hãy phân loại nhánh trong ngân hàng và chọn lại câu hỏi.",new());
+                }
             }
         }
         catch(InvalidOperationException ex){return (false,ex.Message,new());}
@@ -959,6 +999,24 @@ END", conn);
 
         if (tongCau == 0)
             return (0, "Chưa phân bổ số lượng câu hỏi cho ma trận đề thi.");
+
+        var tenMon = Database.ExecuteScalarString(
+            "SELECT TenMon FROM MonHoc WHERE MonHocID=@id",
+            p => p.AddWithValue("@id", monHocId));
+        try
+        {
+            var format = QLThiTN.Shared.ExamFormat.ForSubject(tenMon);
+            var selectedTypes = Enumerable.Repeat("TracNghiem", tongPhan1)
+                .Concat(Enumerable.Repeat("DungSai", tongPhan2))
+                .Concat(Enumerable.Repeat("TraLoiNgan", tongPhan3));
+            var formatError = format.GetValidationError(selectedTypes);
+            if (formatError != null)
+                return (0, "Ma trận chưa đúng cấu trúc THPT của môn " + tenMon + ". " + formatError);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return (0, ex.Message);
+        }
 
         if (maTran.Any(x => x.SoCauPhan1 < 0 || x.SoCauPhan2 < 0 || x.SoCauPhan3 < 0))
             return (0, "Số câu trong ma trận không được âm.");

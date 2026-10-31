@@ -18,11 +18,33 @@ public record ExamFormat(int MultipleChoice, int TrueFalse, int ShortAnswer, int
         if (name.Contains("vat") || name.Contains("hoa") || name.Contains("sinh") || name.Contains("dia")) return new(18,4,6,50);
         throw new InvalidOperationException("Môn này chưa có mẫu đề trắc nghiệm THPT được hỗ trợ.");
     }
-    public void Validate(IEnumerable<string> types)
+
+    public string? GetValidationError(IEnumerable<string> types)
     {
         var list = types.ToList();
-        if (list.Count(t => t=="TracNghiem") != MultipleChoice || list.Count(t=>t=="DungSai") != TrueFalse ||
-            list.Count(t=>t=="TraLoiNgan") != ShortAnswer || list.Count != MultipleChoice+TrueFalse+ShortAnswer)
-            throw new InvalidOperationException($"Sai cấu trúc môn: cần {MultipleChoice} trắc nghiệm, {TrueFalse} đúng/sai, {ShortAnswer} trả lời ngắn. Không tự thêm/bớt câu khi trộn.");
+        var actualMultipleChoice = list.Count(t => t == "TracNghiem");
+        var actualTrueFalse = list.Count(t => t == "DungSai");
+        var actualShortAnswer = list.Count(t => t == "TraLoiNgan");
+        var unknown = list.Count - actualMultipleChoice - actualTrueFalse - actualShortAnswer;
+
+        if (actualMultipleChoice == MultipleChoice && actualTrueFalse == TrueFalse &&
+            actualShortAnswer == ShortAnswer && unknown == 0)
+            return null;
+
+        var expectedTotal = MultipleChoice + TrueFalse + ShortAnswer;
+        var details = $"Mẫu THPT cần {expectedTotal} câu: {MultipleChoice} trắc nghiệm, " +
+                      $"{TrueFalse} đúng/sai, {ShortAnswer} trả lời ngắn. " +
+                      $"Đề hiện có {list.Count} câu: {actualMultipleChoice} trắc nghiệm, " +
+                      $"{actualTrueFalse} đúng/sai, {actualShortAnswer} trả lời ngắn.";
+        if (unknown > 0)
+            details += $" Có {unknown} câu chưa xác định đúng loại.";
+        return details + " Không tự thêm hoặc bớt câu khi trộn.";
+    }
+
+    public void Validate(IEnumerable<string> types)
+    {
+        var error = GetValidationError(types);
+        if (error != null)
+            throw new InvalidOperationException(error);
     }
 }

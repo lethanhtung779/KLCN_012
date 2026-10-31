@@ -4,6 +4,7 @@ using QLThiTN.WinForms.Services;
 using QLThiTN.WinForms.Models;
 using QLThiTN.WinForms.Forms.Teacher;
 using QLThiTN.WinForms.Forms.Admin;
+using QLThiTN.Shared;
 
 internal static class Program
 {
@@ -23,6 +24,30 @@ internal static class Program
         Check(DirectoryRules.SearchId("LH000123", "TK") == 0, "Code namespaces are separate");
         Check(DirectoryRules.SearchId(DirectoryRules.ClassCode(1234567), "LH") == 1234567, "Large IDs retain uniqueness");
         Check(new DirectoryRules.RoleOption("GiaoVien").ToString() == "Giáo viên", "Vietnamese role label");
+        var technologyFormat = ExamFormat.ForSubject("Công nghệ");
+        var legacyTechnologyTypes = Enumerable.Repeat("TracNghiem", 18).Concat(Enumerable.Repeat("DungSai", 4));
+        var formatError = technologyFormat.GetValidationError(legacyTechnologyTypes);
+        Check(formatError != null && formatError.Contains("cần 28 câu") && formatError.Contains("hiện có 22 câu"),
+            "Legacy exam format reports expected and actual counts");
+        var legacyQuestions = legacyTechnologyTypes.Select((type, index) =>
+            new ReviewQuestion(index + 1, type, "Câu kiểm tra", [], [], null, null, "")).ToList();
+        var legacyReview = new ReviewDocument(95, "Đề Công nghệ cũ", "Công nghệ", "MaTranTHPTQG",
+            [new ReviewVariant(1, "101", legacyQuestions)], false, "test", null);
+        Check(ExamReview.GetApprovalValidationError(legacyReview)?.Contains("chưa đủ điều kiện duyệt") == true,
+            "Legacy review is blocked without throwing");
+        var validAnswers = new List<ReviewAnswer>
+        {
+            new(1, "A", true, [], null), new(2, "B", false, [], null),
+            new(3, "C", false, [], null), new(4, "D", false, [], null)
+        };
+        var manualQuestions = legacyTechnologyTypes.Select((type, index) =>
+            new ReviewQuestion(index + 1, type, "Câu thủ công", [], validAnswers, null, null, "ChuaPhanLoai")).ToList();
+        var manualReview = new ReviewDocument(196, "Đề thủ công 22 câu", "Công nghệ", "ThuCong",
+            [new ReviewVariant(2, "101", manualQuestions)], false, "test", null);
+        Check(ExamReview.GetApprovalValidationError(manualReview) == null,
+            "Manual exam is not forced into national format counts");
+        var validTechnologyTypes = Enumerable.Repeat("TracNghiem", 24).Concat(Enumerable.Repeat("DungSai", 4));
+        Check(technologyFormat.GetValidationError(validTechnologyTypes) == null, "Current technology format is accepted");
         if (args.Length > 0)
         {
             // Optional integration pass: SELECT queries only; never save a form or change accounts.

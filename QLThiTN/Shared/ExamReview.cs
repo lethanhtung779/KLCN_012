@@ -11,7 +11,7 @@ public sealed record ReviewImage(int Id, string Path);
 public sealed record ReviewAnswer(int Id, string Text, bool Correct, List<ReviewImage> Images, string? Selected);
 public sealed record ReviewQuestion(int Id, string Type, string Text, List<ReviewImage> Images, List<ReviewAnswer> Answers, string? Response, decimal? Score, string Track);
 public sealed record ReviewVariant(int Id, string Name, List<ReviewQuestion> Questions);
-public sealed record ReviewDocument(int Id, string Title, string Subject, List<ReviewVariant> Variants, bool Approved, string Fingerprint, string? Student);
+public sealed record ReviewDocument(int Id, string Title, string Subject, string CreationMethod, List<ReviewVariant> Variants, bool Approved, string Fingerprint, string? Student);
 
 public static class ExamReview
 {
@@ -70,35 +70,55 @@ public static class ExamReview
             }
             result.Add(new(id,v["TenMaDe"].ToString()!,qs));
         }
-        var fingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{Title=exam["TenDe"].ToString(),Subject=exam["TenMon"].ToString(),Variants=result}))));
-        return new(examId,exam["TenDe"].ToString()!,exam["TenMon"].ToString()!,result,(bool)exam["DaDuyet"],fingerprint,student);
+        var creationMethod=exam["HinhThucTao"].ToString()!;
+        var fingerprint=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new{Title=exam["TenDe"].ToString(),Subject=exam["TenMon"].ToString(),CreationMethod=creationMethod,Variants=result}))));
+        return new(examId,exam["TenDe"].ToString()!,exam["TenMon"].ToString()!,creationMethod,result,(bool)exam["DaDuyet"],fingerprint,student);
     }
     public static void Approve(DbConnection conn,int examId,int accountId,string fingerprint)
     {
         using var tx=conn.BeginTransaction(IsolationLevel.Serializable);
         var report=Read(conn,examId,null,tx);
         if(report.Fingerprint!=fingerprint) throw new InvalidOperationException("Nội dung đã thay đổi. Hãy mở và xem lại tất cả mã đề trước khi duyệt.");
-        if(report.Variants.Count==0) throw new InvalidOperationException("Đề chưa có mã đề.");
-        var format=ExamFormat.ForSubject(report.Subject);
+        var validationError=GetApprovalValidationError(report);
+        if(validationError!=null) throw new InvalidOperationException(validationError);
+        Query(conn,tx,"UPDATE DeThi SET DaDuyet=1,NguoiDuyetID=@user,NgayDuyet=SYSDATETIME() WHERE DeThiID=@id",("@id",examId),("@user",accountId));
+        tx.Commit();
+    }
+
+    public static string? GetApprovalValidationError(ReviewDocument report)
+    {
+        if(report.Variants.Count==0) return "Đề chưa có mã đề. Hãy trộn mã đề trước khi duyệt.";
+        var followsNationalFormat=report.CreationMethod=="MaTranTHPTQG";
+        ExamFormat? format=null;
+        if(followsNationalFormat)
+        {
+            try { format=ExamFormat.ForSubject(report.Subject); }
+            catch(InvalidOperationException ex) { return ex.Message; }
+        }
         foreach(var variant in report.Variants)
         {
-            format.Validate(variant.Questions.Select(q=>q.Type));
-            int Rank(ReviewQuestion q)=>q.Type=="TracNghiem"?0:q.Type=="DungSai"?1:2;
-            if(!variant.Questions.Select(Rank).SequenceEqual(variant.Questions.Select(Rank).Order()))
-                throw new InvalidOperationException("Thứ tự các phần chưa đúng. Hãy trộn lại đề trước khi duyệt.");
-            if(report.Subject.Contains("Tin",StringComparison.OrdinalIgnoreCase))
+            if(followsNationalFormat)
             {
-                var ds=variant.Questions.Where(q=>q.Type=="DungSai").ToList();
-                if(ds.Count(q=>q.Track=="Chung")!=2 || !(ds.Count(q=>q.Track=="KhoaHocMayTinh")==2 || ds.Count(q=>q.Track=="TinHocUngDung")==2))
-                    throw new InvalidOperationException("Tin học cần 2 câu đúng/sai chung và 2 câu cùng định hướng. Phân loại nhánh trong ngân hàng trước khi duyệt.");
+                var structureError=format!.GetValidationError(variant.Questions.Select(q=>q.Type));
+                if(structureError!=null)
+                    return $"Mã đề {variant.Name} chưa đủ điều kiện duyệt. {structureError} " +
+                           "Đây có thể là đề cũ được tạo trước khi áp dụng mẫu hiện hành. Hãy tạo lại đề đúng mẫu rồi trộn mã đề mới.";
+                int Rank(ReviewQuestion q)=>q.Type=="TracNghiem"?0:q.Type=="DungSai"?1:2;
+                if(!variant.Questions.Select(Rank).SequenceEqual(variant.Questions.Select(Rank).Order()))
+                    return $"Mã đề {variant.Name} có thứ tự các phần chưa đúng chuẩn THPT. Hãy trộn lại đề trước khi duyệt.";
+                if(report.Subject.Contains("Tin",StringComparison.OrdinalIgnoreCase))
+                {
+                    var ds=variant.Questions.Where(q=>q.Type=="DungSai").ToList();
+                    if(ds.Count(q=>q.Track=="Chung")!=2 || !(ds.Count(q=>q.Track=="KhoaHocMayTinh")==2 || ds.Count(q=>q.Track=="TinHocUngDung")==2))
+                        return $"Mã đề {variant.Name}: Tin học cần 2 câu đúng/sai chung và 2 câu cùng định hướng. Phân loại nhánh trong ngân hàng trước khi duyệt.";
+                }
             }
             foreach(var q in variant.Questions)
                 if(q.Type=="TracNghiem" && (q.Answers.Count!=4 || q.Answers.Count(a=>a.Correct)!=1) ||
                    q.Type=="DungSai" && q.Answers.Count!=4 || q.Type=="TraLoiNgan" && q.Answers.Count!=1)
-                    throw new InvalidOperationException($"Câu #{q.Id} thiếu/sai cấu trúc đáp án.");
+                    return $"Mã đề {variant.Name}, câu ID {q.Id} thiếu hoặc sai cấu trúc đáp án.";
         }
-        Query(conn,tx,"UPDATE DeThi SET DaDuyet=1,NguoiDuyetID=@user,NgayDuyet=SYSDATETIME() WHERE DeThiID=@id",("@id",examId),("@user",accountId));
-        tx.Commit();
+        return null;
     }
     public static string Html(ReviewDocument doc,Func<ReviewImage,string> imageUrl)
     {
