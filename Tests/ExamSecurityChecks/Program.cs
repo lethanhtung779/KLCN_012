@@ -10,6 +10,7 @@ using QLThiTN.API.Common;
 using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
+using QLThiTN.API.Services;
 
 var repo = Path.GetFullPath(args.FirstOrDefault() ?? ".");
 var apiRoot = Path.Combine(repo, "QLThiTN", "QLThiTN.API");
@@ -44,14 +45,14 @@ try
     var topic = new ChuDe { TenChuDe = "Test topic", MonHoc = subject };
     var question = new CauHoi
     {
-        ChuDe = topic, GiaoVien = teacher, NoiDung = "2 + 2?", LoaiCauHoi = "TracNghiem",
+        ChuDe = topic, NguoiTao = teacher.TaiKhoan, NoiDung = "2 + 2?", LoaiCauHoi = "TracNghiem",
         MucDoKho = "De", TrangThai = "HoatDong", Diem = 1,
         DapAns = [new() { NoiDung = "4", LaDapAnDung = true, ThuTu = 0 }, new() { NoiDung = "5", ThuTu = 1 }]
     };
     var exam = new DeThi
     {
-        TenDe = "Security test", MonHoc = subject, GiaoVien = teacher, LoaiDe = "ThiThu",
-        HinhThucTao = "ThuCong", SoLuongCauHoi = 1, LaMienPhi = true,
+        TenDe = "Security test", MonHoc = subject, NguoiTao = teacher.TaiKhoan, LoaiDe = "ThiThu",
+        HinhThucTao = "ThuCong", SoLuongCauHoi = 1, LaMienPhi = true, DaDuyet = true,
         DeThi_CauHois = [new() { CauHoi = question, ThuTu = 1 }],
         MaDeThis = [new() { TenMaDe = "101" }]
     };
@@ -61,7 +62,25 @@ try
         ThoiGianDongCong = DateTime.Now.AddHours(2), ThoiLuongLamBai = 45,
         TrangThai = "DangMo", PhamVi = "ToanTruong", SoLanThiToiDa = 5, CongBoDiemSom = false
     };
-    db.AddRange(student, other, session);
+    db.AddRange(student, other, teacher, session);
+    await db.SaveChangesAsync();
+    Check(await GoiThi.DuocLamAsync(db, exam.DeThiID, null) == true, "Free exam allows anonymous package check");
+    exam.LaMienPhi = false;
+    await db.SaveChangesAsync();
+    Check(await GoiThi.DuocLamAsync(db, exam.DeThiID, student.HocVienID) == false, "Free guest cannot take VIP exam");
+    other.LoaiGoi = GoiThi.DongPhi;
+    await db.SaveChangesAsync();
+    Check(await GoiThi.DuocLamAsync(db, exam.DeThiID, other.HocVienID) == true, "Personal VIP guest can take VIP exam");
+    var centerStudent = new HocVien
+    {
+        HoTen = "Center Student", LoaiHocVien = "HocSinh", NguonTaiKhoan = GoiThi.TrungTam,
+        TaiKhoan = Account("center-student", "HocVien")
+    };
+    db.Add(centerStudent);
+    await db.SaveChangesAsync();
+    Check(await GoiThi.DuocLamAsync(db, exam.DeThiID, centerStudent.HocVienID) == true, "Center student can take VIP exam without personal VIP");
+    exam.LaMienPhi = true;
+    other.LoaiGoi = GoiThi.MienPhi;
     await db.SaveChangesAsync();
     var portProbe = new TcpListener(IPAddress.Loopback, 0);
     portProbe.Start();

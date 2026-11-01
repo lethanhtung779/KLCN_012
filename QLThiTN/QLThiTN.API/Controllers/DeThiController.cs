@@ -186,9 +186,58 @@ public class DeThiController : ControllerBase
         var de = await _db.DeThis.FindAsync(id);
         if (de is null) return NotFound();
 
-        _db.DeThis.Remove(de);
-        await _db.SaveChangesAsync();
-        return NoContent();
+        var soBaiLam = await _db.BaiLams.CountAsync(b => b.DotThi != null && b.DotThi.DeThiID == id);
+        if (soBaiLam > 0)
+        {
+            return BadRequest(new
+            {
+                message = $"Không thể xóa đề thi này vì đã có {soBaiLam} bài thi của thí sinh. Hãy đóng đợt thi thay vì xóa."
+            });
+        }
+
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        try
+        {
+            var dotThiIds = await _db.DotThis.Where(dt => dt.DeThiID == id).Select(dt => dt.DotThiID).ToListAsync();
+            if (dotThiIds.Count > 0)
+            {
+                var lopHocs = await _db.DotThi_LopHocs.Where(x => dotThiIds.Contains(x.DotThiID)).ToListAsync();
+                _db.DotThi_LopHocs.RemoveRange(lopHocs);
+
+                var dangKys = await _db.DangKyDotThis.Where(x => dotThiIds.Contains(x.DotThiID)).ToListAsync();
+                _db.DangKyDotThis.RemoveRange(dangKys);
+
+                var dotThis = await _db.DotThis.Where(x => dotThiIds.Contains(x.DotThiID)).ToListAsync();
+                _db.DotThis.RemoveRange(dotThis);
+            }
+
+            var maDeIds = await _db.MaDeThis.Where(m => m.DeThiID == id).Select(m => m.MaDeID).ToListAsync();
+            if (maDeIds.Count > 0)
+            {
+                var dapAns = await _db.MaDe_DapAns.Where(x => maDeIds.Contains(x.MaDeID)).ToListAsync();
+                _db.MaDe_DapAns.RemoveRange(dapAns);
+
+                var cauHois = await _db.MaDe_CauHois.Where(x => maDeIds.Contains(x.MaDeID)).ToListAsync();
+                _db.MaDe_CauHois.RemoveRange(cauHois);
+
+                var maDes = await _db.MaDeThis.Where(m => maDeIds.Contains(m.MaDeID)).ToListAsync();
+                _db.MaDeThis.RemoveRange(maDes);
+            }
+
+            var deThiCauHois = await _db.DeThi_CauHois.Where(dc => dc.DeThiID == id).ToListAsync();
+            _db.DeThi_CauHois.RemoveRange(deThiCauHois);
+
+            _db.DeThis.Remove(de);
+            await _db.SaveChangesAsync();
+            await tx.CommitAsync();
+
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync();
+            return StatusCode(500, new { message = "Lỗi khi xóa đề thi: " + ex.Message });
+        }
     }
 
     [Authorize(Roles = "HocVien")]

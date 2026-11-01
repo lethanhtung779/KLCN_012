@@ -270,6 +270,8 @@ public class TrainingService
             return (false, "Không thể xóa: lớp đã có phân công giảng dạy.");
         if (Database.ExecuteScalarInt("SELECT COUNT(1) FROM LichHoc WHERE LopHocID = @id", p => p.AddWithValue("@id", id)) > 0)
             return (false, "Không thể xóa: lớp đã có lịch học.");
+        if (Database.ExecuteScalarInt("SELECT COUNT(1) FROM DotThi_LopHoc WHERE LopHocID = @id", p => p.AddWithValue("@id", id)) > 0)
+            return (false, "Không thể xóa: lớp đã được phân công vào đợt thi.");
         Database.Execute("DELETE FROM LopHoc WHERE LopHocID = @id", p => p.AddWithValue("@id", id));
         return (true, "");
     }

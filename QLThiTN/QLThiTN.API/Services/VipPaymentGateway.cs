@@ -25,7 +25,7 @@ public static class VipPaymentGateway
 {
     public sealed record Plan(string Id, string Name, long PriceVnd);
     public static readonly IReadOnlyList<Plan> Plans = Array.AsReadOnly(new[] {
-        new Plan("30days", "VIP 30 ngày", 300000), new Plan("1year", "VIP 1 năm", 1500000)
+        new Plan("30days", "VIP 30 ngày", 2000), new Plan("1year", "VIP 1 năm", 3000)
     });
     public static bool HasVip(HocVien student) => student.LoaiGoi == GoiThi.DongPhi && (student.VipExpiresUtc is null || student.VipExpiresUtc > DateTime.UtcNow);
     public static bool CanBuy(HocVien? student) => student?.NguonTaiKhoan == GoiThi.VangLai && !HasVip(student);

@@ -65,6 +65,13 @@ public class MonHocController : ControllerBase
         var mon = await _db.MonHocs.FindAsync(id);
         if (mon is null) return NotFound();
 
+        var coLienQuan = await _db.ChuDes.AnyAsync(c => c.MonHocID == id)
+            || await _db.DeThis.AnyAsync(d => d.MonHocID == id)
+            || await _db.KhoaHocs.AnyAsync(k => k.MonHocID == id)
+            || await _db.GiaoVien_MonHocs.AnyAsync(g => g.MonHocID == id);
+        if (coLienQuan)
+            return BadRequest(new { message = "Không thể xóa môn học này vì đã có chủ đề, câu hỏi, đề thi hoặc khóa học liên quan." });
+
         _db.MonHocs.Remove(mon);
         await _db.SaveChangesAsync();
         return NoContent();

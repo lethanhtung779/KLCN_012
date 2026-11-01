@@ -4,8 +4,8 @@ Chỉ học viên có vai trò HocVien và NguonTaiKhoan = VangLai được mua.
 
 ## Gói VIP
 
-- VIP 30 ngày: 300.000đ, có hiệu lực đúng 30 ngày từ lúc máy chủ xác nhận.
-- VIP 1 năm: 1.500.000đ, tính theo AddYears(1), có xử lý ngày nhuận.
+- VIP 30 ngày: 2.000đ, có hiệu lực đúng 30 ngày từ lúc máy chủ xác nhận.
+- VIP 1 năm: 3.000đ, tính theo AddYears(1), có xử lý ngày nhuận.
 - Không tự động gia hạn. VIP còn hạn không được mua lại; hết hạn có thể mua gói mới.
 - VIP thủ công cũ không có ngày hết hạn vẫn giữ nguyên quyền.
 

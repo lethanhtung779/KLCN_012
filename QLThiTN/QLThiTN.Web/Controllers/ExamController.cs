@@ -343,12 +343,6 @@ public class ExamController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Submit(SubmitExamViewModel model)
     {
-        if (model.Answers == null || model.Answers.Count == 0)
-        {
-            TempData["ErrorMessage"] = "Bạn chưa trả lời câu hỏi nào.";
-            return RedirectToAction(nameof(Taking), new { id = model.ExamId });
-        }
-
         if (HocVienId is not int hocVienId)
             return RedirectToAction("Login", "Account");
 

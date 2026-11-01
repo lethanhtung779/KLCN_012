@@ -10,7 +10,7 @@ namespace QLThiTN.WinForms.Services;
 public static class Database
 {
     private static string _connectionString =
-        "Server=(localdb)\\MSSQLLocalDB;Database=ThiTracNghiem;Trusted_Connection=True;TrustServerCertificate=True";
+        "Server=localhost;Database=ThiTracNghiem;Trusted_Connection=True;TrustServerCertificate=True";
 
     public static string ConnectionString => _connectionString;
 
@@ -101,7 +101,7 @@ END");
     public static int Execute(string sql, Action<SqlParameterCollection>? bind = null)
     {
         using var conn = Open();
-        using var cmd = new SqlCommand(sql, conn);
+        using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
         bind?.Invoke(cmd.Parameters);
         return cmd.ExecuteNonQuery();
     }
@@ -110,7 +110,7 @@ END");
     public static object? ExecuteScalar(string sql, Action<SqlParameterCollection>? bind = null)
     {
         using var conn = Open();
-        using var cmd = new SqlCommand(sql, conn);
+        using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
         bind?.Invoke(cmd.Parameters);
         return cmd.ExecuteScalar();
     }
@@ -125,7 +125,7 @@ END");
     public static DataTable Query(string sql, Action<SqlParameterCollection>? bind = null)
     {
         using var conn = Open();
-        using var cmd = new SqlCommand(sql, conn);
+        using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
         bind?.Invoke(cmd.Parameters);
         using var da = new SqlDataAdapter(cmd);
         var dt = new DataTable();
@@ -138,7 +138,7 @@ END");
     {
         var list = new List<T>();
         using var conn = Open();
-        using var cmd = new SqlCommand(sql, conn);
+        using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
         bind?.Invoke(cmd.Parameters);
         using var reader = cmd.ExecuteReader();
         while (reader.Read()) list.Add(map(reader));

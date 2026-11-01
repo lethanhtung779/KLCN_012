@@ -36,18 +36,19 @@ public sealed class frmPersonEdit : Form
         var student = vaiTro == "HocVien";
         if (!student && vaiTro != "GiaoVien") throw new ArgumentException("Vai trò không hợp lệ.");
 
-        Text = $"{(taiKhoanId == 0 ? "Thêm" : "Sửa")} {(student ? "học viên" : "giáo viên")}";
+        Text = taiKhoanId == 0
+            ? $"Thêm {(student ? "học viên trung tâm" : "giáo viên")}"
+            : $"Sửa {(student ? (_record.NguonTaiKhoan == "TrungTam" ? "học viên trung tâm" : "học viên vãng lai") : "giáo viên")}";
         StartPosition = FormStartPosition.CenterParent;
         FormBorderStyle = FormBorderStyle.Sizable;
         MinimumSize = new Size(820, 650);
-        // Hiển thị được ngay những trường bổ sung đầu tiên trên màn hình phổ biến,
-        // thay vì khiến người dùng tưởng rằng form chưa được cập nhật.
         Size = new Size(900, 760);
         BackColor = Color.White;
         Font = Ui.Body;
 
         _username.Text = _record.TenDangNhap;
         _username.ReadOnly = taiKhoanId != 0;
+        if (taiKhoanId != 0) _username.BackColor = Color.FromArgb(248, 249, 250);
         _email.Text = _record.Email;
         _password.UseSystemPasswordChar = true;
         _password.PlaceholderText = taiKhoanId == 0 ? "Tối thiểu 6 ký tự" : "Để trống nếu giữ nguyên mật khẩu";
@@ -100,34 +101,97 @@ public sealed class frmPersonEdit : Form
         int contentBottom;
         if (student)
         {
+            var isVangLai = taiKhoanId > 0 && _record.NguonTaiKhoan == "VangLai";
             _studentType.DropDownStyle = ComboBoxStyle.DropDownList;
             _studentType.Items.AddRange(["Học sinh", "Tự do"]);
-            _studentType.SelectedIndex = _record.LoaiHocVien switch { "HocSinh" => 0, "TuDo" => 1, _ => -1 };
-            _package.DropDownStyle = ComboBoxStyle.DropDownList;
-            _package.Items.AddRange(["Không có VIP cá nhân", "VIP cá nhân"]);
-            _package.SelectedIndex = _record.LoaiGoi == "DongPhi" ? 1 : 0;
-            _package.Enabled = _record.NguonTaiKhoan == "VangLai";
+            _studentType.SelectedIndex = _record.LoaiHocVien == "TuDo" ? 1 : 0;
             _birth.Checked = _record.NgaySinh.HasValue;
             _birth.Value = _record.NgaySinh ?? DateTime.Today.AddYears(-18);
             AddLabel(taiKhoanId == 0 ? "Ngày sinh *" : "Ngày sinh (bỏ chọn nếu chưa rõ)", 24, 336); AddInput(_birth, 24, 362);
             AddLabel("Loại học viên *", 390, 336); AddInput(_studentType, 390, 362);
-            AddLabel("Gói cá nhân (không bắt buộc với học viên trung tâm)", 24, 414); AddInput(_package, 24, 440);
-            var note = Ui.Label(taiKhoanId == 0
-                ? "Tài khoản do admin tạo là học viên trung tâm, được xếp lớp và tự có VIP trung tâm."
-                : (_record.NguonTaiKhoan == "TrungTam"
-                    ? "Đây là tài khoản học viên trung tâm, được xếp lớp và có VIP trung tâm."
-                    : "Đây là tài khoản vãng lai đăng ký Web; không thể xếp lớp. Muốn học tại trung tâm phải tạo tài khoản mới."),
-                Ui.Small, Ui.TextMuted);
-            note.Location = new Point(24, 490);
-            note.AutoSize = true;
-            scroll.Controls.Add(note);
-            var minorNote = Ui.Label("Dưới 18 tuổi: bắt buộc ít nhất một cha/mẹ; nếu cả hai đã mất, bắt buộc người giám hộ.",
-                Ui.Small, Ui.TextMuted);
-            minorNote.Location = new Point(24, 514);
-            minorNote.MaximumSize = new Size(710, 0);
-            minorNote.AutoSize = true;
-            scroll.Controls.Add(minorNote);
-            contentBottom = 550;
+
+            AddLabel("Quan hệ với trung tâm", 24, 414);
+            var txtNguon = Ui.Input(330);
+            txtNguon.ReadOnly = true;
+            txtNguon.BackColor = Color.FromArgb(248, 249, 250);
+            txtNguon.Text = taiKhoanId == 0
+                ? "Học viên trung tâm (Admin tạo mới)"
+                : (_record.NguonTaiKhoan == "TrungTam" ? "Học viên trung tâm" : "Học viên vãng lai (Web)");
+            AddInput(txtNguon, 24, 440);
+
+            _package.DropDownStyle = ComboBoxStyle.DropDownList;
+            _package.Items.AddRange(["Không có VIP cá nhân (Miễn phí)", "VIP cá nhân (Đóng phí)"]);
+            _package.SelectedIndex = _record.LoaiGoi == "DongPhi" ? 1 : 0;
+            _package.Enabled = isVangLai;
+
+            if (isVangLai)
+            {
+                AddLabel("Gói VIP cá nhân *", 390, 414);
+                AddInput(_package, 390, 440);
+
+                var banner = new Panel
+                {
+                    Location = new Point(24, 492),
+                    Size = new Size(696, 76),
+                    BackColor = Color.FromArgb(255, 251, 235),
+                    Padding = new Padding(12, 8, 12, 8)
+                };
+                banner.Paint += (s, e) =>
+                {
+                    ControlPaint.DrawBorder(e.Graphics, banner.ClientRectangle,
+                        Color.FromArgb(245, 158, 11), 1, ButtonBorderStyle.Solid,
+                        Color.FromArgb(245, 158, 11), 1, ButtonBorderStyle.Solid,
+                        Color.FromArgb(245, 158, 11), 1, ButtonBorderStyle.Solid,
+                        Color.FromArgb(245, 158, 11), 1, ButtonBorderStyle.Solid);
+                };
+                var lblBannerTitle = Ui.Label("⚠️ ĐÂY LÀ TÀI KHOẢN VÃNG LAI (ĐĂNG KÝ TỪ WEBSITE)", new Font(Ui.Small, FontStyle.Bold), Color.FromArgb(180, 83, 9));
+                lblBannerTitle.Location = new Point(12, 8);
+                lblBannerTitle.AutoSize = true;
+                banner.Controls.Add(lblBannerTitle);
+                var lblBannerDesc = Ui.Label("• Hệ thống KHÔNG cho phép chuyển tài khoản này thành học viên trung tâm và KHÔNG thể xếp vào lớp học.\n• Muốn học tại trung tâm, Admin vui lòng bấm 'Thêm học viên' để cấp tài khoản trung tâm mới riêng biệt.", Ui.Small, Color.FromArgb(120, 53, 15));
+                lblBannerDesc.Location = new Point(12, 28);
+                lblBannerDesc.AutoSize = true;
+                banner.Controls.Add(lblBannerDesc);
+                scroll.Controls.Add(banner);
+
+                var minorNote = Ui.Label("Dưới 18 tuổi: bắt buộc ít nhất một cha/mẹ; nếu cả hai đã mất, bắt buộc người giám hộ.",
+                    Ui.Small, Ui.TextMuted);
+                minorNote.Location = new Point(24, 578);
+                minorNote.MaximumSize = new Size(710, 0);
+                minorNote.AutoSize = true;
+                scroll.Controls.Add(minorNote);
+                contentBottom = 612;
+            }
+            else
+            {
+                AddLabel("Quyền hạn VIP", 390, 414);
+                var txtVip = Ui.Input(330);
+                txtVip.ReadOnly = true;
+                txtVip.BackColor = Color.FromArgb(240, 253, 244);
+                txtVip.ForeColor = Color.FromArgb(21, 128, 61);
+                txtVip.Font = new Font(Ui.Body, FontStyle.Bold);
+                txtVip.Text = "VIP Trung tâm (Mặc định toàn quyền)";
+                AddInput(txtVip, 390, 440);
+
+                _package.Visible = false;
+                scroll.Controls.Add(_package);
+
+                var note = Ui.Label(taiKhoanId == 0
+                    ? "Tài khoản do Admin tạo là học viên trung tâm, được xếp lớp học và tự động có VIP trung tâm mặc định (toàn quyền làm đề VIP)."
+                    : "Đây là tài khoản học viên trung tâm, được xếp lớp học và tự động có VIP trung tâm mặc định (toàn quyền làm đề VIP).",
+                    Ui.Small, Color.FromArgb(16, 120, 70));
+                note.Location = new Point(24, 492);
+                note.AutoSize = true;
+                scroll.Controls.Add(note);
+
+                var minorNote = Ui.Label("Dưới 18 tuổi: bắt buộc ít nhất một cha/mẹ; nếu cả hai đã mất, bắt buộc người giám hộ.",
+                    Ui.Small, Ui.TextMuted);
+                minorNote.Location = new Point(24, 516);
+                minorNote.MaximumSize = new Size(710, 0);
+                minorNote.AutoSize = true;
+                scroll.Controls.Add(minorNote);
+                contentBottom = 552;
+            }
         }
         else
         {

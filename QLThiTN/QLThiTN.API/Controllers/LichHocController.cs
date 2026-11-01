@@ -82,6 +82,9 @@ public class LichHocController : ControllerBase
         if (hocVienId <= 0)
             return BadRequest(new { Message = "Thiếu hocVienId." });
 
+        if (hocVienId != User.StudentId())
+            return Forbid();
+
         var thuocLop = await _db.HocVien_Lops.AnyAsync(h =>
             h.HocVienID == hocVienId && h.LopHocID == lopHocId && h.TrangThai != "ThoiHoc");
         if (!thuocLop)

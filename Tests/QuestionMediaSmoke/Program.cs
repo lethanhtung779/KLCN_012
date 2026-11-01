@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Microsoft.Web.WebView2.WinForms;
@@ -26,6 +26,8 @@ static class Program
     }
     static async Task CheckUi(Form host)
     {
+        var adminId = Database.ExecuteScalarInt("SELECT TOP 1 TaiKhoanID FROM TaiKhoan WHERE VaiTro='QuanTriVien' AND TrangThai='HoatDong'");
+        Session.Set(new TaiKhoan{TaiKhoanID=adminId > 0 ? adminId : 1, VaiTro="QuanTriVien", HoTen="Admin"});
         using var editor = new frmQuestionEdit(0) { ShowInTaskbar = false, Opacity = 0 };
         editor.Show(host); editor.PerformLayout();
         var question = Field<QuestionContentEditor>(editor, "_question");
@@ -82,14 +84,22 @@ static class Program
             File.WriteAllText(configPath,JsonSerializer.Serialize(new {HinhAnhRoot=root}));
             builder.InitialCatalog=name;configField.SetValue(null,builder.ConnectionString);
             Database.Execute("""
-            CREATE TABLE CauHoi(CauHoiID int IDENTITY PRIMARY KEY,ChuDeID int,GiaoVienID int,NoiDung nvarchar(max),LoaiCauHoi nvarchar(30),MucDoKho nvarchar(30),Diem decimal(5,2),TrangThai nvarchar(20),NgayTao datetime2,GiaiThichDapAn nvarchar(max));
+            IF OBJECT_ID('TaiKhoan') IS NULL CREATE TABLE TaiKhoan(TaiKhoanID int PRIMARY KEY,TrangThai nvarchar(20),VaiTro nvarchar(20));
+            IF NOT EXISTS (SELECT 1 FROM TaiKhoan WHERE TaiKhoanID=1) INSERT INTO TaiKhoan VALUES(1,N'HoatDong',N'QuanTriVien');
+            IF OBJECT_ID('MonHoc') IS NULL CREATE TABLE MonHoc(MonHocID int PRIMARY KEY,TenMon nvarchar(100));
+            IF NOT EXISTS (SELECT 1 FROM MonHoc WHERE MonHocID=1) INSERT INTO MonHoc VALUES(1,N'Toán học');
+            IF OBJECT_ID('ChuDe') IS NULL CREATE TABLE ChuDe(ChuDeID int PRIMARY KEY,MonHocID int,TenChuDe nvarchar(100));
+            IF NOT EXISTS (SELECT 1 FROM ChuDe WHERE ChuDeID=1) INSERT INTO ChuDe VALUES(1,1,N'Chủ đề');
+            IF NOT EXISTS (SELECT 1 FROM ChuDe WHERE ChuDeID=41) INSERT INTO ChuDe VALUES(41,1,N'Hàm số và Đạo hàm');
+            CREATE TABLE CauHoi(CauHoiID int IDENTITY PRIMARY KEY,ChuDeID int,NguoiTaoID int,GiaoVienID int,NoiDung nvarchar(max),LoaiCauHoi nvarchar(30),MucDoKho nvarchar(30),Diem decimal(5,2),TrangThai nvarchar(20),NgayTao datetime2,GiaiThichDapAn nvarchar(max),NhomTHPT nvarchar(50) DEFAULT 'ChuaPhanLoai');
             CREATE TABLE DapAn(DapAnID int IDENTITY PRIMARY KEY,CauHoiID int REFERENCES CauHoi,ThuTu int,NoiDung nvarchar(max),LaDapAnDung bit);
             CREATE TABLE HinhAnh(HinhAnhID int IDENTITY PRIMARY KEY,CauHoiID int REFERENCES CauHoi,DapAnID int REFERENCES DapAn,DuongDan nvarchar(500),MoTa nvarchar(200),ThuTu int);
             CREATE TABLE ChiTietBaiLam(CauHoiID int REFERENCES CauHoi);
-            CREATE TABLE DeThi_CauHoi(CauHoiID int REFERENCES CauHoi);
-            CREATE TABLE MaDe_CauHoi(CauHoiID int REFERENCES CauHoi);
-            CREATE TABLE MaDe_DapAn(CauHoiID int REFERENCES CauHoi,DapAnID int REFERENCES DapAn);
+            CREATE TABLE DeThi_CauHoi(DeThiID int, CauHoiID int REFERENCES CauHoi, ThuTu int);
+            CREATE TABLE MaDe_CauHoi(MaDeID int, CauHoiID int REFERENCES CauHoi, ThuTu int);
+            CREATE TABLE MaDe_DapAn(MaDeID int, CauHoiID int REFERENCES CauHoi, DapAnID int REFERENCES DapAn, ThuTu int);
             """);
+            Session.Set(new TaiKhoan{TaiKhoanID=1, VaiTro="QuanTriVien", HoTen="Admin"});
             using var bitmap=new Bitmap(16,16);var bytes=QuestionImageStore.ToPng(bitmap);var svc=new QuestionService();
             foreach(var type in new[]{LoaiCauHoi.TracNghiem,LoaiCauHoi.DungSai,LoaiCauHoi.TraLoiNgan})
             {

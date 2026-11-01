@@ -43,5 +43,12 @@ logs/
 # SMTP (Brevo) — copy tu appsettings.Email.example.json
 QLThiTN/QLThiTN.API/appsettings.Email.json
 
+# payOS Payment credentials
+QLThiTN/QLThiTN.API/appsettings.Payment.json
+
+# Local artifacts & backups
+outputs/
+database-backups/
+
 # Google OAuth credentials
 QLThiTN/QLThiTN.Web/appsettings.Google.json

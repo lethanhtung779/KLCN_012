@@ -4,6 +4,7 @@ using QLThiTN.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddJsonFile("appsettings.Payment.json", optional: true, reloadOnChange: true);
 
 builder.Services.AddControllers();
 builder.Services.Configure<VipPaymentSettings>(builder.Configuration.GetSection("VipPayment"));

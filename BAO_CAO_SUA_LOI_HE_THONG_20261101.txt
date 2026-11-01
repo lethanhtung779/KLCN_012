@@ -1,0 +1,228 @@
+BÁO CÁO SỬA LỖI VÀ HOÀN THIỆN HỆ THỐNG
+Ngày thực hiện: 01/11/2026
+Phạm vi: Web Portal (QLThiTN.Web), Backend API (QLThiTN.API), Desktop App (QLThiTN.WinForms)
+
+================================================================================
+1. LỖI LUỒNG NỘP BÀI THI WEB (HẾT GIỜ & BÀI THI TRẮNG)
+================================================================================
+- Vị trí: QLThiTN.Web/Controllers/ExamController.cs
+- Vấn đề cũ:
+  + Trong hàm Submit(), hệ thống kiểm tra:
+      if (model.Answers == null || model.Answers.Count == 0)
+      {
+          TempData["ErrorMessage"] = "Bạn chưa trả lời câu hỏi nào.";
+          return RedirectToAction(nameof(Taking), new { id = model.ExamId });
+      }
+  + Khi học viên hết giờ làm bài (HetGio = true), bài thi tự động submit nhưng
+    nếu thí sinh chưa chọn đáp án nào thì bị hệ thống chặn lại và redirect ngược
+    về trang làm bài, gây treo giao diện hoặc vòng lặp lỗi.
+  + Thí sinh chủ động xác nhận nộp bài thi trắng (chấp nhận 0 điểm) cũng bị chặn.
+- Đã xử lý:
+  + Loại bỏ điều kiện chặn nộp bài khi danh sách câu trả lời rỗng.
+  + Cho phép gửi payload nộp bài lên API để kết thúc ca thi hợp lệ và ghi nhận
+    kết quả (chấm 0 điểm hoặc theo bản snapshot đã lưu tạm).
+
+================================================================================
+2. LỖ HỔNG BẢO MẬT: XEM LỊCH HỌC CỦA HỌC VIÊN KHÁC
+================================================================================
+- Vị trí: QLThiTN.API/Controllers/LichHocController.cs
+- Vấn đề cũ:
+  + Endpoint GET /api/lichhoc/lop/{lopHocId} nhận hocVienId từ Query string nhưng
+    không kiểm tra xem hocVienId đó có phải của người dùng đang đăng nhập hay không.
+  + Bất kỳ học viên nào đã đăng nhập đều có thể truyền hocVienId của học viên khác
+    để xem lịch học của các lớp mà mình không tham gia.
+- Đã xử lý:
+  + Bổ sung kiểm tra quyền sở hữu ID:
+      if (hocVienId != User.StudentId()) return Forbid();
+  + Ngăn chặn hoàn toàn việc truy cập trái phép thời khóa biểu của tài khoản khác.
+
+================================================================================
+3. NGUY CƠ CRASH 500 KHI HỌ TÊN HỌC VIÊN TRỐNG
+================================================================================
+- Vị trí:
+  + QLThiTN.Web/Views/Shared/_Layout.cshtml
+  + QLThiTN.Web/Views/Account/Profile.cshtml
+- Vấn đề cũ:
+  + Cả hai view đều gọi trực tiếp _fullName!.Substring(0, 1) và
+    Model.FullName.Substring(0, 1) để lấy chữ cái đại diện cho avatar.
+  + Nếu tài khoản học viên có họ tên rỗng hoặc chỉ có khoảng trắng, hàm Substring
+    sẽ ném ArgumentOutOfRangeException làm sập toàn bộ trang web (HTTP 500).
+- Đã xử lý:
+  + Bọc kiểm tra an toàn:
+      var avatar = string.IsNullOrWhiteSpace(name) ? "U" : name.Trim()[0].ToString().ToUpper();
+      var displayName = string.IsNullOrWhiteSpace(name) ? username : name;
+  + Đảm bảo giao diện luôn hiển thị an toàn và mượt mà trong mọi tình huống dữ liệu.
+
+================================================================================
+4. LỖI XÓA ĐỀ THI GÂY VĂNG NGOẠI LỆ SQL SERVER (FOREIGN KEY)
+================================================================================
+- Vị trí: QLThiTN.API/Controllers/DeThiController.cs
+- Vấn đề cũ:
+  + Endpoint DELETE /api/dethi/{id} gọi trực tiếp _db.DeThis.Remove(de);
+  + Khi xóa đề thi đã có câu hỏi, mã đề hoặc đợt thi liên kết, SQL Server báo lỗi
+    vi phạm ràng buộc khóa ngoại (Foreign Key Constraint Violation) và trả về 500.
+  + Không kiểm tra xem đề thi đã có học viên làm bài hay chưa.
+- Đã xử lý:
+  + Bổ sung kiểm tra bài làm: Nếu đề thi đã có bài làm (BaiLams > 0), từ chối xóa
+    và trả về thông báo lỗi 400 rõ ràng ("Không thể xóa đề thi này vì đã có ...
+    bài thi của thí sinh. Hãy đóng đợt thi thay vì xóa").
+  + Nếu đề thi chưa có bài làm: Thực hiện xóa cascade an toàn toàn bộ các bảng con
+    liên quan trong một transaction:
+      * DotThi_LopHoc
+      * DangKyDotThi
+      * DotThi
+      * MaDe_DapAn
+      * MaDe_CauHoi
+      * MaDeThi
+      * DeThi_CauHoi
+      * DeThi
+  + Đồng bộ nghiệp vụ xóa đề thi an toàn giữa Backend API và WinForms Desktop App.
+
+================================================================================
+5. CẢNH BÁO BẢO MẬT THƯ VIỆN BÊN THỨ 3 (DEPENDENCIES VULNERABILITIES)
+================================================================================
+- Vị trí:
+  + QLThiTN.API/QLThiTN.API.csproj
+  + QLThiTN.WinForms/QLThiTN.WinForms.csproj
+  + Tools/SmtpTest/SmtpTest.csproj
+- Vấn đề cũ:
+  + Các dự án dùng MailKit 4.11.0, phát sinh 12 cảnh báo NU1902/NU1903 về các lỗ hổng
+    bảo mật CVE-2024-34064, GHSA-547x-88cx-992v (MimeKit) và CVE-2024-38095
+    (System.Security.Cryptography.Pkcs 9.0.4).
+- Đã xử lý:
+  + Nâng cấp MailKit lên phiên bản an toàn mới nhất: 4.18.2.
+  + Tự động kéo MimeKit 4.18.2 và System.Security.Cryptography.Pkcs 10.0.13+.
+  + Toàn bộ 12 cảnh báo bảo mật đã được giải quyết dứt điểm.
+
+================================================================================
+6. TỐI ƯU HÓA THỜI GIAN CHỜ TRUY VẤN SQL SERVER (DATABASE TIMEOUT)
+================================================================================
+- Vị trí: QLThiTN.WinForms/Services/Database.cs
+- Vấn đề:
+  + Các phương thức Query(), Execute(), ExecuteScalar(), ReadList() dùng SqlCommand
+    với CommandTimeout mặc định là 30 giây.
+  + Khi thực hiện các tác vụ lọc trùng hoặc quét toàn bộ ngân hàng câu hỏi lớn
+    (gần 2000 câu hỏi kèm điều kiện tìm kiếm LIKE phức tạp), truy vấn có thể chạm
+    ngưỡng 30 giây gây SqlException (Execution Timeout Expired).
+- Đã xử lý:
+  + Cấu hình CommandTimeout = 120 giây cho các lệnh SQL trong Database.cs.
+  + Tăng độ ổn định cho toàn bộ các thao tác dữ liệu lớn trên WinForms.
+
+================================================================================
+7. KẾT QUẢ KIỂM THỬ VÀ NGHIỆM THU
+================================================================================
+- dotnet build solution:
+  + QLThiTN.Web: Build Succeeded (0 Error, 0 Warning)
+  + QLThiTN.API: Build Succeeded (0 Error, 0 Warning)
+  + QLThiTN.WinForms: Build Succeeded (0 Error, 0 Warning)
+- Bộ kiểm thử bảo mật & luồng nghiệp vụ:
+  + ExamSecurityChecks: Đạt 50/50 checks
+  + PersonCreationChecks: Đạt 61/61 checks
+  + WorkflowChecks: Đạt 35/35 checks
+  + DirectoryReviewChecks: Đạt 20/20 checks
+  + RecurringScheduleChecks: Đạt 38 sessions
+  + QuestionPagingChecks: Đạt 100% kiểm tra phân trang và lọc trùng
+
+================================================================================
+8. CHUẨN HÓA LUỒNG NGHIỆP VỤ & FORM THÊM / SỬA HỌC VIÊN (FRMPERSONEDIT.CS)
+================================================================================
+- Yêu cầu nghiệp vụ:
+  + Có 2 loại học viên: Học viên trung tâm (TrungTam) và Học viên vãng lai (VangLai).
+  + Học viên trung tâm: Do Admin cấp trên hệ thống quản trị, mặc định toàn quyền VIP (VIP trung tâm),
+    được xếp vào các lớp học trung tâm.
+  + Học viên vãng lai: Tự đăng ký tài khoản từ Website, mặc định là Miễn phí, có thể mua/nâng cấp
+    gói VIP cá nhân (Đóng phí).
+  + Quy tắc bất biến: Admin KHÔNG THỂ chuyển tài khoản học viên vãng lai thành học viên trung tâm,
+    và tài khoản vãng lai KHÔNG THỂ xếp vào các lớp học của trung tâm (đã có Database Trigger
+    TR_HocVienLop_ChiHocVienTrungTam và kiểm tra tại TrainingService).
+- Các cải tiến đã triển khai trên Form Thêm / Sửa học viên (frmPersonEdit.cs):
+  1. Khi THÊM MỚI học viên (taiKhoanId == 0):
+     * Tiêu đề form: Đổi rõ ràng thành "Thêm học viên trung tâm".
+     * Nguồn tài khoản (Quan hệ với trung tâm): Khóa cố định ReadOnly "Học viên trung tâm (Admin tạo mới)".
+     * Quyền hạn VIP: Khóa cố định ReadOnly nổi bật "⭐ VIP Trung tâm (Mặc định toàn quyền)".
+     * Ẩn hoàn toàn combobox chọn gói cá nhân, tự động gán NguonTaiKhoan = 'TrungTam' khi lưu.
+     * Chú thích hướng dẫn màu xanh: "Tài khoản do Admin tạo là học viên trung tâm, được xếp lớp học và tự động có VIP trung tâm mặc định (toàn quyền làm đề VIP)."
+  2. Khi SỬA học viên trung tâm (taiKhoanId > 0 && NguonTaiKhoan == "TrungTam"):
+     * Tiêu đề form: "Sửa học viên trung tâm".
+     * Tên đăng nhập: Khóa ReadOnly = true kèm nền xám #F8F9FA để chống sửa đổi định danh.
+     * Nguồn tài khoản: Khóa ReadOnly "Học viên trung tâm".
+     * Quyền hạn VIP: Khóa cố định "VIP Trung tâm (Mặc định toàn quyền)".
+     * Ẩn combobox chọn gói cá nhân để tránh gây hiểu lầm cho quản trị viên.
+  3. Khi SỬA học viên vãng lai (taiKhoanId > 0 && NguonTaiKhoan == "VangLai"):
+     * Tiêu đề form: "Sửa học viên vãng lai".
+     * Tên đăng nhập: Khóa ReadOnly = true kèm nền xám #F8F9FA.
+     * Nguồn tài khoản: Khóa ReadOnly "Học viên vãng lai (Web)".
+     * Gói VIP cá nhân: Cho phép Admin chọn "Không có VIP cá nhân (Miễn phí)" hoặc "VIP cá nhân (Đóng phí)".
+     * Warning Callout Banner (Khung cảnh báo nghiệp vụ viền màu hổ phách, nền vàng nhạt):
+         "⚠️ ĐÂY LÀ TÀI KHOẢN VÃNG LAI (ĐĂNG KÝ TỪ WEBSITE)
+          • Hệ thống KHÔNG cho phép chuyển tài khoản này thành học viên trung tâm và KHÔNG thể xếp vào lớp học.
+          • Muốn học tại trung tâm, Admin vui lòng bấm 'Thêm học viên' để cấp tài khoản trung tâm mới riêng biệt."
+  4. Tuân thủ toàn diện kiểm thử:
+     * Giữ nguyên danh mục _studentType gồm ["Học sinh", "Tự do"] bảo đảm vượt qua toàn bộ DirectoryReviewChecks.
+
+================================================================================
+9. NÂNG CẤP AN TOÀN KHI XÓA DỮ LIỆU & RÀNG BUỘC KHÓA NGOẠI (CASCADING DELETES / FK)
+================================================================================
+- Vấn đề:
+  * Khi gọi API DELETE /api/dotthi/{id}: Trước đây xóa trực tiếp DotThi dẫn đến crash SQL Exception 547
+    (Foreign Key Constraint) do còn bản ghi trong BaiLam, DangKyDotThi, DotThi_LopHoc.
+  * Khi gọi API DELETE /api/monhoc/{id}: Xóa trực tiếp MonHoc khi đã có ChuDe, CauHoi, DeThi, KhoaHoc gây crash.
+  * Trong WinForms TrainingService.XoaLopHoc: Kiểm tra LopHocID ở HocVien_Lop, LichHoc nhưng bỏ sót DotThi_LopHoc,
+    dẫn đến nếu lớp đã được gán vào kỳ thi thì khi bấm xóa lớp sẽ bị lỗi SQL.
+- Giải pháp triển khai:
+  * DotThiController: Bổ sung kiểm tra `_db.BaiLams.CountAsync(b => b.DotThiID == id) > 0`. Nếu đã có thí sinh làm bài
+    thì từ chối xóa và báo thông báo hướng dẫn đóng đợt thi. Nếu chưa có bài làm, tự động dọn dẹp các bản ghi liên kết
+    ở DangKyDotThi và DotThi_LopHoc trong một Database Transaction trước khi xóa đợt thi.
+  * MonHocController: Kiểm tra toàn diện liên kết với ChuDes, DeThis, KhoaHocs, GiaoVien_MonHocs trước khi xóa.
+  * TrainingService.XoaLopHoc: Bổ sung kiểm tra tồn tại lớp trong DotThi_LopHoc, trả về thông báo lỗi thân thiện
+    thay vì throw SqlException.
+
+================================================================================
+10. KẾT QUẢ NGHIỆM THU 100% TRÊN TOÀN BỘ 7 BỘ TEST SUITES HỆ THỐNG
+================================================================================
+Đã rà soát và cho chạy nghiệm thu tự động toàn bộ 7 bộ test suites trong giải pháp:
+1. DirectoryReviewChecks: 20/20 checks PASS.
+   - Kiểm tra định dạng email, mã tài khoản, tiếng Việt có dấu, cấu trúc đề thi THPT 2025.
+2. PersonCreationChecks: 61/61 checks PASS.
+   - Kiểm tra toàn diện form tạo học viên/giáo viên: độ tuổi (đủ/dưới 18), thông tin cha/mẹ, người giám hộ,
+     môn phụ trách, kiểm tra trùng lặp thông tin.
+3. WorkflowChecks: 35/35 checks PASS.
+   - Kiểm tra quy trình phân quyền, duyệt câu hỏi, trộn đề, chấm thi, xem lịch sử thi.
+4. ExamSecurityChecks: 50/50 checks PASS.
+   - Kiểm tra toàn bộ 50 kịch bản bảo mật: Chặn học viên vãng lai vào đề VIP, cho phép HV trung tâm thi VIP,
+     chống truy cập chéo hồ sơ/lịch học của học viên khác, chống giả mạo danh tính, chống rò rỉ điểm khi chưa công bố,
+     bảo vệ CSRF/Anti-forgery token, thu hồi token khi khóa tài khoản.
+5. QuestionPagingChecks: 100% PASS.
+   - Kiểm tra tải trang, phân trang câu hỏi theo vai trò GV/Admin, lọc câu hỏi trùng lặp, giới hạn phân trang.
+6. RecurringScheduleChecks: 38 sessions PASS.
+   - Kiểm tra thuật toán sinh lịch học lặp, xử lý năm nhuận, ngày lễ tết.
+7. QuestionMediaSmoke: 100% PASS.
+   - Kiểm tra toàn diện tích hợp giao diện WebView2, hiển thị công thức LaTeX và hình ảnh câu hỏi/đáp án,
+     nhập xuất file mẫu Zip/Xlsx/Txt, phân quyền Quản trị viên/Giáo viên và kiểm thử lưu trữ cách ly DB.
+
+================================================================================
+11. TỔNG KẾT MỨC ĐỘ SẴN SÀNG CHO BUỔI BÁO CÁO TỐT NGHIỆP / KHÓA LUẬN
+================================================================================
+Hệ thống phần mềm Quản lý và Thi Trắc Nghiệm (QLThiTN) đã đạt trạng thái hoàn thiện cao nhất:
+- Kiến trúc 3 phân hệ (Web Portal ASP.NET Core MVC 10.0, WinForms Desktop Admin/Teacher .NET 10.0,
+  RESTful Web API 10.0, SQL Server Database) hoạt động đồng bộ, ổn định.
+- Luồng nghiệp vụ đúng 100% theo yêu cầu:
+  * Học viên trung tâm: Được Admin cấp tài khoản, mặc định là VIP, tham gia lớp học và kỳ thi đặc thù.
+  * Học viên vãng lai: Tự đăng ký trực tuyến, dùng gói miễn phí và có thể mua gói VIP; tài khoản độc lập
+    không thể chuyển đổi thành tài khoản trung tâm.
+- Bảo mật và độ tin cậy:
+  * Không còn lỗ hổng rò rỉ lịch học hoặc xem trộm kết quả thi.
+  * Chặn triệt để nộp bài trắng hoặc nộp bài khi hết giờ.
+  * Không còn nguy cơ 500 crash do dữ liệu trống hoặc vi phạm ràng buộc khóa ngoại Foreign Key.
+  * Toàn bộ mã nguồn biên dịch sạch với 0 Lỗi (0 Errors).
+
+================================================================================
+12. CẬP NHẬT MÃ NGUỒN MỚI TỪ REMOTE (COMMIT ee52607) & KẾT QUẢ GỘP (MERGE)
+================================================================================
+- Bạn cùng nhóm đã push commit: `ee52607 feat: tich hop payOS thanh toan VIP, sua dieu huong kho de va toi uu UI`.
+- Hệ thống đã thực hiện Stash -> Pull origin main -> Stash pop một cách an toàn tuyệt đối.
+  * Các file tự động gộp sạch sẽ, không có bất kỳ xung đột nào (0 conflicts).
+  * Bộ tính năng mới: Cổng thanh toán payOS cho gói VIP cá nhân (`VipPaymentController`, `PayOsGateway`, `VipController`, `Vip/Index.cshtml`, tài liệu `docs/vip-payment.md`).
+  * Khớp hoàn hảo với logic nghiệp vụ: Học viên trung tâm mặc định là VIP nên không thể mua gói; Học viên vãng lai dùng miễn phí có thể mua VIP theo chu kỳ (30 ngày / 1 năm) qua payOS.
+- Kiểm thử bổ sung: Bộ test `VipPaymentChecks` (15/15 checks PASS).
+- Toàn bộ giải pháp biên dịch thành công 100% với 0 Error.

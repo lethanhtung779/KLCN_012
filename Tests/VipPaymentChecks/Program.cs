@@ -95,7 +95,7 @@ if (args.Contains("--integration"))
         Check(first == Value(await Controller(walkin.TaiKhoanID).Create(monthly), "PaymentUrl"), "Double click reuses pending order");
         Check(await Controller(walkin.TaiKhoanID).Create(yearly) is ConflictObjectResult, "Pending order prevents simultaneous second plan");
         var pending = await db.VipPayments.AsNoTracking().SingleAsync(x => x.HocVienID == walkin.HocVienID && x.Provider == "payOS");
-        Check(pending.Amount == 300000 && pending.PlanId == "30days", "Monthly price fixed by server");
+        Check(pending.Amount == 2000 && pending.PlanId == "30days", "Monthly price fixed by server");
         Check(await Controller(0).Webhook(Callback(pending) with { Signature = "bad" }) is BadRequestObjectResult, "Invalid webhook signature rejected");
         Check(await Controller(0).Webhook(Callback(pending, amount: 1)) is BadRequestObjectResult, "Signed wrong amount rejected");
         var wrongLinkData = JsonSerializer.SerializeToElement(new { orderCode = pending.OrderCode, amount = pending.Amount, code = "00", reference = "fake", currency = "VND", paymentLinkId = Guid.NewGuid().ToString("N") });
@@ -115,7 +115,7 @@ if (args.Contains("--integration"))
         Check((await GoiThi.LayQuyenAsync(db, center.HocVienID))?.LaVip == true, "Center VIP unaffected by subscription expiry");
         await Controller(walkin.TaiKhoanID).Create(yearly);
         var annual = await db.VipPayments.AsNoTracking().SingleAsync(x => x.HocVienID == walkin.HocVienID && x.Status == "Pending" && x.Provider == "payOS");
-        Check(annual.Amount == 1500000 && annual.PlanId == "1year", "Annual price fixed by server");
+        Check(annual.Amount == 3000 && annual.PlanId == "1year", "Annual price fixed by server");
         Check(await Controller(0).Webhook(Callback(annual, transaction: "7654321")) is OkObjectResult, "Expired subscriber can buy annual VIP");
         var annualPaid = await db.VipPayments.AsNoTracking().SingleAsync(x => x.Id == annual.Id);
         Check(annualPaid.GrantedUntilUtc == annualPaid.PaidUtc!.Value.AddYears(1), "Annual entitlement lasts one calendar year");

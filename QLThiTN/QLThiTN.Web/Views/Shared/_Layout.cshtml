@@ -84,10 +84,12 @@
                     @if (Context.Session.GetString("UserFullName") != null)
                     {
                         string? _fullName = Context.Session.GetString("UserFullName");
+                        var _avatarLetter = string.IsNullOrWhiteSpace(_fullName) ? "U" : _fullName.Trim()[0].ToString().ToUpper();
+                        var _displayName = string.IsNullOrWhiteSpace(_fullName) ? (Context.Session.GetString("UserName") ?? "Học viên") : _fullName;
                         <div class="dropdown">
                             <button class="btn btn-user dropdown-toggle d-flex align-items-center" type="button" data-bs-toggle="dropdown">
-                                <span class="user-avatar me-2">@(_fullName!.Substring(0, 1))</span>
-                                <span class="user-name">@_fullName</span>
+                                <span class="user-avatar me-2">@_avatarLetter</span>
+                                <span class="user-name">@_displayName</span>
                                 @if (Context.Session.GetInt32("HocVienId") != null)
                                 {
                                     if (Context.Session.GetString("LaVip") == "1" || Context.Session.GetString("LoaiGoi") == "DongPhi")

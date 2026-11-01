@@ -131,8 +131,19 @@ public class DotThiController : ControllerBase
         var dot = await _db.DotThis.FindAsync(id);
         if (dot is null) return NotFound();
 
+        var soBaiLam = await _db.BaiLams.CountAsync(b => b.DotThiID == id);
+        if (soBaiLam > 0)
+            return BadRequest(new { message = $"Không thể xóa đợt thi này vì đã có {soBaiLam} bài thi của thí sinh. Hãy đóng đợt thi thay vì xóa." });
+
+        await using var tx = await _db.Database.BeginTransactionAsync();
+        var dk = await _db.DangKyDotThis.Where(x => x.DotThiID == id).ToListAsync();
+        _db.DangKyDotThis.RemoveRange(dk);
+        var lh = await _db.DotThi_LopHocs.Where(x => x.DotThiID == id).ToListAsync();
+        _db.DotThi_LopHocs.RemoveRange(lh);
+
         _db.DotThis.Remove(dot);
         await _db.SaveChangesAsync();
+        await tx.CommitAsync();
         return NoContent();
     }
 

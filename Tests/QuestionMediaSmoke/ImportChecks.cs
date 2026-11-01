@@ -1,4 +1,4 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using Microsoft.Web.WebView2.WinForms;
@@ -30,7 +30,7 @@ static class ImportChecks
     static string Text(string content=@"Tính $\frac{1}{2}$", string image="", string correct="A", string type="TracNghiem")
     {
         string Quote(string value)=>"\""+value.Replace("\"","\"\"")+"\"";
-        var row=Enumerable.Repeat("",22).ToArray();row[0]="Hàm số và Đạo hàm";row[1]=content;row[2]=type;row[4]="0,25";
+        var row=Enumerable.Repeat("",QuestionImportService.Headers.Length).ToArray();row[0]="Hàm số và Đạo hàm";row[1]=content;row[2]=type;row[4]="0,25";
         row[5]="1";row[6]="2";row[7]="3";row[8]="4";row[9]=correct;row[16]=image;row[21]="Toán";
         return string.Join('\t',QuestionImportService.Headers.Select(Quote))+"\n"+string.Join('\t',row.Select(Quote))+"\n";
     }
