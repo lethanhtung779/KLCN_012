@@ -20,6 +20,7 @@ public class HocVien
     /// <summary>Gói VIP cá nhân của tài khoản vãng lai; tài khoản trung tâm luôn có VIP trung tâm.</summary>
     [Required, MaxLength(20)]
     public string LoaiGoi { get; set; } = "MienPhi";
+    public DateTime? VipExpiresUtc { get; set; }
 
     /// <summary>
     /// Nguồn tài khoản cố định: VangLai do người dùng đăng ký Web, TrungTam do quản trị viên tạo.

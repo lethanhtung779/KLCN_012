@@ -9,6 +9,7 @@ public class QLThiTNDbContext : DbContext
     {
     }
 
+    public DbSet<VipPayment> VipPayments => Set<VipPayment>();
     public DbSet<TaiKhoan> TaiKhoans => Set<TaiKhoan>();
     public DbSet<MonHoc> MonHocs => Set<MonHoc>();
     public DbSet<GiaoVien> GiaoViens => Set<GiaoVien>();

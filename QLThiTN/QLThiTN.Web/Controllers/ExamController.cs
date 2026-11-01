@@ -52,6 +52,9 @@ public class ExamController : Controller
     }
 
     [HttpGet]
+    public IActionResult Index() => RedirectToAction(nameof(KhoDe));
+
+    [HttpGet]
     public async Task<IActionResult> Schedule()
     {
         await RefreshGoiAsync();

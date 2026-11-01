@@ -144,6 +144,7 @@ public class AuthController : ControllerBase
 
         return Ok(new ProfileResponseDto
         {
+            VipExpiresUtc = hv?.VipExpiresUtc,
             TaiKhoanID = tk.TaiKhoanID,
             TenDangNhap = tk.TenDangNhap,
             HoTen = gv?.HoTen ?? hv?.HoTen ?? tk.TenDangNhap,

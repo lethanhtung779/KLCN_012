@@ -96,7 +96,9 @@ public static class VipEmailSender
             foreach (var candidate in new[]
             {
                 Path.Combine(dir.FullName, "appsettings.Email.json"),
-                Path.Combine(dir.FullName, "QLThiTN.API", "appsettings.Email.json")
+                Path.Combine(dir.FullName, "QLThiTN.API", "appsettings.Email.json"),
+                Path.Combine(dir.FullName, "appsettings.json"),
+                Path.Combine(dir.FullName, "QLThiTN.API", "appsettings.json")
             })
             {
                 if (seen.Add(candidate) && File.Exists(candidate))

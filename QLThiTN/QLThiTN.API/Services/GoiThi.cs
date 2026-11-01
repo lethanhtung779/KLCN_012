@@ -25,6 +25,8 @@ public static class GoiThi
     }
 
     public const string SchemaSql = @"
+IF COL_LENGTH('HocVien', 'VipExpiresUtc') IS NULL
+    ALTER TABLE HocVien ADD VipExpiresUtc datetime2 NULL;
 IF COL_LENGTH('HocVien', 'LoaiGoi') IS NULL
     ALTER TABLE HocVien ADD LoaiGoi NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi';
 IF COL_LENGTH('HocVien', 'NguonTaiKhoan') IS NULL
@@ -76,7 +78,7 @@ IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
             .Where(h => h.HocVienID == hocVienId)
             .Select(h => new QuyenHocVien(
                 h.NguonTaiKhoan == TrungTam,
-                h.LoaiGoi == DongPhi))
+                h.LoaiGoi == DongPhi && (h.VipExpiresUtc == null || h.VipExpiresUtc > DateTime.UtcNow)))
             .FirstOrDefaultAsync();
     }
 }

@@ -308,6 +308,7 @@ public class AccountController : Controller
             NgaySinh = profile?.NgaySinh,
             NgayDangKy = profile?.NgayDangKy,
             LoaiGoi = string.IsNullOrWhiteSpace(profile?.LoaiGoi) ? "MienPhi" : profile!.LoaiGoi,
+            VipExpiresUtc = profile?.VipExpiresUtc,
             LoaiGoiCaNhan = string.IsNullOrWhiteSpace(profile?.LoaiGoiCaNhan) ? "MienPhi" : profile!.LoaiGoiCaNhan,
             LaHocVienTrungTam = profile?.LaHocVienTrungTam ?? false,
             LaVip = profile?.LaVip ?? false,
@@ -381,6 +382,7 @@ public class AccountController : Controller
         model.NgayDangKy = profile?.NgayDangKy;
         model.LoaiGoi = profile?.LoaiGoi ?? "MienPhi";
         model.LoaiGoiCaNhan = profile?.LoaiGoiCaNhan ?? "MienPhi";
+        model.VipExpiresUtc = profile?.VipExpiresUtc;
         model.LaHocVienTrungTam = profile?.LaHocVienTrungTam ?? false;
         model.LaVip = profile?.LaVip ?? false;
         model.NguonVip = profile?.NguonVip ?? "KhongCo";

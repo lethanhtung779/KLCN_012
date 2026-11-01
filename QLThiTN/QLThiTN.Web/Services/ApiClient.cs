@@ -22,6 +22,22 @@ namespace QLThiTN.Web.Services;
 
         /// <summary>Dia chi API dang dung, de ghep duong dan anh tuong doi thanh URL day du.</summary>
         public string BaseUrl => _http.BaseAddress?.ToString().TrimEnd('/') ?? string.Empty;
+        public async Task<ApiVipPayment?> GetVipPaymentAsync()
+        {
+            using var response = await _http.GetAsync("/api/vip-payment");
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden) return null;
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<ApiVipPayment>(JsonOptions);
+        }
+        public async Task<(string? Url, string? Error)> CreateVipPaymentAsync(string planId)
+        {
+            using var response = await _http.PostAsJsonAsync("/api/vip-payment", new { planId });
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+                return (null, await ReadErrorMessageAsync(response) ?? "Tài khoản không được phép thanh toán nâng VIP.");
+            var result = await response.Content.ReadFromJsonAsync<ApiVipCheckout>(JsonOptions);
+            return (result?.PaymentUrl, null);
+        }
         public async Task<T?> AdminReadAsync<T>(string path) => await _http.GetFromJsonAsync<T>("/api/admin-review/" + path, JsonOptions);
         public async Task<string?> ApproveExamAsync(int id, string fingerprint, bool reviewed)
         {

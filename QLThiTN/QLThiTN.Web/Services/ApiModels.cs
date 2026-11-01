@@ -163,6 +163,7 @@ public class ApiDotThi
 
 public class ApiProfile
 {
+    public DateTime? VipExpiresUtc { get; set; }
     public int TaiKhoanID { get; set; }
     public string TenDangNhap { get; set; } = string.Empty;
     public string HoTen { get; set; } = string.Empty;

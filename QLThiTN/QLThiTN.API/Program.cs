@@ -6,6 +6,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, reloadOnChange: true);
 
 builder.Services.AddControllers();
+builder.Services.Configure<VipPaymentSettings>(builder.Configuration.GetSection("VipPayment"));
+builder.Services.AddHttpClient<PayOsGateway>(client => {
+    client.BaseAddress = new Uri("https://api-merchant.payos.vn/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+});
 builder.Services.AddHostedService<ExamExpiryWorker>();
 builder.Services.AddAuthentication("Bearer").AddBearerToken("Bearer", options =>
     options.BearerTokenExpiration = TimeSpan.FromHours(8));
@@ -33,6 +38,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<QLThiTNDbContext>();
     await db.Database.ExecuteSqlRawAsync(GoiThi.SchemaSql);
+    await db.Database.ExecuteSqlRawAsync(VipPaymentGateway.SchemaSql);
     await db.Database.ExecuteSqlRawAsync(QLThiTN.Shared.WorkflowSchema.Sql);
     await db.Database.ExecuteSqlRawAsync(QLThiTN.API.Controllers.ExamActivityController.SchemaSql);
 }

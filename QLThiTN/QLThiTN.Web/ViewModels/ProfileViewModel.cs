@@ -4,6 +4,7 @@ namespace QLThiTN.Web.ViewModels;
 
 public class ProfileViewModel
 {
+    public DateTime? VipExpiresUtc { get; set; }
     public int Id { get; set; }
 
     [Required(ErrorMessage = "Vui lòng nhập họ tên")]

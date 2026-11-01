@@ -18,6 +18,8 @@ public static class Database
     public static void EnsureGoiColumns()
     {
         Execute(@"
+IF COL_LENGTH('HocVien', 'VipExpiresUtc') IS NULL
+    ALTER TABLE HocVien ADD VipExpiresUtc datetime2 NULL;
 IF COL_LENGTH('HocVien', 'LoaiGoi') IS NULL
     ALTER TABLE HocVien ADD LoaiGoi NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi';
 IF COL_LENGTH('HocVien', 'NguonTaiKhoan') IS NULL

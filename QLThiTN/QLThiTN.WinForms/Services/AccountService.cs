@@ -17,8 +17,8 @@ public class AccountService
                    COALESCE(hv.LoaiGoi, N'') AS LoaiGoi, COALESCE(hv.NguonTaiKhoan,N'') AS NguonTaiKhoan,
                    CASE
                        WHEN tk.VaiTro <> N'HocVien' THEN N'—'
-                       WHEN hv.LoaiGoi = N'DongPhi' AND hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP cá nhân & trung tâm'
-                       WHEN hv.LoaiGoi = N'DongPhi' THEN N'VIP cá nhân'
+                       WHEN hv.LoaiGoi = N'DongPhi' AND (hv.VipExpiresUtc IS NULL OR hv.VipExpiresUtc > SYSUTCDATETIME()) AND hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP cá nhân & trung tâm'
+                       WHEN hv.LoaiGoi = N'DongPhi' AND (hv.VipExpiresUtc IS NULL OR hv.VipExpiresUtc > SYSUTCDATETIME()) THEN N'VIP cá nhân'
                        WHEN hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP trung tâm'
                        ELSE N'Miễn phí'
                    END AS TrangThaiGoi,

@@ -56,8 +56,8 @@ public sealed class PersonManagementService
                        CASE hv.LoaiHocVien WHEN N'HocSinh' THEN N'Học sinh' WHEN N'SinhVien' THEN N'Sinh viên'
                            ELSE N'Tự do' END AS LoaiHocVienHienThi,
                        CASE
-                           WHEN hv.LoaiGoi=N'DongPhi' AND hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP cá nhân & trung tâm'
-                           WHEN hv.LoaiGoi=N'DongPhi' THEN N'VIP cá nhân'
+                           WHEN hv.LoaiGoi=N'DongPhi' AND (hv.VipExpiresUtc IS NULL OR hv.VipExpiresUtc > SYSUTCDATETIME()) AND hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP cá nhân & trung tâm'
+                           WHEN hv.LoaiGoi=N'DongPhi' AND (hv.VipExpiresUtc IS NULL OR hv.VipExpiresUtc > SYSUTCDATETIME()) THEN N'VIP cá nhân'
                            WHEN hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP trung tâm'
                            ELSE N'Miễn phí'
                        END AS LoaiGoiHienThi,

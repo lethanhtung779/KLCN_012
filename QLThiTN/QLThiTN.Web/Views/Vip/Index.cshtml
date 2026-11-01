@@ -1,0 +1,68 @@
+@model QLThiTN.Web.Services.ApiVipPayment
+@{ ViewData["Title"] = "VIP cá nhân"; }
+<section class="py-5">
+    <div class="container" style="max-width: 850px;">
+        <a asp-controller="Account" asp-action="Profile" class="text-decoration-none"><i class="bi bi-arrow-left me-2"></i>Hồ sơ cá nhân</a>
+        <div class="card border-0 shadow-sm rounded-4 my-4">
+            <div class="card-body p-4 p-md-5">
+                <span class="badge bg-primary mb-3">Dành riêng cho học viên vãng lai</span>
+                <h1 class="h2 fw-bold">VIP cá nhân</h1>
+                <p class="text-muted">Mở quyền làm các đề VIP. Tài khoản của bạn vẫn là học viên vãng lai.</p>
+                @if (TempData["ErrorMessage"] is string error) { <div class="alert alert-danger" role="alert">@error</div> }
+                @if (Model.IsVip)
+                {
+                    <div class="alert alert-success"><i class="bi bi-patch-check-fill me-2"></i>Bạn đã có VIP cá nhân. Không cần thanh toán thêm.</div>
+                    @if (Model.VipExpiresUtc is DateTime expiry)
+                    {
+                        <p>Hiệu lực đến <strong>@expiry.AddHours(7).ToString("dd/MM/yyyy HH:mm")</strong> (giờ Việt Nam).</p>
+                    }
+                    <a asp-controller="Exam" asp-action="KhoDe" class="btn btn-primary">Khám phá đề thi</a>
+                }
+                else
+                {
+                    @if (ViewBag.Returned == true)
+                    {
+                        <div class="alert alert-info">Đã trở về từ cổng thanh toán. Quyền VIP chỉ được cập nhật khi máy chủ nhận xác nhận hợp lệ. Bạn có thể kiểm tra trạng thái bên dưới.</div>
+                    }
+                    @if (Model.Plans.Count > 0)
+                    {
+                        <div class="row g-3">
+                        @foreach (var plan in Model.Plans)
+                        {
+                            <div class="col-md-6"><div class="border rounded-4 p-4 h-100">
+                                <h2 class="h5">@plan.Name</h2>
+                                <p class="fs-3 fw-bold mb-1">@plan.PriceVnd.ToString("N0") đ</p>
+                                <p class="text-muted small">Tính từ lúc xác nhận thanh toán. Không tự động gia hạn.</p>
+                                <form asp-action="Checkout" method="post">
+                                    <input type="hidden" name="planId" value="@plan.Id" />
+                                    <button type="submit" class="btn btn-primary w-100" disabled="@(!Model.Ready)">Thanh toán qua payOS</button>
+                                </form>
+                            </div></div>
+                        }
+                        </div>
+                        <p class="small text-muted mt-3 mb-0">Đơn thanh toán có hiệu lực 15 phút. Nếu đã thanh toán, hãy chờ xác nhận trước khi tạo đơn khác.</p>
+                    }
+                    @if (!Model.Ready)
+                    {
+                        <div class="alert alert-secondary">Thanh toán đang được thiết lập. Vui lòng quay lại sau.</div>
+                    }
+                }
+            </div>
+        </div>
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h2 class="h5 mb-0">Lịch sử thanh toán</h2>
+            <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Cập nhật trạng thái</a>
+        </div>
+        @if (Model.Orders.Count == 0) { <p class="text-muted">Bạn chưa có giao dịch thanh toán.</p> }
+        @foreach (var order in Model.Orders)
+        {
+            <div class="card border-0 shadow-sm rounded-3 mb-3"><div class="card-body">
+                <div class="d-flex justify-content-between flex-wrap gap-2"><strong>@order.Amount.ToString("N0") đ</strong><span class="badge @(order.Status == "Paid" ? "bg-success" : "bg-secondary")">@order.Label</span></div>
+                <div class="small text-muted mt-2">@order.CreatedUtc.AddHours(7).ToString("dd/MM/yyyy HH:mm") (giờ Việt Nam)</div>
+                <div class="small">@(order.PlanId == "1year" ? "VIP 1 năm" : "VIP 30 ngày")</div>
+                @if (order.GrantedUntilUtc is DateTime until) { <div class="small">Hiệu lực được cấp đến @until.AddHours(7).ToString("dd/MM/yyyy HH:mm")</div> }
+                <div class="small text-muted text-break">Mã đơn: @order.Id</div>
+            </div></div>
+        }
+    </div>
+</section>
