@@ -15,6 +15,7 @@ public sealed class PersonRecord
     public DateTime? NgaySinh { get; set; }
     public string LoaiHocVien { get; set; } = "HocSinh";
     public string LoaiGoi { get; set; } = "MienPhi";
+    public string NguonTaiKhoan { get; set; } = "TrungTam";
     public string TrangThai { get; set; } = "HoatDong";
     public List<int> MonHocIds { get; set; } = [];
 }
@@ -22,6 +23,28 @@ public sealed class PersonRecord
 /// <summary>Quản lý hồ sơ học viên/giáo viên cùng tài khoản đăng nhập trong một giao dịch.</summary>
 public sealed class PersonManagementService
 {
+    /// <summary>Danh sách thuần thông tin cá nhân, không chứa tài khoản, quyền hoặc VIP.</summary>
+    public DataTable LayThongTinCaNhan(string vaiTro, string? tuKhoa)
+    {
+        Session.YeuCauQuanTriVien();
+        if (vaiTro is not ("HocVien" or "GiaoVien"))
+            throw new ArgumentException("Vai trò không hợp lệ.", nameof(vaiTro));
+
+        var table = vaiTro;
+        var idColumn = vaiTro == "HocVien" ? "HocVienID" : "GiaoVienID";
+        var personalFields = ProfileFields.ForRole(vaiTro);
+        var extra = string.Join(",", personalFields.Select(field => $"p.[{field.Key}]"));
+        var studentType = vaiTro == "HocVien"
+            ? ", CASE p.LoaiHocVien WHEN N'HocSinh' THEN N'Học sinh' WHEN N'SinhVien' THEN N'Sinh viên' ELSE N'Tự do' END AS LoaiHocVienHienThi"
+            : "";
+        return Database.Query($@"
+            SELECT p.[{idColumn}],p.HoTen,p.SoDienThoai,p.NgaySinh{studentType},{extra}
+            FROM [{table}] p
+            WHERE (@q=N'' OR p.HoTen LIKE N'%'+@q+N'%' OR p.SoDienThoai LIKE N'%'+@q+N'%'
+                OR p.DiaChi LIKE N'%'+@q+N'%' OR p.NguoiLienHe LIKE N'%'+@q+N'%')
+            ORDER BY p.HoTen", p => p.AddWithValue("@q", tuKhoa?.Trim() ?? ""));
+    }
+
     public DataTable LayDanhSach(string vaiTro, string? tuKhoa, string? trangThai)
     {
         Session.YeuCauQuanTriVien();
@@ -29,10 +52,24 @@ public sealed class PersonManagementService
             return Database.Query(@"
                 SELECT tk.TaiKhoanID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan,
                        hv.HocVienID, hv.HoTen, tk.TenDangNhap, tk.Email,
-                       hv.SoDienThoai, hv.NgaySinh, hv.LoaiHocVien, hv.LoaiGoi, tk.TrangThai,
+                       hv.SoDienThoai, hv.NgaySinh, hv.LoaiHocVien, hv.LoaiGoi, hv.NguonTaiKhoan, tk.TrangThai,
                        CASE hv.LoaiHocVien WHEN N'HocSinh' THEN N'Học sinh' WHEN N'SinhVien' THEN N'Sinh viên'
                            ELSE N'Tự do' END AS LoaiHocVienHienThi,
-                       CASE hv.LoaiGoi WHEN N'DongPhi' THEN N'Đóng phí (VIP)' ELSE N'Miễn phí' END AS LoaiGoiHienThi,
+                       CASE
+                           WHEN hv.LoaiGoi=N'DongPhi' AND hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP cá nhân & trung tâm'
+                           WHEN hv.LoaiGoi=N'DongPhi' THEN N'VIP cá nhân'
+                           WHEN hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP trung tâm'
+                           ELSE N'Miễn phí'
+                       END AS LoaiGoiHienThi,
+                       CASE hv.NguonTaiKhoan WHEN N'TrungTam' THEN N'Học viên trung tâm' ELSE N'Vãng lai' END AS QuanHeTrungTam,
+                       STUFF((SELECT N', ' + lh.TenLop + N' — ' + mh.TenMon
+                           FROM HocVien_Lop hl
+                           JOIN LopHoc lh ON lh.LopHocID=hl.LopHocID
+                           JOIN KhoaHoc kh ON kh.KhoaHocID=lh.KhoaHocID
+                           JOIN MonHoc mh ON mh.MonHocID=kh.MonHocID
+                           WHERE hl.HocVienID=hv.HocVienID AND hl.TrangThai=N'DangHoc'
+                           ORDER BY lh.TenLop
+                           FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'), 1, 2, N'') AS LopDangHoc,
                        CASE tk.TrangThai WHEN N'Khoa' THEN N'Đã khóa' ELSE N'Hoạt động' END AS TrangThaiHienThi,
                        (SELECT COUNT(*) FROM HocVien_Lop hl WHERE hl.HocVienID=hv.HocVienID
                            AND hl.TrangThai=N'DangHoc') AS SoLop, tk.NgayTao
@@ -41,7 +78,9 @@ public sealed class PersonManagementService
                   AND (@id = 0 OR tk.TaiKhoanID = @id)
                   AND (@status=N'' OR tk.TrangThai=@status)
                   AND (@q=N'' OR hv.HoTen LIKE N'%'+@q+N'%' OR tk.TenDangNhap LIKE N'%'+@q+N'%'
-                      OR tk.Email LIKE N'%'+@q+N'%' OR hv.SoDienThoai LIKE N'%'+@q+N'%')
+                      OR tk.Email LIKE N'%'+@q+N'%' OR hv.SoDienThoai LIKE N'%'+@q+N'%'
+                      OR EXISTS (SELECT 1 FROM HocVien_Lop hl JOIN LopHoc lh ON lh.LopHocID=hl.LopHocID
+                          WHERE hl.HocVienID=hv.HocVienID AND lh.TenLop LIKE N'%'+@q+N'%'))
                 ORDER BY hv.HocVienID DESC", p => BindFilter(p, tuKhoa, trangThai));
         if (vaiTro == "GiaoVien")
             return Database.Query(@"
@@ -88,8 +127,8 @@ public sealed class PersonManagementService
         if (vaiTro is not ("HocVien" or "GiaoVien")) throw new ArgumentException("Vai trò không hợp lệ.");
         var profile = vaiTro == "HocVien" ? "HocVien" : "GiaoVien";
         var extras = vaiTro == "HocVien"
-            ? "p.NgaySinh, p.LoaiHocVien, p.LoaiGoi"
-            : "p.NgaySinh, CAST(NULL AS nvarchar(50)) AS LoaiHocVien, CAST(NULL AS nvarchar(20)) AS LoaiGoi";
+            ? "p.NgaySinh, p.LoaiHocVien, p.LoaiGoi, p.NguonTaiKhoan"
+            : "p.NgaySinh, CAST(NULL AS nvarchar(50)) AS LoaiHocVien, CAST(NULL AS nvarchar(20)) AS LoaiGoi, CAST(NULL AS nvarchar(20)) AS NguonTaiKhoan";
         var profileFields = ProfileFields.ForRole(vaiTro);
         var data = Database.Query($@"
             SELECT tk.TaiKhoanID, tk.VaiTro, tk.TenDangNhap, tk.Email, tk.TrangThai,
@@ -113,6 +152,7 @@ public sealed class PersonManagementService
             NgaySinh = r["NgaySinh"] == DBNull.Value ? null : Convert.ToDateTime(r["NgaySinh"]),
             LoaiHocVien = r["LoaiHocVien"] == DBNull.Value ? "HocSinh" : r["LoaiHocVien"].ToString()!,
             LoaiGoi = r["LoaiGoi"] == DBNull.Value ? "MienPhi" : r["LoaiGoi"].ToString()!,
+            NguonTaiKhoan = r["NguonTaiKhoan"] == DBNull.Value ? "TrungTam" : r["NguonTaiKhoan"].ToString()!,
             TrangThai = r["TrangThai"].ToString() ?? "HoatDong"
         };
         foreach (var field in profileFields) item.HoSo[field.Key] = r[field.Key].ToString() ?? "";
@@ -264,8 +304,8 @@ public sealed class PersonManagementService
                 if (item.VaiTro == "HocVien")
                 {
                     using var profile = new SqlCommand(@"
-                        INSERT INTO HocVien(TaiKhoanID,HoTen,SoDienThoai,NgaySinh,LoaiHocVien,LoaiGoi)
-                        VALUES(@id,@name,@phone,@birth,@type,@package)", conn, tx);
+                        INSERT INTO HocVien(TaiKhoanID,HoTen,SoDienThoai,NgaySinh,LoaiHocVien,LoaiGoi,NguonTaiKhoan)
+                        VALUES(@id,@name,@phone,@birth,@type,@package,N'TrungTam')", conn, tx);
                     BindStudent(profile, id, item);
                     profile.ExecuteNonQuery();
                 }

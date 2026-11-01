@@ -92,6 +92,7 @@ public class AuthController : ControllerBase
                 HoTen = fullName,
                 LoaiHocVien = "TuDo",
                 LoaiGoi = GoiThi.MienPhi,
+                NguonTaiKhoan = GoiThi.VangLai,
                 NgayDangKy = DateTime.Now
             };
 
@@ -139,6 +140,7 @@ public class AuthController : ControllerBase
 
         var hv = await _db.HocViens.FirstOrDefaultAsync(h => h.TaiKhoanID == taiKhoanId);
         var gv = await _db.GiaoViens.FirstOrDefaultAsync(g => g.TaiKhoanID == taiKhoanId);
+        var quyen = hv is null ? null : await GoiThi.LayQuyenAsync(_db, hv.HocVienID);
 
         return Ok(new ProfileResponseDto
         {
@@ -151,7 +153,11 @@ public class AuthController : ControllerBase
             SoDienThoai = hv?.SoDienThoai,
             NgayDangKy = hv?.NgayDangKy ?? tk.NgayTao,
             HocVienID = hv?.HocVienID,
-            LoaiGoi = hv?.LoaiGoi ?? string.Empty
+            LoaiGoi = quyen?.LoaiGoiHieuLuc ?? string.Empty,
+            LoaiGoiCaNhan = hv?.LoaiGoi ?? string.Empty,
+            LaHocVienTrungTam = quyen?.LaHocVienTrungTam ?? false,
+            LaVip = quyen?.LaVip ?? false,
+            NguonVip = quyen?.NguonVip ?? string.Empty
         });
     }
 
@@ -205,6 +211,7 @@ public class AuthController : ControllerBase
     {
         var gv = await _db.GiaoViens.FirstOrDefaultAsync(g => g.TaiKhoanID == tk.TaiKhoanID);
         var hv = await _db.HocViens.FirstOrDefaultAsync(h => h.TaiKhoanID == tk.TaiKhoanID);
+        var quyen = hv is null ? null : await GoiThi.LayQuyenAsync(_db, hv.HocVienID);
 
         return new AuthResponseDto
         {
@@ -215,7 +222,11 @@ public class AuthController : ControllerBase
             HoTen = gv?.HoTen ?? hv?.HoTen ?? tk.TenDangNhap,
             HocVienID = hv?.HocVienID,
             GiaoVienID = gv?.GiaoVienID,
-            LoaiGoi = hv?.LoaiGoi ?? string.Empty
+            LoaiGoi = quyen?.LoaiGoiHieuLuc ?? string.Empty,
+            LoaiGoiCaNhan = hv?.LoaiGoi ?? string.Empty,
+            LaHocVienTrungTam = quyen?.LaHocVienTrungTam ?? false,
+            LaVip = quyen?.LaVip ?? false,
+            NguonVip = quyen?.NguonVip ?? string.Empty
         };
     }
 

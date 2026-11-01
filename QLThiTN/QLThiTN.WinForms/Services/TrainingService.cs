@@ -274,6 +274,46 @@ public class TrainingService
         return (true, "");
     }
 
+    public DataTable LayLopCuaHocVien(int hocVienId)
+    {
+        Session.YeuCauQuanTriVien();
+        return Database.Query(@"
+            SELECT hvl.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000')) AS MaLop,
+                   lh.TenLop, kh.TenKhoaHoc, mh.TenMon,
+                   STUFF((SELECT N', ' + gv.HoTen FROM PhanCongGiangDay pc
+                       JOIN GiaoVien gv ON gv.GiaoVienID=pc.GiaoVienID
+                       WHERE pc.LopHocID=lh.LopHocID ORDER BY gv.HoTen
+                       FOR XML PATH(''), TYPE).value('.', 'nvarchar(max)'),1,2,N'') AS GiaoVienPhuTrach,
+                   hvl.NgayThamGia, hvl.TrangThai,
+                   CASE hvl.TrangThai WHEN N'DangHoc' THEN N'Đang học'
+                       WHEN N'DaKetThuc' THEN N'Đã kết thúc' ELSE N'Thôi học' END AS TrangThaiHienThi
+            FROM HocVien_Lop hvl
+            JOIN LopHoc lh ON lh.LopHocID=hvl.LopHocID
+            JOIN KhoaHoc kh ON kh.KhoaHocID=lh.KhoaHocID
+            JOIN MonHoc mh ON mh.MonHocID=kh.MonHocID
+            WHERE hvl.HocVienID=@hv
+            ORDER BY CASE hvl.TrangThai WHEN N'DangHoc' THEN 0 ELSE 1 END, lh.TenLop",
+            p => p.AddWithValue("@hv", hocVienId));
+    }
+
+    public DataTable LayLopCoTheThemHocVien(int hocVienId)
+    {
+        Session.YeuCauQuanTriVien();
+        return Database.Query(@"
+            SELECT lh.LopHocID,
+                   CONCAT('LH', FORMAT(lh.LopHocID, '000000'), N' · ', lh.TenLop,
+                       N' — ', mh.TenMon, N' (', kh.TenKhoaHoc, N')') AS TenHienThi
+            FROM LopHoc lh
+            JOIN KhoaHoc kh ON kh.KhoaHocID=lh.KhoaHocID
+            JOIN MonHoc mh ON mh.MonHocID=kh.MonHocID
+            WHERE kh.TrangThai<>N'DaKetThuc'
+              AND EXISTS (SELECT 1 FROM HocVien hv WHERE hv.HocVienID=@hv AND hv.NguonTaiKhoan=N'TrungTam')
+              AND NOT EXISTS (SELECT 1 FROM HocVien_Lop hvl
+                  WHERE hvl.HocVienID=@hv AND hvl.LopHocID=lh.LopHocID AND hvl.TrangThai=N'DangHoc')
+            ORDER BY mh.TenMon,lh.TenLop",
+            p => p.AddWithValue("@hv", hocVienId));
+    }
+
     public DataTable LayHocVienTrongLop(int lopHocId) =>
         Database.Query(@"
             SELECT hvl.HocVienID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan, hv.HoTen, tk.TenDangNhap, tk.Email,
@@ -292,6 +332,7 @@ public class TrainingService
             FROM HocVien hv
             INNER JOIN TaiKhoan tk ON tk.TaiKhoanID = hv.TaiKhoanID
             WHERE tk.VaiTro = N'HocVien' AND tk.TrangThai = N'HoatDong'
+              AND hv.NguonTaiKhoan=N'TrungTam'
               AND (@accountId = 0 OR tk.TaiKhoanID = @accountId)
               AND NOT EXISTS (SELECT 1 FROM HocVien_Lop hvl WHERE hvl.HocVienID = hv.HocVienID AND hvl.LopHocID = @lop)
               AND (@tuKhoa = N'' OR hv.HoTen LIKE N'%' + @tuKhoa + N'%'
@@ -310,10 +351,21 @@ public class TrainingService
     {
         Session.YeuCauQuanTriVien();
         if (lopHocId <= 0 || hocVienId <= 0) return (false, "Dữ liệu không hợp lệ.");
-        if (Database.ExecuteScalarInt(
-                "SELECT COUNT(1) FROM HocVien_Lop WHERE LopHocID = @lop AND HocVienID = @hv",
-                p => { p.AddWithValue("@lop", lopHocId); p.AddWithValue("@hv", hocVienId); }) > 0)
-            return (false, "Học viên đã có trong lớp này.");
+        if (Database.ExecuteScalarString("SELECT NguonTaiKhoan FROM HocVien WHERE HocVienID=@hv",
+                p => p.AddWithValue("@hv", hocVienId)) != "TrungTam")
+            return (false, "Tài khoản học viên vãng lai không được xếp vào lớp trung tâm. Hãy tạo tài khoản học viên trung tâm mới.");
+        var existing = Database.ExecuteScalarString(
+            "SELECT TrangThai FROM HocVien_Lop WHERE LopHocID=@lop AND HocVienID=@hv",
+            p => { p.AddWithValue("@lop", lopHocId); p.AddWithValue("@hv", hocVienId); });
+        if (existing == TrangThaiHocVienLop.DangHoc)
+            return (false, "Học viên đang học trong lớp này.");
+        if (!string.IsNullOrEmpty(existing))
+        {
+            Database.Execute(@"UPDATE HocVien_Lop SET TrangThai=N'DangHoc',NgayThamGia=SYSDATETIME()
+                WHERE LopHocID=@lop AND HocVienID=@hv",
+                p => { p.AddWithValue("@lop", lopHocId); p.AddWithValue("@hv", hocVienId); });
+            return (true, "");
+        }
 
         Database.Execute(@"
             INSERT INTO HocVien_Lop (HocVienID, LopHocID, NgayThamGia, TrangThai)

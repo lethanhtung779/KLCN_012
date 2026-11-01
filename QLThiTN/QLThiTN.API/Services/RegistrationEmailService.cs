@@ -141,8 +141,9 @@ public class RegistrationEmailService(
             {
                 TaiKhoanID = tk.TaiKhoanID,
                 HoTen = row.HoTen,
-                LoaiHocVien = "HocSinh",
+                LoaiHocVien = "TuDo",
                 LoaiGoi = GoiThi.MienPhi,
+                NguonTaiKhoan = GoiThi.VangLai,
                 NgayDangKy = DateTime.Now
             });
             await db.SaveChangesAsync();
@@ -184,7 +185,12 @@ public class RegistrationEmailService(
             Email = tk.Email,
             VaiTro = tk.VaiTro,
             HoTen = hv?.HoTen ?? tk.TenDangNhap,
-            HocVienID = hv?.HocVienID
+            HocVienID = hv?.HocVienID,
+            LoaiGoi = GoiThi.MienPhi,
+            LoaiGoiCaNhan = GoiThi.MienPhi,
+            LaHocVienTrungTam = false,
+            LaVip = false,
+            NguonVip = "KhongCo"
         };
     }
 }

@@ -104,14 +104,20 @@ public sealed class frmPersonEdit : Form
             _studentType.Items.AddRange(["Học sinh", "Tự do"]);
             _studentType.SelectedIndex = _record.LoaiHocVien switch { "HocSinh" => 0, "TuDo" => 1, _ => -1 };
             _package.DropDownStyle = ComboBoxStyle.DropDownList;
-            _package.Items.AddRange(["Miễn phí", "Đóng phí (VIP)"]);
+            _package.Items.AddRange(["Không có VIP cá nhân", "VIP cá nhân"]);
             _package.SelectedIndex = _record.LoaiGoi == "DongPhi" ? 1 : 0;
+            _package.Enabled = _record.NguonTaiKhoan == "VangLai";
             _birth.Checked = _record.NgaySinh.HasValue;
             _birth.Value = _record.NgaySinh ?? DateTime.Today.AddYears(-18);
             AddLabel(taiKhoanId == 0 ? "Ngày sinh *" : "Ngày sinh (bỏ chọn nếu chưa rõ)", 24, 336); AddInput(_birth, 24, 362);
             AddLabel("Loại học viên *", 390, 336); AddInput(_studentType, 390, 362);
-            AddLabel("Gói sử dụng", 24, 414); AddInput(_package, 24, 440);
-            var note = Ui.Label("Việc xếp học viên vào lớp được thực hiện ở Khóa học & Lớp → Xếp học viên.", Ui.Small, Ui.TextMuted);
+            AddLabel("Gói cá nhân (không bắt buộc với học viên trung tâm)", 24, 414); AddInput(_package, 24, 440);
+            var note = Ui.Label(taiKhoanId == 0
+                ? "Tài khoản do admin tạo là học viên trung tâm, được xếp lớp và tự có VIP trung tâm."
+                : (_record.NguonTaiKhoan == "TrungTam"
+                    ? "Đây là tài khoản học viên trung tâm, được xếp lớp và có VIP trung tâm."
+                    : "Đây là tài khoản vãng lai đăng ký Web; không thể xếp lớp. Muốn học tại trung tâm phải tạo tài khoản mới."),
+                Ui.Small, Ui.TextMuted);
             note.Location = new Point(24, 490);
             note.AutoSize = true;
             scroll.Controls.Add(note);
@@ -320,7 +326,8 @@ public sealed class frmPersonEdit : Form
         {
             _record.NgaySinh = _birth.Checked ? _birth.Value.Date : null;
             _record.LoaiHocVien = _studentType.SelectedIndex == 1 ? "TuDo" : "HocSinh";
-            _record.LoaiGoi = _package.SelectedIndex == 1 ? "DongPhi" : "MienPhi";
+            _record.LoaiGoi = _record.NguonTaiKhoan == "VangLai" && _package.SelectedIndex == 1
+                ? "DongPhi" : "MienPhi";
         }
         else
             _record.MonHocIds = _subjects.CheckedItems.Cast<SubjectOption>().Select(x => x.Id).ToList();

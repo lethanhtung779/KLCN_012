@@ -2,7 +2,7 @@
 @{
     var now = DateTime.Now;
     var isOpen = Model.IsOpen;
-    var khoaGoi = !Model.LaMienPhi && Context.Session.GetString("LoaiGoi") != "DongPhi";
+    var khoaGoi = !Model.LaMienPhi && Context.Session.GetString("LaVip") != "1" && Context.Session.GetString("LoaiGoi") != "DongPhi";
 }
 <div class="card card-exam h-100">
     <div class="card-body d-flex flex-column">

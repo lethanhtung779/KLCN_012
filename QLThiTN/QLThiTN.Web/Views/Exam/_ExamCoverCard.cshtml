@@ -3,7 +3,7 @@
     var now = DateTime.Now;
     var isOpen = Model.IsOpen;
     var loaiDe = Model.ExamKind.ToDisplayName();
-    var khoaGoi = !Model.LaMienPhi && Context.Session.GetString("LoaiGoi") != "DongPhi";
+    var khoaGoi = !Model.LaMienPhi && Context.Session.GetString("LaVip") != "1" && Context.Session.GetString("LoaiGoi") != "DongPhi";
 }
 <div class="card exam-cover-card h-100 exam-item" data-loaide="@Model.ExamKind" data-trangthai="@(Model.StartTime > now ? "SapMo" : Model.EndTime < now || !isOpen ? "DaDong" : "DangMo")">
     <partial name="_ExamCover" model="Model" />

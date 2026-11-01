@@ -14,12 +14,19 @@ public class AccountService
             SELECT tk.TaiKhoanID, CONCAT('TK', FORMAT(tk.TaiKhoanID, '000000')) AS MaTaiKhoan,
                    tk.TenDangNhap, tk.Email, tk.VaiTro, tk.TrangThai,
                    COALESCE(gv.HoTen, hv.HoTen, qtv.HoTen, N'') AS HoTen,
-                   COALESCE(hv.LoaiGoi, N'') AS LoaiGoi,
+                   COALESCE(hv.LoaiGoi, N'') AS LoaiGoi, COALESCE(hv.NguonTaiKhoan,N'') AS NguonTaiKhoan,
                    CASE
                        WHEN tk.VaiTro <> N'HocVien' THEN N'—'
-                       WHEN hv.LoaiGoi = N'DongPhi' THEN N'Đóng phí'
+                       WHEN hv.LoaiGoi = N'DongPhi' AND hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP cá nhân & trung tâm'
+                       WHEN hv.LoaiGoi = N'DongPhi' THEN N'VIP cá nhân'
+                       WHEN hv.NguonTaiKhoan=N'TrungTam' THEN N'VIP trung tâm'
                        ELSE N'Miễn phí'
                    END AS TrangThaiGoi,
+                   CASE
+                       WHEN tk.VaiTro <> N'HocVien' THEN N'—'
+                       WHEN hv.NguonTaiKhoan=N'TrungTam' THEN N'Học viên trung tâm'
+                       ELSE N'Vãng lai'
+                   END AS QuanHeTrungTam,
                    tk.NgayTao
             FROM TaiKhoan tk
             LEFT JOIN GiaoVien gv ON gv.TaiKhoanID = tk.TaiKhoanID
@@ -87,8 +94,8 @@ public class AccountService
             "QuanTriVien" => "QuanTriVien",
             _ => "HocVien"
         };
-        var loaiHocVien = vaiTro == "HocVien" ? ", LoaiHocVien, LoaiGoi" : "";
-        var giaTriHocVien = vaiTro == "HocVien" ? ", N'HocSinh', N'MienPhi'" : "";
+        var loaiHocVien = vaiTro == "HocVien" ? ", LoaiHocVien, LoaiGoi, NguonTaiKhoan" : "";
+        var giaTriHocVien = vaiTro == "HocVien" ? ", N'HocSinh', N'MienPhi', N'TrungTam'" : "";
 
         using var conn = Database.Open();
         using var tx = conn.BeginTransaction();
@@ -161,6 +168,30 @@ public class AccountService
         }
     }
 
+    /// <summary>Chỉ cập nhật thông tin đăng nhập; hồ sơ cá nhân được quản lý ở màn hình chuyên biệt.</summary>
+    public (bool Ok, string Error) SuaEmail(int taiKhoanId, string email)
+    {
+        Session.YeuCauQuanTriVien();
+        email = email.Trim();
+        if (!DirectoryRules.ValidEmail(email))
+            return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).");
+        if (EmailTonTai(email, taiKhoanId))
+            return (false, $"Email '{email}' đã được sử dụng.");
+        try
+        {
+            Database.Execute("UPDATE TaiKhoan SET Email=@email WHERE TaiKhoanID=@id", p =>
+            {
+                p.AddWithValue("@email", email);
+                p.AddWithValue("@id", taiKhoanId);
+            });
+            return (true, "");
+        }
+        catch (Exception ex)
+        {
+            return (false, "Lỗi khi cập nhật email đăng nhập: " + ex.Message);
+        }
+    }
+
     /// <summary>Dat lai mat khau cho tai khoan (quan tri vien reset).</summary>
     public void DatLaiMatKhau(int taiKhoanId, string matKhauMoi)
     {
@@ -169,7 +200,7 @@ public class AccountService
             p => { p.AddWithValue("@p", PasswordHelper.Hash(matKhauMoi)); p.AddWithValue("@id", taiKhoanId); });
     }
 
-    /// <summary>Cap goi cho hoc vien. Khi chuyen sang DongPhi lan dau se gui email VIP.</summary>
+    /// <summary>Cấp VIP cá nhân cho tài khoản vãng lai. Học viên trung tâm luôn có VIP trung tâm.</summary>
     public (bool Ok, string Message) CapQuyenGoi(int taiKhoanId, string loaiGoi)
     {
         Session.YeuCauQuanTriVien();
@@ -177,7 +208,7 @@ public class AccountService
             return (false, "Gói không hợp lệ.");
 
         var row = Database.Query(@"
-            SELECT tk.VaiTro, tk.Email, hv.HoTen, hv.LoaiGoi
+            SELECT tk.VaiTro, tk.Email, hv.HoTen, hv.LoaiGoi, hv.NguonTaiKhoan
             FROM TaiKhoan tk
             LEFT JOIN HocVien hv ON hv.TaiKhoanID = tk.TaiKhoanID
             WHERE tk.TaiKhoanID = @id",
@@ -186,6 +217,8 @@ public class AccountService
             return (false, "Không tìm thấy tài khoản.");
         if (row.Rows[0]["VaiTro"]?.ToString() != "HocVien")
             return (false, "Chỉ học viên mới được cấp gói miễn phí hoặc đóng phí.");
+        if (row.Rows[0]["NguonTaiKhoan"]?.ToString() == "TrungTam")
+            return (false, "Học viên trung tâm đã có VIP trung tâm mặc định, không cần cấp VIP cá nhân.");
 
         var cu = row.Rows[0]["LoaiGoi"]?.ToString();
         if (string.IsNullOrWhiteSpace(cu)) cu = "MienPhi";
@@ -198,11 +231,11 @@ public class AccountService
             });
 
         if (loaiGoi != "DongPhi")
-            return (true, "Đã chuyển tài khoản về gói miễn phí.");
+            return (true, "Đã gỡ VIP cá nhân khỏi tài khoản vãng lai.");
 
         // Chi gui email VIP khi chuyen tu mien phi sang dong phi (khong gui khi dang ky web).
         if (cu == "DongPhi")
-            return (true, "Tài khoản đã ở gói đóng phí (VIP). Không gửi lại email VIP.");
+            return (true, "Tài khoản đã có VIP cá nhân. Không gửi lại email VIP.");
 
         var email = row.Rows[0]["Email"]?.ToString() ?? "";
         var hoTen = row.Rows[0]["HoTen"]?.ToString() ?? "";
@@ -210,7 +243,7 @@ public class AccountService
         if (!sent)
             return (true, "Đã cấp quyền đóng phí, nhưng chưa gửi được email.\n" + error);
 
-        return (true, $"Đã nâng VIP và gửi email tới {email}.");
+        return (true, $"Đã cấp VIP cá nhân và gửi email tới {email}.");
     }
 
     /// <summary>Khoa / mo tai khoan.</summary>

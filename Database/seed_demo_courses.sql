@@ -33,7 +33,8 @@ BEGIN
     -- 6. Xep hoc vien vao lop
     INSERT INTO HocVien_Lop (HocVienID, LopHocID, NgayThamGia, TrangThai)
     SELECT TOP 5 HocVienID, @LopHocID, GETDATE(), N'DangHoc'
-    FROM HocVien;
+    FROM HocVien
+    WHERE NguonTaiKhoan=N'TrungTam';
 
     -- 7. Lich hoc
     INSERT INTO LichHoc (LopHocID, NoiDung, ThoiGianBatDau, ThoiGianKetThuc, DiaDiem)

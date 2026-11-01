@@ -15,7 +15,7 @@ public class frmAccounts : Form
     public frmAccounts()
     {
         Session.YeuCauQuanTriVien();
-        Text = "Quản lý tài khoản";
+        Text = "Tài khoản & phân quyền";
         Font = Ui.Body;
 
         // Thanh cong cu tren cung
@@ -41,8 +41,8 @@ public class frmAccounts : Form
             if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
         };
 
-        var btnSua = Ui.ButtonPrimary("✎ Sửa tài khoản / hồ sơ", 190);
-        btnSua.Click += (s, e) => Sua();
+        var btnSua = Ui.ButtonPrimary("✎ Sửa email đăng nhập", 190);
+        btnSua.Click += (s, e) => SuaEmail();
 
         var btnKhoa = Ui.ButtonOutline("🔒 Khóa / Mở", 140);
         btnKhoa.Click += (s, e) => KhoaMo();
@@ -86,31 +86,11 @@ public class frmAccounts : Form
         _lblInfo.Location = new Point(16, 8);
         panelInfo.Controls.Add(_lblInfo);
 
-        var tabs = new TabControl { Dock = DockStyle.Fill, Font = Ui.Body };
-        var accountsTab = new TabPage("Tài khoản & phân quyền") { BackColor = Color.White };
-        accountsTab.Controls.Add(_grid);
-        accountsTab.Controls.Add(panelInfo);
-        accountsTab.Controls.Add(toolbar);
-        tabs.TabPages.Add(accountsTab);
-        var studentsTab = new TabPage("Danh sách học viên") { BackColor = Color.White };
-        tabs.TabPages.Add(studentsTab);
-        var teachersTab = new TabPage("Danh sách giáo viên") { BackColor = Color.White };
-        tabs.TabPages.Add(teachersTab);
-        tabs.SelectedIndexChanged += (_, _) =>
-        {
-            var page = tabs.SelectedTab;
-            if (page == studentsTab || page == teachersTab)
-            {
-                if (page.Controls.Count == 0)
-                    page.Controls.Add(new PersonDirectoryPanel(page == studentsTab ? "HocVien" : "GiaoVien"));
-                else
-                    ((PersonDirectoryPanel)page.Controls[0]).RefreshList();
-            }
-        };
-        Controls.Add(tabs);
-
         _grid.Dock = DockStyle.Fill;
-        _grid.CellDoubleClick += (s, e) => Sua();
+        _grid.CellDoubleClick += (s, e) => SuaEmail();
+        Controls.Add(_grid);
+        Controls.Add(panelInfo);
+        Controls.Add(toolbar);
 
         Load += (_, _) => TaiLai();
     }
@@ -129,8 +109,8 @@ public class frmAccounts : Form
         Ui.RenameColumns(_grid,
             ("MaTaiKhoan", "Mã tài khoản"), ("TaiKhoanID", "ID"), ("TenDangNhap", "Tên đăng nhập"), ("Email", "Email"),
             ("VaiTro", "Vai trò"), ("TrangThai", "Trạng thái"), ("HoTen", "Họ và tên"),
-            ("TrangThaiGoi", "Gói"), ("NgayTao", "Ngày tạo"));
-        Ui.HideColumns(_grid, "TaiKhoanID", "LoaiGoi");
+            ("QuanHeTrungTam", "Quan hệ trung tâm"), ("TrangThaiGoi", "Quyền VIP"), ("NgayTao", "Ngày tạo"));
+        Ui.HideColumns(_grid, "TaiKhoanID", "LoaiGoi", "NguonTaiKhoan");
         _lblInfo.Text = CapNhatInfo();
         }
         catch (Exception ex)
@@ -154,20 +134,14 @@ public class frmAccounts : Form
             ? Convert.ToInt32(_grid.CurrentRow.Cells["TaiKhoanID"].Value)
             : 0;
 
-    private void Sua()
+    private void SuaEmail()
     {
         if (IdDangChon() == 0) { MessageBox.Show("Hãy chọn một tài khoản trong danh sách.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
         var row = _grid.CurrentRow!;
-        var vaiTro = row.Cells["VaiTro"].Value?.ToString() ?? "HocVien";
-        using Form f = vaiTro is "HocVien" or "GiaoVien"
-            ? new frmPersonEdit(vaiTro, IdDangChon())
-            : new frmAccountEdit(
-                IdDangChon(),
-                row.Cells["TenDangNhap"].Value?.ToString() ?? "",
-                row.Cells["Email"].Value?.ToString() ?? "",
-                row.Cells["HoTen"].Value?.ToString() ?? "",
-                vaiTro,
-                chiQuanTriVien: true);
+        using var f = new frmAccountEmailEdit(
+            IdDangChon(),
+            row.Cells["TenDangNhap"].Value?.ToString() ?? "",
+            row.Cells["Email"].Value?.ToString() ?? "");
         if (f.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
     }
 
@@ -184,6 +158,11 @@ public class frmAccounts : Form
         if (row.Cells["VaiTro"].Value?.ToString() != "HocVien")
         {
             MessageBox.Show("Chỉ học viên mới được cấp gói miễn phí hoặc đóng phí.", "Thông báo");
+            return;
+        }
+        if (row.Cells["NguonTaiKhoan"].Value?.ToString() == "TrungTam")
+        {
+            MessageBox.Show("Học viên trung tâm đã có VIP trung tâm mặc định, không cần cấp VIP cá nhân.", "Thông báo");
             return;
         }
 
@@ -270,14 +249,14 @@ public class frmCapQuyenGoi : Form
 
         var rbMien = new RadioButton
         {
-            Text = "Miễn phí — chỉ làm được các đề thi miễn phí",
+            Text = "Không có VIP cá nhân — học viên trung tâm vẫn tự có VIP",
             Location = new Point(20, 90),
             AutoSize = true,
             Checked = loaiHienTai != "DongPhi"
         };
         var rbPhi = new RadioButton
         {
-            Text = "Đóng phí (VIP) — được thi toàn bộ đề",
+            Text = "VIP cá nhân — giữ VIP kể cả khi không còn học tại trung tâm",
             Location = new Point(20, 124),
             AutoSize = true,
             Checked = loaiHienTai == "DongPhi"

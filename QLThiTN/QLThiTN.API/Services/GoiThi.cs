@@ -8,13 +8,42 @@ public static class GoiThi
 {
     public const string MienPhi = "MienPhi";
     public const string DongPhi = "DongPhi";
+    public const string VangLai = "VangLai";
+    public const string TrungTam = "TrungTam";
 
     public const string ThongBao =
-        "Đề thi này chỉ dành cho tài khoản đã đóng phí (VIP). Tài khoản miễn phí chỉ được làm các đề miễn phí.";
+        "Đề thi này chỉ dành cho học viên trung tâm hoặc tài khoản có VIP cá nhân. Tài khoản miễn phí chỉ được làm các đề miễn phí.";
+
+    public sealed record QuyenHocVien(bool LaHocVienTrungTam, bool LaVipCaNhan)
+    {
+        public bool LaVip => LaHocVienTrungTam || LaVipCaNhan;
+        public string LoaiGoiHieuLuc => LaVip ? DongPhi : MienPhi;
+        public string NguonVip => LaVipCaNhan && LaHocVienTrungTam ? "CaNhanVaTrungTam"
+            : LaVipCaNhan ? "CaNhan"
+            : LaHocVienTrungTam ? "TrungTam"
+            : "KhongCo";
+    }
 
     public const string SchemaSql = @"
 IF COL_LENGTH('HocVien', 'LoaiGoi') IS NULL
     ALTER TABLE HocVien ADD LoaiGoi NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi';
+IF COL_LENGTH('HocVien', 'NguonTaiKhoan') IS NULL
+BEGIN
+    ALTER TABLE HocVien ADD NguonTaiKhoan NVARCHAR(20) NOT NULL
+        CONSTRAINT DF_HocVien_NguonTaiKhoan DEFAULT N'TrungTam';
+    EXEC(N'UPDATE HocVien SET NguonTaiKhoan=N''VangLai'' WHERE LoaiHocVien=N''TuDo''');
+    IF OBJECT_ID(N'dbo.DangKyXacMinhEmail', N'U') IS NOT NULL
+        EXEC(N'UPDATE hv SET NguonTaiKhoan=N''VangLai'' FROM HocVien hv JOIN TaiKhoan tk ON tk.TaiKhoanID=hv.TaiKhoanID WHERE EXISTS(SELECT 1 FROM DangKyXacMinhEmail d WHERE d.Email=tk.Email AND d.DaSuDung=1)');
+    EXEC(N'DELETE hvl FROM HocVien_Lop hvl JOIN HocVien hv ON hv.HocVienID=hvl.HocVienID WHERE hv.NguonTaiKhoan=N''VangLai''');
+END;
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.HocVien') AND name=N'CK_HocVien_NguonTaiKhoan')
+    EXEC(N'ALTER TABLE HocVien WITH CHECK ADD CONSTRAINT CK_HocVien_NguonTaiKhoan CHECK (NguonTaiKhoan IN (N''VangLai'',N''TrungTam''))');
+EXEC(N'CREATE OR ALTER TRIGGER dbo.TR_HocVienLop_ChiHocVienTrungTam ON dbo.HocVien_Lop AFTER INSERT, UPDATE AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS(SELECT 1 FROM inserted i JOIN dbo.HocVien hv ON hv.HocVienID=i.HocVienID WHERE hv.NguonTaiKhoan<>N''TrungTam'')
+        THROW 51020,N''Tài khoản học viên vãng lai không được xếp vào lớp trung tâm. Hãy tạo tài khoản học viên trung tâm mới.'',1;
+END');
 IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
     ALTER TABLE DeThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DeThi_LaMienPhi DEFAULT 0;
 ";
@@ -34,11 +63,20 @@ IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
         if (hocVienId is not > 0)
             return false;
 
-        var goi = await db.HocViens
-            .Where(h => h.HocVienID == hocVienId)
-            .Select(h => h.LoaiGoi)
-            .FirstOrDefaultAsync();
+        return (await LayQuyenAsync(db, hocVienId.Value))?.LaVip == true;
+    }
 
-        return goi == DongPhi;
+    /// <summary>
+    /// Tài khoản trung tâm do quản trị viên tạo luôn có VIP trung tâm. LoaiGoi chỉ lưu VIP cá nhân
+    /// của tài khoản vãng lai và không phụ thuộc vào việc tham gia lớp.
+    /// </summary>
+    public static async Task<QuyenHocVien?> LayQuyenAsync(QLThiTNDbContext db, int hocVienId)
+    {
+        return await db.HocViens
+            .Where(h => h.HocVienID == hocVienId)
+            .Select(h => new QuyenHocVien(
+                h.NguonTaiKhoan == TrungTam,
+                h.LoaiGoi == DongPhi))
+            .FirstOrDefaultAsync();
     }
 }

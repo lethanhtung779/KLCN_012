@@ -27,10 +27,19 @@ public class ProfileViewModel
 
     public DateTime? NgayDangKy { get; set; }
 
-    /// <summary>DongPhi = VIP, con lai la mien phi.</summary>
+    /// <summary>Gói hiệu lực do API tính từ VIP cá nhân và quan hệ lớp học.</summary>
     public string LoaiGoi { get; set; } = "MienPhi";
-
-    public bool LaVip => LoaiGoi == "DongPhi";
+    public string LoaiGoiCaNhan { get; set; } = "MienPhi";
+    public bool LaHocVienTrungTam { get; set; }
+    public bool LaVip { get; set; }
+    public string NguonVip { get; set; } = "KhongCo";
+    public string TenNguonVip => NguonVip switch
+    {
+        "TrungTam" => "VIP trung tâm",
+        "CaNhan" => "VIP cá nhân",
+        "CaNhanVaTrungTam" => "VIP cá nhân & trung tâm",
+        _ => "Miễn phí"
+    };
 
     // Thống kê học tập (từ /api/bailam/stats)
     public int TotalExams { get; set; }

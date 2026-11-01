@@ -337,7 +337,7 @@ public class DeThiController : ControllerBase
 
         var hv = await _db.HocViens.FindAsync(request.HocVienID);
         if (hv is null) return Unauthorized(new { message = "Ban can dang nhap de lam bai thi" });
-        if (!de.LaMienPhi && hv.LoaiGoi != GoiThi.DongPhi)
+        if (!de.LaMienPhi && await GoiThi.DuocLamAsync(_db, id, request.HocVienID) == false)
             return StatusCode(403, new { message = GoiThi.ThongBao });
 
         var now = DateTime.Now;
@@ -567,11 +567,7 @@ public class DeThiController : ControllerBase
         if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
         if (!de.LaMienPhi && !expiredOnly)
         {
-            var goi = await _db.HocViens
-                .Where(h => h.HocVienID == (request.HocVienID ?? 0))
-                .Select(h => h.LoaiGoi)
-                .FirstOrDefaultAsync();
-            if (goi != GoiThi.DongPhi)
+            if (await GoiThi.DuocLamAsync(_db, id, request.HocVienID) == false)
                 return StatusCode(403, new { message = GoiThi.ThongBao });
         }
 

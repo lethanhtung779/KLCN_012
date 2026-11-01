@@ -88,8 +88,8 @@ BEGIN TRY
         SELECT @hocVienId = HocVienID FROM HocVien WHERE TaiKhoanID = @taiKhoanId;
         IF @hocVienId IS NULL
         BEGIN
-            INSERT INTO HocVien (TaiKhoanID, HoTen, LoaiHocVien, NgaySinh, LoaiGoi)
-            VALUES (@taiKhoanId, @hoTen, N'HocSinh', DATEADD(DAY, @i, CONVERT(DATE, '2008-01-01')), N'MienPhi');
+            INSERT INTO HocVien (TaiKhoanID, HoTen, LoaiHocVien, NgaySinh, LoaiGoi, NguonTaiKhoan)
+            VALUES (@taiKhoanId, @hoTen, N'HocSinh', DATEADD(DAY, @i, CONVERT(DATE, '2008-01-01')), N'MienPhi', N'TrungTam');
             SET @hocVienId = CONVERT(INT, SCOPE_IDENTITY());
         END;
 

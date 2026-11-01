@@ -38,7 +38,7 @@ public class AccountController : Controller
         if (user.HocVienID.HasValue)
         {
             HttpContext.Session.SetInt32("HocVienId", user.HocVienID.Value);
-            GoiSession.Luu(HttpContext.Session, user.LoaiGoi);
+            GoiSession.Luu(HttpContext.Session, user.LoaiGoi, user.LaVip, user.LaHocVienTrungTam, user.NguonVip);
         }
     }
 
@@ -307,10 +307,14 @@ public class AccountController : Controller
             Phone = profile?.SoDienThoai,
             NgaySinh = profile?.NgaySinh,
             NgayDangKy = profile?.NgayDangKy,
-            LoaiGoi = string.IsNullOrWhiteSpace(profile?.LoaiGoi) ? "MienPhi" : profile!.LoaiGoi
+            LoaiGoi = string.IsNullOrWhiteSpace(profile?.LoaiGoi) ? "MienPhi" : profile!.LoaiGoi,
+            LoaiGoiCaNhan = string.IsNullOrWhiteSpace(profile?.LoaiGoiCaNhan) ? "MienPhi" : profile!.LoaiGoiCaNhan,
+            LaHocVienTrungTam = profile?.LaHocVienTrungTam ?? false,
+            LaVip = profile?.LaVip ?? false,
+            NguonVip = profile?.NguonVip ?? "KhongCo"
         };
         if (hocVienId.HasValue)
-            GoiSession.Luu(HttpContext.Session, model.LoaiGoi);
+            GoiSession.Luu(HttpContext.Session, model.LoaiGoi, model.LaVip, model.LaHocVienTrungTam, model.NguonVip);
 
         if (hocVienId.HasValue)
         {
@@ -373,7 +377,13 @@ public class AccountController : Controller
                 model.HighestScore = stats.HighestScore;
             }
         }
-        model.NgayDangKy = (await _api.GetProfileAsync(HttpContext.Session.GetInt32(SessionUserId) ?? 0))?.NgayDangKy;
+        var profile = await _api.GetProfileAsync(HttpContext.Session.GetInt32(SessionUserId) ?? 0);
+        model.NgayDangKy = profile?.NgayDangKy;
+        model.LoaiGoi = profile?.LoaiGoi ?? "MienPhi";
+        model.LoaiGoiCaNhan = profile?.LoaiGoiCaNhan ?? "MienPhi";
+        model.LaHocVienTrungTam = profile?.LaHocVienTrungTam ?? false;
+        model.LaVip = profile?.LaVip ?? false;
+        model.NguonVip = profile?.NguonVip ?? "KhongCo";
         return View(model);
     }
 

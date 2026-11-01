@@ -104,7 +104,7 @@
                         }
                         else if (requireRegister)
                         {
-                            @if (isOpen && Model.CanRegister)
+                            @if (Model.CanRegister)
                             {
                                 <form asp-controller="Exam" asp-action="DangKy" asp-route-id="@Model.DotThiID" asp-route-deThiId="@Model.Id" method="post" class="mt-3">
                                     @Html.AntiForgeryToken()
@@ -112,12 +112,21 @@
                                         <i class="bi bi-person-plus me-2"></i>Đăng ký thi
                                     </button>
                                 </form>
-                                <small class="text-muted d-block text-center mt-2">Đợt thi theo lớp — bạn cần đăng ký trước khi vào thi.</small>
+                                <small class="text-muted d-block text-center mt-2">
+                                    @if (Model.StartTime > now)
+                                    {
+                                        <text>Đăng ký giữ chỗ trước; bạn có thể vào làm bài từ @Model.StartTime.Value.ToString("HH:mm dd/MM/yyyy").</text>
+                                    }
+                                    else
+                                    {
+                                        <text>Đợt thi giới hạn số chỗ — bạn cần đăng ký trước khi vào thi.</text>
+                                    }
+                                </small>
                             }
                             else
                             {
                                 <div class="btn btn-primary-custom w-100 btn-lg mt-3 disabled" aria-disabled="true">
-                                    <i class="bi bi-slash-circle me-2"></i>@(isOpen ? "Đã đủ số lượng" : "Chưa thể đăng ký")
+                                    <i class="bi bi-slash-circle me-2"></i>@(Model.SoChoConLai is <= 0 ? "Đã đủ số lượng" : "Đã hết thời gian đăng ký")
                                 </div>
                             }
                         }

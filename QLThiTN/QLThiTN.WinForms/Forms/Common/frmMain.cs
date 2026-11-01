@@ -80,7 +80,9 @@ public class frmMain : Form
         // Phân hệ Quản trị viên (Admin / Phòng Đào tạo)
         if (Session.IsQuanTriVien)
         {
-            flow.Controls.Add(NavButton("Quản lý tài khoản", () => MoManHinh("Quản lý tài khoản", () => new Forms.Admin.frmAccounts())));
+            flow.Controls.Add(NavButton("Tài khoản & phân quyền", () => MoManHinh("Tài khoản & phân quyền", () => new Forms.Admin.frmAccounts())));
+            flow.Controls.Add(NavButton("Quản lý học viên", () => MoManHinh("Quản lý học viên", () => new Forms.Admin.frmPersonDirectory("HocVien"))));
+            flow.Controls.Add(NavButton("Quản lý giáo viên", () => MoManHinh("Quản lý giáo viên", () => new Forms.Admin.frmPersonDirectory("GiaoVien"))));
             flow.Controls.Add(NavButton("Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp học", () => new Forms.Admin.frmDaoTao())));
             flow.Controls.Add(NavButton("Đề thi & Lịch thi", () => MoManHinh("Đề thi & Lịch thi", () => new Forms.Teacher.frmExams())));
             flow.Controls.Add(NavButton("Thống kê & Điểm thi", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));

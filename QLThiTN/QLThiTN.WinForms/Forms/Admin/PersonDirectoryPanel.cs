@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using QLThiTN.WinForms.Services;
 
 namespace QLThiTN.WinForms.Forms.Admin;
@@ -8,7 +7,6 @@ public sealed class PersonDirectoryPanel : UserControl
 {
     private readonly string _role;
     private readonly PersonManagementService _people = new();
-    private readonly AccountService _accounts = new();
     private readonly DataGridView _grid = new();
     private readonly TextBox _search = Ui.Input(260);
     private readonly ComboBox _status = Ui.Combo(135);
@@ -23,7 +21,7 @@ public sealed class PersonDirectoryPanel : UserControl
         BackColor = Color.White;
         Font = Ui.Body;
         _search.PlaceholderText = role == "HocVien"
-            ? "Mã TK / tên / email / điện thoại..." : "Mã TK / tên / môn / email...";
+            ? "Mã TK / tên / lớp / email / điện thoại..." : "Mã TK / tên / môn / email...";
         _search.KeyDown += (_, e) => { if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; RefreshList(); } };
         _status.DropDownStyle = ComboBoxStyle.DropDownList;
         _status.Items.AddRange(["Tất cả", "Hoạt động", "Đã khóa"]);
@@ -40,12 +38,8 @@ public sealed class PersonDirectoryPanel : UserControl
         add.Click += (_, _) => Edit(0);
         var edit = Ui.ButtonPrimary("Sửa hồ sơ", 115);
         edit.Click += (_, _) => Edit(SelectedId());
-        var toggle = Ui.ButtonOutline("Khóa / Mở", 115);
-        toggle.Click += (_, _) => Toggle();
-        var reset = Ui.ButtonOutline("Đặt lại mật khẩu", 155);
-        reset.Click += (_, _) => ResetPassword();
-        var delete = Ui.ButtonDanger("Xóa", 85);
-        delete.Click += (_, _) => Delete();
+        var manageClasses = Ui.ButtonPrimary("Quản lý lớp", 125);
+        manageClasses.Click += (_, _) => ManageClasses();
         var refresh = Ui.ButtonOutline("Làm mới", 100);
         refresh.Click += (_, _) => { _search.Clear(); _status.SelectedIndex = 0; RefreshList(); };
         foreach (Control c in new Control[] { _search, _status, find })
@@ -53,7 +47,10 @@ public sealed class PersonDirectoryPanel : UserControl
             c.Margin = new Padding(0, 3, 9, 0);
             filters.Controls.Add(c);
         }
-        foreach (Control c in new Control[] { add, edit, toggle, reset, delete, refresh })
+        var actionControls = new List<Control> { add, edit };
+        if (role == "HocVien") actionControls.Add(manageClasses);
+        actionControls.Add(refresh);
+        foreach (Control c in actionControls)
         {
             c.Margin = new Padding(0, 3, 9, 0);
             actions.Controls.Add(c);
@@ -92,18 +89,21 @@ public sealed class PersonDirectoryPanel : UserControl
             ("HoTen", "Họ và tên"), ("TenDangNhap", "Tên đăng nhập"),
             ("Email", "Email"), ("SoDienThoai", "Điện thoại"),
             ("NgaySinh", "Ngày sinh"), ("LoaiHocVienHienThi", "Đối tượng"),
-            ("LoaiGoiHienThi", "Gói"), ("TrangThaiHienThi", "Trạng thái"),
-            ("SoLop", "Số lớp"), ("MonPhuTrach", "Môn phụ trách"),
+            ("QuanHeTrungTam", "Quan hệ trung tâm"), ("LoaiGoiHienThi", "Quyền VIP"), ("TrangThaiHienThi", "Trạng thái"),
+            ("LopDangHoc", "Lớp đang học"), ("SoLop", "Số lớp"), ("MonPhuTrach", "Môn phụ trách"),
             ("SoCauHoi", "Câu hỏi"), ("NgayTao", "Ngày tạo"));
-        Ui.HideColumns(_grid, "TaiKhoanID", "HocVienID", "GiaoVienID", "LoaiHocVien", "LoaiGoi", "TrangThai");
+        Ui.HideColumns(_grid, "TaiKhoanID", "HocVienID", "GiaoVienID", "LoaiHocVien", "LoaiGoi", "NguonTaiKhoan", "TrangThai",
+            "TenDangNhap", "Email", "NgayTao");
+        if (_role == "HocVien")
+            Ui.HideColumns(_grid, "NgaySinh");
         _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
         foreach (DataGridViewColumn col in _grid.Columns)
             col.Width = col.Name switch
             {
                 "MaTaiKhoan" => 125, "HoTen" => 165, "TenDangNhap" => 135, "Email" => 220,
                 "SoDienThoai" => 125, "NgaySinh" => 105, "LoaiHocVienHienThi" => 100,
-                "LoaiGoiHienThi" => 120, "TrangThaiHienThi" => 110,
-                "SoLop" or "SoCauHoi" => 76, "MonPhuTrach" => 210,
+                "QuanHeTrungTam" => 155, "LoaiGoiHienThi" => 170, "TrangThaiHienThi" => 110,
+                "LopDangHoc" => 320, "SoLop" or "SoCauHoi" => 76, "MonPhuTrach" => 210,
                 "NgayTao" => 150, _ => 100
             };
         if (_grid.Columns.Contains("NgaySinh")) _grid.Columns["NgaySinh"]!.DefaultCellStyle.Format = "dd/MM/yyyy";
@@ -121,6 +121,7 @@ public sealed class PersonDirectoryPanel : UserControl
     }
 
     private int SelectedId() => _grid.CurrentRow?.Cells["TaiKhoanID"].Value is { } id ? Convert.ToInt32(id) : 0;
+    private int SelectedStudentId() => _grid.CurrentRow?.Cells["HocVienID"].Value is { } id ? Convert.ToInt32(id) : 0;
     private string SelectedName() => _grid.CurrentRow?.Cells["HoTen"].Value?.ToString() ?? "";
 
     private void Edit(int id)
@@ -129,37 +130,20 @@ public sealed class PersonDirectoryPanel : UserControl
         if (dialog.ShowDialog(FindForm()) == DialogResult.OK) RefreshList();
     }
 
-    private void Toggle()
+    private void ManageClasses()
     {
-        var id = SelectedId();
-        if (id == 0) { MessageBox.Show("Hãy chọn một hồ sơ."); return; }
-        var locked = _grid.CurrentRow!.Cells["TrangThai"].Value?.ToString() == "Khoa";
-        if (MessageBox.Show($"{(locked ? "Mở" : "Khóa")} tài khoản của {SelectedName()}?", "Xác nhận",
-            MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        _accounts.DoiTrangThai(id, !locked);
+        if (_role != "HocVien") return;
+        var studentId = SelectedStudentId();
+        if (studentId == 0) { MessageBox.Show("Hãy chọn một học viên.", "Thông báo"); return; }
+        if (_grid.CurrentRow?.Cells["NguonTaiKhoan"].Value?.ToString() != "TrungTam")
+        {
+            MessageBox.Show("Đây là tài khoản học viên vãng lai, không thể xếp vào lớp trung tâm.\nHãy tạo một tài khoản học viên trung tâm mới cho người này.",
+                "Không thể quản lý lớp", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        using var dialog = new frmLopHocHocVien(studentId, SelectedName());
+        dialog.ShowDialog(FindForm());
         RefreshList();
     }
 
-    private void ResetPassword()
-    {
-        var id = SelectedId();
-        if (id == 0) { MessageBox.Show("Hãy chọn một hồ sơ."); return; }
-        if (MessageBox.Show($"Tạo mật khẩu mới cho {SelectedName()}?\nMật khẩu cũ sẽ không dùng được nữa. Hệ thống không tự gửi email; bạn cần gửi riêng cho người dùng.", "Xác nhận",
-            MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-        var password = "Tn@" + Convert.ToHexString(RandomNumberGenerator.GetBytes(6));
-        _accounts.DatLaiMatKhau(id, password);
-        using var result = new PasswordResetResult(DirectoryRules.AccountCode(id), SelectedName(), password);
-        result.ShowDialog(FindForm());
-    }
-
-    private void Delete()
-    {
-        var id = SelectedId();
-        if (id == 0) { MessageBox.Show("Hãy chọn một hồ sơ."); return; }
-        if (MessageBox.Show($"Xóa hồ sơ và tài khoản của {SelectedName()}? Không thể hoàn tác.", "Xác nhận xóa",
-            MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
-        var (ok, error) = _accounts.Xoa(id);
-        if (!ok) MessageBox.Show(error, "Không thể xóa", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        else RefreshList();
-    }
 }

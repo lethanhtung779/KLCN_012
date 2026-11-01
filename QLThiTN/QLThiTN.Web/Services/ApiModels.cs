@@ -173,6 +173,10 @@ public class ApiProfile
     public DateTime? NgayDangKy { get; set; }
     public int? HocVienID { get; set; }
     public string LoaiGoi { get; set; } = string.Empty;
+    public string LoaiGoiCaNhan { get; set; } = string.Empty;
+    public bool LaHocVienTrungTam { get; set; }
+    public bool LaVip { get; set; }
+    public string NguonVip { get; set; } = string.Empty;
 }
 
 public class ApiUpdateProfileRequest
@@ -285,6 +289,10 @@ public class ApiLoginResult
     public int? HocVienID { get; set; }
     public int? GiaoVienID { get; set; }
     public string LoaiGoi { get; set; } = string.Empty;
+    public string LoaiGoiCaNhan { get; set; } = string.Empty;
+    public bool LaHocVienTrungTam { get; set; }
+    public bool LaVip { get; set; }
+    public string NguonVip { get; set; } = string.Empty;
 }
 
 public class ApiLoginRequest

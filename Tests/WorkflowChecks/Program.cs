@@ -8,6 +8,7 @@ var config=Path.Combine(AppContext.BaseDirectory,"test-config");Directory.Create
 var database="ThiTracNghiem_WorkflowTest20261028";
 File.WriteAllText(Path.Combine(config,"appsettings.json"),JsonSerializer.Serialize(new{ConnectionStrings=new{ThiTracNghiem=$"Server=.\\SQLEXPRESS;Database={database};Trusted_Connection=True;TrustServerCertificate=True"}}));
 Database.LoadConfig(config);
+Database.EnsureGoiColumns();
 Database.Execute(WorkflowSchema.Sql);
 Database.Execute(WorkflowSchema.Sql); // migration must be repeatable
 var checks=0;
@@ -15,12 +16,19 @@ void Check(bool condition,string name){if(!condition)throw new Exception(name);C
 var admin=Database.ExecuteScalarInt("SELECT TOP 1 TaiKhoanID FROM TaiKhoan WHERE VaiTro='QuanTriVien' AND TrangThai='HoatDong'");
 Session.Set(new TaiKhoan{TaiKhoanID=admin,VaiTro="QuanTriVien"});
 var profileService=new PersonManagementService();
+var studentPersonal=profileService.LayThongTinCaNhan("HocVien","");
+Check(studentPersonal.Columns.Contains("DiaChi")&&studentPersonal.Columns.Contains("HoTenNguoiGiamHo"),"Student personal-info columns");
+Check(!studentPersonal.Columns.Contains("TenDangNhap")&&!studentPersonal.Columns.Contains("Email")&&!studentPersonal.Columns.Contains("LoaiGoi"),"Student personal list excludes account and VIP columns");
+var teacherPersonal=profileService.LayThongTinCaNhan("GiaoVien","");
+Check(teacherPersonal.Columns.Contains("BangCap")&&teacherPersonal.Columns.Contains("DonViCongTac"),"Teacher personal-info columns");
+Check(!teacherPersonal.Columns.Contains("TenDangNhap")&&!teacherPersonal.Columns.Contains("Email")&&!teacherPersonal.Columns.Contains("TrangThai"),"Teacher personal list excludes account columns");
 foreach(var role in new[]{"HocVien","GiaoVien"})
 {
     var person=new PersonRecord{VaiTro=role,TenDangNhap="workflow_"+Guid.NewGuid().ToString("N")[..12],Email=Guid.NewGuid()+"@example.test",HoTen="Kiểm tra hồ sơ",SoDienThoai="0912345678",NgaySinh=new DateTime(2000,1,1),MonHocIds=[1]};
     foreach(var field in ProfileFields.ForRole(role))person.HoSo[field.Key]=field.Key.Contains("NguoiGiamHo")?"":field.Key.StartsWith("TinhTrang")?"":field.Key.StartsWith("Sdt")?"0912345678":"Nội dung "+field.Caption;
     var saved=profileService.Luu(person,"TemporaryPass123!");Check(saved.Ok,role+" create: "+saved.Message);
     var read=profileService.LayChiTiet(role,saved.TaiKhoanID)!;
+    if(role=="HocVien")Check(read.NguonTaiKhoan=="TrungTam","Admin-created student is a center account");
     Check(read.NgaySinh==person.NgaySinh,role+" extended fields round trip");
     if(role=="HocVien")
     {

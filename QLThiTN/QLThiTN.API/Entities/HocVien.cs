@@ -17,9 +17,16 @@ public class HocVien
     [Required, MaxLength(50)]
     public string LoaiHocVien { get; set; } = string.Empty;
 
-    /// <summary>MienPhi: chi lam de mien phi. DongPhi: lam duoc moi de.</summary>
+    /// <summary>Gói VIP cá nhân của tài khoản vãng lai; tài khoản trung tâm luôn có VIP trung tâm.</summary>
     [Required, MaxLength(20)]
     public string LoaiGoi { get; set; } = "MienPhi";
+
+    /// <summary>
+    /// Nguồn tài khoản cố định: VangLai do người dùng đăng ký Web, TrungTam do quản trị viên tạo.
+    /// Việc xếp lớp không được phép thay đổi giá trị này.
+    /// </summary>
+    [Required, MaxLength(20)]
+    public string NguonTaiKhoan { get; set; } = "VangLai";
 
     public DateTime? NgaySinh { get; set; }
 

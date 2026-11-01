@@ -1,0 +1,141 @@
+TỔNG HỢP THAY ĐỔI QUẢN LÝ HỌC VIÊN, GIÁO VIÊN VÀ TÀI KHOẢN
+Ngày thực hiện: 01/11/2026
+
+1. TÁCH CÁC MÀN HÌNH QUẢN LÝ
+
+- Tách màn hình cũ thành ba chức năng độc lập:
+  + Tài khoản & phân quyền.
+  + Quản lý học viên.
+  + Quản lý giáo viên.
+- Bổ sung ba mục tương ứng trên menu quản trị viên.
+- Màn hình Tài khoản & phân quyền chỉ quản lý:
+  + Email đăng nhập.
+  + Khóa hoặc mở tài khoản.
+  + Đặt lại mật khẩu.
+  + Cấp VIP cá nhân cho tài khoản vãng lai.
+  + Xóa tài khoản.
+  + Tạo tài khoản quản trị viên.
+- Màn hình Quản lý học viên chỉ quản lý hồ sơ và nghiệp vụ học viên.
+- Màn hình Quản lý giáo viên chỉ quản lý hồ sơ và nghiệp vụ giáo viên.
+- Đã bỏ các nút Khóa/Mở, Reset mật khẩu và Xóa tài khoản khỏi màn hình hồ sơ học viên, giáo viên để tránh trùng chức năng.
+
+2. QUẢN LÝ HỌC VIÊN
+
+- Danh sách học viên hiển thị các thông tin chính:
+  + Mã tài khoản.
+  + Họ tên.
+  + Số điện thoại.
+  + Loại học viên.
+  + Quan hệ với trung tâm.
+  + Quyền VIP.
+  + Lớp đang học.
+  + Số lớp.
+  + Trạng thái tài khoản.
+- Ẩn các cột đăng nhập, email, ngày tạo và ngày sinh khỏi bảng chính để bảng ngắn gọn hơn.
+- Cho phép tìm học viên theo mã tài khoản, họ tên, lớp, email hoặc số điện thoại.
+- Thêm nút Quản lý lớp cho học viên trung tâm.
+- Màn hình quản lý lớp của một học viên cho phép:
+  + Xem tất cả lớp hiện tại và lịch sử lớp.
+  + Xem khóa học, môn học và giáo viên phụ trách.
+  + Thêm học viên vào lớp.
+  + Kích hoạt lại quan hệ lớp cũ.
+  + Đổi trạng thái Đang học, Thôi học hoặc Đã kết thúc.
+  + Gỡ học viên khỏi lớp.
+  + Mở chi tiết lớp học.
+
+3. QUẢN LÝ GIÁO VIÊN
+
+- Tạo màn hình Quản lý giáo viên độc lập.
+- Danh sách giáo viên hiển thị hồ sơ, môn phụ trách, số lớp, số câu hỏi và trạng thái.
+- Việc thêm và sửa hồ sơ giáo viên được thực hiện tại màn hình chuyên biệt.
+- Thông tin tài khoản đăng nhập của giáo viên được quản lý tại Tài khoản & phân quyền.
+
+4. TÁCH CỨNG HỌC VIÊN VÃNG LAI VÀ HỌC VIÊN TRUNG TÂM
+
+- Thêm trường HocVien.NguonTaiKhoan trong database.
+- Trường này chỉ nhận hai giá trị:
+  + VangLai.
+  + TrungTam.
+- Tài khoản do người dùng tự đăng ký trên Web hoặc đăng nhập Google lần đầu luôn là VangLai.
+- Tài khoản học viên do quản trị viên tạo luôn là TrungTam.
+- Không tự động đổi loại tài khoản khi học viên được thêm hoặc gỡ khỏi lớp.
+- Không cho phép chuyển trực tiếp tài khoản vãng lai thành tài khoản trung tâm.
+- Nếu người vãng lai muốn học tại trung tâm, quản trị viên phải tạo một tài khoản học viên trung tâm khác.
+
+5. CHẶN HỌC VIÊN VÃNG LAI VÀO LỚP TRUNG TÂM
+
+- Danh sách chọn học viên để xếp lớp chỉ hiển thị tài khoản TrungTam.
+- Nút Quản lý lớp không mở cho tài khoản VangLai.
+- TrainingService kiểm tra nguồn tài khoản trước khi thêm học viên vào lớp.
+- Thêm database trigger TR_HocVienLop_ChiHocVienTrungTam.
+- Trigger chặn cả trường hợp thêm bằng ứng dụng, code khác hoặc câu lệnh SQL trực tiếp.
+- Thông báo khi vi phạm:
+  "Tài khoản học viên vãng lai không được xếp vào lớp trung tâm. Hãy tạo tài khoản học viên trung tâm mới."
+
+6. QUY TẮC VIP MỚI
+
+- Học viên trung tâm luôn có VIP trung tâm, kể cả khi chưa được xếp lớp.
+- VIP trung tâm không còn được suy ra từ việc có lớp đang học.
+- LoaiGoi chỉ lưu VIP cá nhân của tài khoản vãng lai.
+- Chỉ tài khoản vãng lai được cấp hoặc mua VIP cá nhân.
+- Không cho cấp VIP cá nhân cho học viên trung tâm vì tài khoản này đã có VIP trung tâm mặc định.
+- Việc kết thúc hoặc gỡ lớp không làm mất VIP trung tâm và không đổi loại tài khoản.
+
+7. THAY ĐỔI DATABASE VÀ FILE SQL
+
+- Cập nhật Database/create_database_trung_tam.sql.
+- Tạo migration:
+  Database/migrations/20261101_student_account_source.sql
+- Cập nhật các đoạn tự động bảo đảm schema khi WinForms hoặc API khởi động.
+- Cập nhật dữ liệu mẫu để chỉ học viên trung tâm được xếp lớp.
+- Database hiện tại sau khi chuyển đổi:
+  + 67 tài khoản học viên trung tâm.
+  + 4 tài khoản học viên vãng lai.
+  + 0 tài khoản vãng lai nằm trong lớp.
+- Đã gỡ 2 quan hệ lớp cũ không hợp lệ của tài khoản vãng lai.
+- Không xóa tài khoản, hồ sơ cá nhân, bài làm hoặc kết quả thi.
+
+8. FORM THÊM VÀ SỬA HỌC VIÊN
+
+- Khi admin tạo học viên mới, tài khoản được lưu cố định là TrungTam.
+- Form hiển thị giải thích rõ tài khoản do admin tạo là tài khoản trung tâm.
+- Với tài khoản trung tâm, ô VIP cá nhân bị vô hiệu hóa vì đã có VIP trung tâm.
+- Khi mở hồ sơ vãng lai, form thông báo tài khoản này không được xếp lớp và phải tạo tài khoản trung tâm mới nếu muốn nhập học.
+
+9. KIỂM TRA ĐÃ THỰC HIỆN
+
+- Build toàn bộ solution thành công, không có lỗi biên dịch.
+- Kiểm tra database trigger chặn tài khoản vãng lai vào lớp: đạt.
+- Kiểm tra migration chạy lặp lại an toàn: đạt.
+- Kiểm tra tạo và sửa học viên, giáo viên: 61/61 đạt.
+- Kiểm tra luồng nghiệp vụ tổng hợp: 31/31 đạt.
+- Kiểm tra danh mục và định dạng đề trước đó: 20/20 đạt.
+
+10. LƯU Ý KHI SỬ DỤNG
+
+- Cần đóng và mở lại WinForms để dùng giao diện mới.
+- Cần khởi động lại API để logic nguồn tài khoản và VIP mới có hiệu lực.
+- Khi người vãng lai muốn nhập học tại trung tâm, admin dùng chức năng Thêm học viên tại màn hình Quản lý học viên để cấp một tài khoản trung tâm mới.
+- Tài khoản trung tâm mới phải có tên đăng nhập và email không trùng với tài khoản vãng lai hiện có.
+- Các thay đổi hiện chưa được commit hoặc push lên GitHub.
+
+11. TAB THÔNG TIN CHI TIẾT
+
+- Bỏ cửa sổ Xem hồ sơ riêng vì không phù hợp với luồng quản lý danh sách.
+- Thêm tab Thông tin chi tiết trực tiếp trong Quản lý học viên và Quản lý giáo viên.
+- Tab hiển thị danh sách hồ sơ dưới dạng bảng, mỗi thông tin cá nhân là một cột.
+- Không hiển thị các cột thuộc tài khoản và phân quyền như:
+  + Tên đăng nhập.
+  + Email đăng nhập.
+  + Trạng thái tài khoản.
+  + Nguồn tài khoản.
+  + Quyền VIP.
+- Thông tin học viên gồm họ tên, điện thoại, ngày sinh, loại học viên, địa chỉ, giới tính,
+  cha mẹ, liên hệ khẩn cấp, người giám hộ và ghi chú hồ sơ.
+- Thông tin giáo viên gồm họ tên, điện thoại, ngày sinh, địa chỉ, giới tính, liên hệ khẩn cấp,
+  trình độ học vấn, bằng cấp, trường đã học, chuyên ngành và đơn vị công tác.
+- Tab có ô tìm kiếm riêng theo họ tên, điện thoại, địa chỉ hoặc người liên hệ.
+- Chức năng thêm và sửa hồ sơ vẫn nằm ở tab danh sách quản lý.
+- Thêm nút Xuất Excel trong tab Thông tin chi tiết.
+- File Excel chỉ xuất các cột thông tin cá nhân đang hiển thị và tôn trọng từ khóa tìm kiếm hiện tại.
+- File có tiêu đề cột, bộ lọc Excel, cố định hàng tiêu đề, định dạng ngày sinh và tự căn độ rộng cột.

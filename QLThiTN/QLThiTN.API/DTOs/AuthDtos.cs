@@ -50,8 +50,12 @@ public class AuthResponseDto
     public int? HocVienID { get; set; }
     public int? GiaoVienID { get; set; }
 
-    /// <summary>MienPhi hoac DongPhi. Rong neu khong phai hoc vien.</summary>
+    /// <summary>Gói hiệu lực: học viên trung tâm cũng nhận DongPhi dù gói cá nhân đang MienPhi.</summary>
     public string LoaiGoi { get; set; } = string.Empty;
+    public string LoaiGoiCaNhan { get; set; } = string.Empty;
+    public bool LaHocVienTrungTam { get; set; }
+    public bool LaVip { get; set; }
+    public string NguonVip { get; set; } = string.Empty;
 }
 
 public class UpdateProfileRequestDto
@@ -82,6 +86,10 @@ public class ProfileResponseDto
     public DateTime? NgayDangKy { get; set; }
     public int? HocVienID { get; set; }
     public string LoaiGoi { get; set; } = string.Empty;
+    public string LoaiGoiCaNhan { get; set; } = string.Empty;
+    public bool LaHocVienTrungTam { get; set; }
+    public bool LaVip { get; set; }
+    public string NguonVip { get; set; } = string.Empty;
 }
 
 public class ConfirmEmailRequestDto

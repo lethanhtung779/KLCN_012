@@ -89,6 +89,10 @@ BEGIN
         NgaySinh     DATE          NULL,
         NgayDangKy   DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
         SoDienThoai  NVARCHAR(20)  NULL,
+        -- Tài khoản trung tâm do admin tạo; tài khoản vãng lai do người dùng đăng ký Web.
+        NguonTaiKhoan NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_NguonTaiKhoan DEFAULT N'TrungTam'
+            CONSTRAINT CK_HocVien_NguonTaiKhoan CHECK (NguonTaiKhoan IN (N'VangLai',N'TrungTam')),
+        -- LoaiGoi chỉ lưu VIP cá nhân. Tài khoản TrungTam luôn có VIP trung tâm.
         LoaiGoi      NVARCHAR(20)  NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi',
         DiaChi       NVARCHAR(500) NULL,
         GioiTinh     NVARCHAR(500) NULL,
@@ -135,6 +139,15 @@ BEGIN
 END
 CLOSE ProfileColumns; DEALLOCATE ProfileColumns;
 IF COL_LENGTH('HocVien','LoaiGoi') IS NULL ALTER TABLE HocVien ADD LoaiGoi NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi';
+IF COL_LENGTH('HocVien','NguonTaiKhoan') IS NULL
+BEGIN
+    ALTER TABLE HocVien ADD NguonTaiKhoan NVARCHAR(20) NOT NULL CONSTRAINT DF_HocVien_NguonTaiKhoan DEFAULT N'TrungTam';
+    EXEC(N'UPDATE HocVien SET NguonTaiKhoan=N''VangLai'' WHERE LoaiHocVien=N''TuDo''');
+    IF OBJECT_ID(N'dbo.DangKyXacMinhEmail',N'U') IS NOT NULL
+        EXEC(N'UPDATE hv SET NguonTaiKhoan=N''VangLai'' FROM HocVien hv JOIN TaiKhoan tk ON tk.TaiKhoanID=hv.TaiKhoanID WHERE EXISTS(SELECT 1 FROM DangKyXacMinhEmail d WHERE d.Email=tk.Email AND d.DaSuDung=1)');
+END;
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE parent_object_id=OBJECT_ID(N'dbo.HocVien') AND name=N'CK_HocVien_NguonTaiKhoan')
+    EXEC(N'ALTER TABLE HocVien WITH CHECK ADD CONSTRAINT CK_HocVien_NguonTaiKhoan CHECK (NguonTaiKhoan IN (N''VangLai'',N''TrungTam''))');
 IF COL_LENGTH('GiaoVien','NgaySinh') IS NULL ALTER TABLE GiaoVien ADD NgaySinh DATE NULL;
 IF COL_LENGTH('GiaoVien','TinhTrangCha') IS NULL ALTER TABLE GiaoVien ADD TinhTrangCha NVARCHAR(30) NOT NULL CONSTRAINT DF_GiaoVien_TinhTrangCha DEFAULT N'Không rõ thông tin';
 IF COL_LENGTH('GiaoVien','TinhTrangMe') IS NULL ALTER TABLE GiaoVien ADD TinhTrangMe NVARCHAR(30) NOT NULL CONSTRAINT DF_GiaoVien_TinhTrangMe DEFAULT N'Không rõ thông tin';
@@ -539,6 +552,28 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_HocVienLop_LopHoc' AND object_id = OBJECT_ID(N'dbo.HocVien_Lop'))
     CREATE INDEX IX_HocVienLop_LopHoc ON HocVien_Lop (LopHocID);
+GO
+
+-- Dọn quan hệ lớp cũ không hợp lệ trước khi bật chốt chặn nghiệp vụ.
+DELETE hvl
+FROM HocVien_Lop hvl
+JOIN HocVien hv ON hv.HocVienID=hvl.HocVienID
+WHERE hv.NguonTaiKhoan=N'VangLai';
+GO
+
+CREATE OR ALTER TRIGGER dbo.TR_HocVienLop_ChiHocVienTrungTam
+ON dbo.HocVien_Lop
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (
+        SELECT 1 FROM inserted i
+        JOIN dbo.HocVien hv ON hv.HocVienID=i.HocVienID
+        WHERE hv.NguonTaiKhoan<>N'TrungTam'
+    )
+        THROW 51020,N'Tài khoản học viên vãng lai không được xếp vào lớp trung tâm. Hãy tạo tài khoản học viên trung tâm mới.',1;
+END;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_LichHoc_LopHoc' AND object_id = OBJECT_ID(N'dbo.LichHoc'))

@@ -15,6 +15,7 @@ File.WriteAllText(Path.Combine(config, "appsettings.json"), JsonSerializer.Seria
     }
 }));
 Database.LoadConfig(config);
+Database.EnsureGoiColumns();
 Database.Execute(WorkflowSchema.Sql);
 
 var admin = Database.ExecuteScalarInt("SELECT TOP 1 TaiKhoanID FROM TaiKhoan WHERE VaiTro='QuanTriVien' AND TrangThai='HoatDong'");
