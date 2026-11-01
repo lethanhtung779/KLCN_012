@@ -9,6 +9,31 @@
 
 <section class="py-5">
     <div class="container">
+        @if (Context.Session.GetString("LaHocVienTrungTam") != "1")
+        {
+            <div class="card border-0 shadow-sm rounded-4 text-center p-5 my-4">
+                <div class="mb-3">
+                    <span class="d-inline-flex align-items-center justify-content-center rounded-circle" style="width: 80px; height: 80px; background: rgba(13, 110, 253, 0.1); color: var(--primary);">
+                        <i class="bi bi-mortarboard" style="font-size: 2.5rem;"></i>
+                    </span>
+                </div>
+                <h3 class="fw-bold mb-2">Dành riêng cho Học viên Trung tâm</h3>
+                <p class="text-muted mx-auto mb-4" style="max-width: 580px;">
+                    Thời khóa biểu và lịch trình học tập chỉ áp dụng cho học viên đăng ký theo học các lớp đào tạo trực tiếp tại trung tâm.<br />
+                    Tài khoản của bạn là <strong>học viên vãng lai luyện thi trực tuyến</strong>. Bạn có thể tham gia thi thử và làm các đề thi tại Kho đề.
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a asp-controller="Exam" asp-action="KhoDe" class="btn btn-primary-custom rounded-pill px-4 py-2">
+                        <i class="bi bi-collection me-2"></i>Khám phá Kho đề
+                    </a>
+                    <a asp-controller="Exam" asp-action="Schedule" class="btn btn-outline-secondary rounded-pill px-4 py-2">
+                        <i class="bi bi-calendar-event me-2"></i>Lịch thi trực tuyến
+                    </a>
+                </div>
+            </div>
+        }
+        else
+        {
         <div class="mb-4">
             <h1 class="section-title mb-2"><i class="bi bi-calendar2-week me-2"></i>Lịch trình học tập</h1>
             <p class="section-subtitle mb-0">Thời khóa biểu theo các lớp bạn đã đăng ký tại trung tâm</p>
@@ -132,5 +157,6 @@
             <i class="bi bi-calendar-event me-1"></i>Lịch thi và bài kiểm tra trực tuyến xem tại
             <a asp-controller="Exam" asp-action="Schedule">Lịch thi</a>.
         </p>
+        }
     </div>
 </section>

@@ -456,6 +456,13 @@ public class ExamController : Controller
             return View(new LearningScheduleViewModel());
         }
 
+        await RefreshGoiAsync();
+
+        if (HttpContext.Session.GetString("LaHocVienTrungTam") != "1")
+        {
+            return View(new LearningScheduleViewModel());
+        }
+
         var (tkb, error) = await _api.GetThoiKhoaBieuAsync(hocVienId.Value, lop, tu, den);
         tkb ??= new ApiThoiKhoaBieu();
 

@@ -62,7 +62,7 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Exam" asp-action="History"><i class="bi bi-search me-1"></i>Tra cứu kết quả</a>
                         </li>
-                        @if (Context.Session.GetString("UserFullName") != null)
+                        @if (Context.Session.GetString("UserFullName") != null && Context.Session.GetString("LaHocVienTrungTam") == "1")
                         {
                             <li class="nav-item">
                                 <a class="nav-link" asp-controller="Exam" asp-action="LearningSchedule"><i class="bi bi-calendar2-week me-1"></i>Lịch trình học tập</a>
@@ -147,7 +147,10 @@
                             <li class="mb-2"><a asp-controller="Exam" asp-action="Schedule" class="footer-link">Lịch thi</a></li>
                             <li class="mb-2"><a asp-controller="Exam" asp-action="KhoDe" class="footer-link">Kho đề</a></li>
                             <li class="mb-2"><a asp-controller="Exam" asp-action="History" class="footer-link">Tra cứu kết quả</a></li>
-                            <li class="mb-2"><a asp-controller="Exam" asp-action="LearningSchedule" class="footer-link">Lịch trình học tập</a></li>
+                            @if (Context.Session.GetString("LaHocVienTrungTam") == "1")
+                            {
+                                <li class="mb-2"><a asp-controller="Exam" asp-action="LearningSchedule" class="footer-link">Lịch trình học tập</a></li>
+                            }
                         }
                     </ul>
                 </div>
