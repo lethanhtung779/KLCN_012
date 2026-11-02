@@ -205,13 +205,16 @@ public static class ExamMapping
             .ToList();
     }
 
-    public static ExamKind ToExamKind(string? loaiDe) => loaiDe switch
+    public static ExamKind ToExamKind(string? loaiDe, bool laMienPhi = false)
     {
-        "OnTap" => ExamKind.Homework,
-        "ThiThu" => ExamKind.MonthlyMock,
-        "ChinhThuc" => ExamKind.PublicMock,
-        _ => ExamKind.MonthlyMock
-    };
+        if (laMienPhi || loaiDe == "ChinhThuc") return ExamKind.PublicMock;
+        return loaiDe switch
+        {
+            "OnTap" => ExamKind.Homework,
+            "ThiThu" => ExamKind.MonthlyMock,
+            _ => ExamKind.MonthlyMock
+        };
+    }
 
     public static ExamScheduleViewModel ToSchedule(ApiDeThi d) => new()
     {
@@ -226,10 +229,12 @@ public static class ExamMapping
         QuestionCount = d.SoLuongCauHoi,
         HasRegistered = false,
         CanRegister = d.TrangThai != "DaDong",
-        ExamKind = ToExamKind(d.LoaiDe),
+        IsOpen = d.TrangThai == "DangMo",
+        ExamKind = ToExamKind(d.LoaiDe, d.LaMienPhi),
         IsAssignedToMe = d.DotThiID.HasValue,
         ScorePublished = true,
-        LaMienPhi = d.LaMienPhi
+        LaMienPhi = d.LaMienPhi,
+        DotThiID = d.DotThiID
     };
 
     public static List<QuestionViewModel> ToQuestions(List<ApiCauHoi> items, string apiBaseUrl)

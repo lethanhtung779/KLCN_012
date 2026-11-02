@@ -41,7 +41,9 @@ public class HomeController : Controller
             AverageScore = averageScore,
             LatestExams = schedules.Take(6).ToList(),
             LatestPublicExams = schedules
-                .Where(e => e.ExamKind == ExamKind.PublicMock)
+                .Where(e => e.ExamKind == ExamKind.PublicMock || e.LaMienPhi)
+                .OrderByDescending(s => statsByDe.TryGetValue(s.Id, out var st) ? st.SoLuotThi : 0)
+                .ThenByDescending(s => s.Id)
                 .Take(3)
                 .Select(s =>
                 {
@@ -58,6 +60,7 @@ public class HomeController : Controller
                         QuestionCount = s.QuestionCount,
                         HasRegistered = s.HasRegistered,
                         CanRegister = s.CanRegister,
+                        IsOpen = s.IsOpen,
                         ExamKind = s.ExamKind,
                         IsAssignedToMe = s.IsAssignedToMe,
                         ScorePublished = s.ScorePublished,

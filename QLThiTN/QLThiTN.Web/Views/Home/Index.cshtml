@@ -228,7 +228,14 @@
         <div class="d-flex align-items-end justify-content-between mb-4">
             <div>
                 <h2 class="section-title mb-1">Thi thử THPT miễn phí</h2>
-                <p class="section-subtitle mb-0">Đăng ký tài khoản để tham gia các đợt thi thử mở công khai, biết ngay năng lực hiện tại</p>
+                @if (isLoggedIn)
+                {
+                    <p class="section-subtitle mb-0">Các đợt thi thử THPT Quốc gia mở công khai để bạn thử sức và rèn luyện kỹ năng</p>
+                }
+                else
+                {
+                    <p class="section-subtitle mb-0">Đăng ký tài khoản để tham gia các đợt thi thử mở công khai, biết ngay năng lực hiện tại</p>
+                }
             </div>
             <a asp-controller="Exam" asp-action="Schedule" class="btn btn-outline-primary btn-sm rounded-pill">Xem tất cả <i class="bi bi-arrow-right ms-1"></i></a>
         </div>
@@ -250,7 +257,7 @@
                                     }
                                     <span class="ms-2"><i class="bi bi-list-ol me-1"></i>@exam.QuestionCount câu</span>
                                 </div>
-                                <a asp-controller="Exam" asp-action="Detail" asp-route-id="@exam.Id" class="btn btn-sm btn-primary-custom mt-auto">
+                                <a asp-controller="Exam" asp-action="Detail" asp-route-id="@exam.Id" asp-route-dotThiId="@exam.DotThiID" class="btn btn-sm btn-primary-custom mt-auto">
                                     <i class="bi bi-play-fill me-1"></i>Xem chi tiết
                                 </a>
                             </div>
@@ -265,7 +272,25 @@
                         <div class="card-body p-5 text-center text-muted">
                             <i class="bi bi-megaphone fs-1 d-block mb-3" style="color: var(--accent2); opacity: .45;"></i>
                             <h5 class="fw-bold">Đợt thi thử công khai sẽ sớm được mở</h5>
-                            <p class="mb-0">Đăng ký tài khoản để nhận thông báo khi có đợt thi thử THPT Quốc gia miễn phí mới.</p>
+                            @if (isLoggedIn)
+                            {
+                                <p class="mb-3">Hiện chưa có đợt thi thử công khai mới đang diễn ra. Bạn có thể vào <strong>Kho đề</strong> để luyện tập các bộ đề có sẵn hoặc xem <strong>Lịch thi</strong> để chuẩn bị cho các đợt thi sắp tới.</p>
+                                <div class="d-flex justify-content-center gap-2 flex-wrap">
+                                    <a asp-controller="Exam" asp-action="KhoDe" class="btn btn-primary-custom">
+                                        <i class="bi bi-collection me-1"></i>Khám phá kho đề
+                                    </a>
+                                    <a asp-controller="Exam" asp-action="Schedule" class="btn btn-outline-secondary rounded-pill">
+                                        <i class="bi bi-calendar-event me-1"></i>Xem lịch thi
+                                    </a>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="mb-3">Đăng ký tài khoản để nhận thông báo khi có đợt thi thử THPT Quốc gia miễn phí mới.</p>
+                                <a asp-controller="Account" asp-action="Register" class="btn btn-primary-custom">
+                                    <i class="bi bi-person-plus me-1"></i>Đăng ký ngay
+                                </a>
+                            }
                         </div>
                     </div>
                 </div>
