@@ -1743,3 +1743,285 @@ mjx-container[jax="CHTML"][display="true"] {
     color: #fff;
 }
 
+
+
+/* ==========================================================================
+   MODERN VISUAL EFFECTS: ANIMATED GRADIENTS, GLOW, GLASSMORPHISM & REVEAL
+   ========================================================================== */
+
+/* ---------- 1. Sticky Navbar + Glassmorphism ---------- */
+.main-nav {
+    position: sticky;
+    top: 0;
+    z-index: 1040 !important;
+    background: rgba(15, 23, 42, 0.82) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.main-nav.nav-scrolled {
+    background: rgba(10, 18, 36, 0.94) !important;
+    backdrop-filter: blur(24px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(200%) !important;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    border-bottom-color: rgba(99, 102, 241, 0.3) !important;
+    padding-top: 0.35rem !important;
+    padding-bottom: 0.35rem !important;
+}
+
+[data-bs-theme="dark"] .main-nav {
+    background: rgba(8, 13, 26, 0.85) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-bs-theme="dark"] .main-nav.nav-scrolled {
+    background: rgba(6, 10, 20, 0.96) !important;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7), 0 0 25px rgba(56, 189, 248, 0.08) !important;
+    border-bottom-color: rgba(56, 189, 248, 0.25) !important;
+}
+
+.main-nav .nav-link {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    border-radius: 999px;
+}
+
+.main-nav .nav-link:hover {
+    background: rgba(255, 255, 255, 0.14) !important;
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+    transform: translateY(-1px);
+}
+
+.main-nav .nav-link.active {
+    background: rgba(255, 255, 255, 0.18) !important;
+    box-shadow: 0 0 18px rgba(2, 132, 199, 0.45);
+}
+
+.main-nav .navbar-brand .brand-icon {
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;
+}
+
+.main-nav .navbar-brand:hover .brand-icon {
+    transform: scale(1.12) rotate(-8deg);
+    box-shadow: 0 6px 22px rgba(2, 132, 199, 0.65), 0 0 18px rgba(99, 102, 241, 0.55);
+}
+
+/* Glassmorphism dropdown */
+.main-nav .dropdown-menu {
+    background: rgba(15, 23, 42, 0.92) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.45), 0 0 20px rgba(99, 102, 241, 0.15);
+    padding: 0.5rem;
+}
+
+/* ---------- 2. Animated Gradient + Glow ---------- */
+
+/* Animated Hero background */
+.hero {
+    background: radial-gradient(circle at 85% 15%, rgba(2, 132, 199, .28) 0%, transparent 45%),
+                radial-gradient(circle at 12% 85%, rgba(99, 102, 241, .28) 0%, transparent 45%),
+                radial-gradient(circle at 50% 50%, rgba(219, 39, 119, .1) 0%, transparent 55%),
+                linear-gradient(135deg, #090e1a 0%, #111e3b 50%, #0c1428 100%) !important;
+    background-size: 200% 200% !important;
+    animation: heroGradientShift 14s ease infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+@keyframes heroGradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Hero Art gentle floating */
+.hero-art {
+    filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.45));
+    animation: heroFloating 6s ease-in-out infinite;
+    will-change: transform;
+}
+
+@keyframes heroFloating {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-12px) rotate(0.8deg); }
+}
+
+/* Flowing gradient badges & buttons */
+.badge-gradient {
+    background: linear-gradient(135deg, #0284c7 0%, #6366f1 50%, #0284c7 100%) !important;
+    background-size: 200% auto !important;
+    animation: gradientFlow 4s linear infinite;
+    box-shadow: 0 4px 18px rgba(99, 102, 241, .45), 0 0 12px rgba(2, 132, 199, .3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.badge-pro {
+    background: linear-gradient(135deg, #0284c7 0%, #a855f7 50%, #0284c7 100%) !important;
+    background-size: 200% auto !important;
+    animation: gradientFlow 3s linear infinite;
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.6) !important;
+}
+
+.badge-vip {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #f59e0b 100%) !important;
+    background-size: 200% auto !important;
+    animation: gradientFlow 4s linear infinite;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.5) !important;
+    border: 1px solid rgba(254, 243, 199, 0.7) !important;
+}
+
+@keyframes gradientFlow {
+    0% { background-position: 0% center; }
+    100% { background-position: 200% center; }
+}
+
+/* Pulsing Glow Effect */
+.glow-pulse {
+    animation: pulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 0 15px rgba(99, 102, 241, 0.4), 0 0 5px rgba(2, 132, 199, 0.25);
+    }
+    50% {
+        box-shadow: 0 0 28px rgba(99, 102, 241, 0.7), 0 0 14px rgba(2, 132, 199, 0.5);
+    }
+}
+
+/* Button Shimmer + Glow */
+.btn-primary-custom {
+    background: linear-gradient(135deg, #0284c7 0%, #6366f1 50%, #0284c7 100%) !important;
+    background-size: 200% auto !important;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 4px 18px rgba(2, 132, 199, .35), 0 0 10px rgba(99, 102, 241, .2) !important;
+}
+
+.btn-primary-custom::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -75%;
+    width: 50%;
+    height: 200%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: rotate(25deg);
+    pointer-events: none;
+    transition: none;
+}
+
+.btn-primary-custom:hover::after {
+    left: 130%;
+    transition: left 0.7s ease-in-out;
+}
+
+.btn-primary-custom:hover {
+    background-position: right center !important;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 10px 28px rgba(99, 102, 241, .55), 0 0 20px rgba(2, 132, 199, .4) !important;
+}
+
+/* Stat card & Exam card Glow hover */
+.card-exam, .stat-card, .exam-cover-card {
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s ease !important;
+}
+
+.card-exam:hover, .exam-cover-card:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12), 0 0 25px rgba(2, 132, 199, 0.18) !important;
+    border-color: rgba(99, 102, 241, 0.35) !important;
+}
+
+.stat-card:hover {
+    transform: translateY(-6px) !important;
+    box-shadow: 0 18px 35px rgba(2, 132, 199, 0.15), 0 0 20px rgba(99, 102, 241, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .card-exam:hover,
+[data-bs-theme="dark"] .exam-cover-card:hover {
+    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.22) !important;
+    border-color: rgba(167, 139, 250, 0.5) !important;
+}
+
+[data-bs-theme="dark"] .stat-card:hover {
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65), 0 0 25px rgba(56, 189, 248, 0.18) !important;
+}
+
+/* Stat icons reactive hover */
+.stat-icon {
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease !important;
+}
+
+.card-exam:hover .stat-icon, 
+.stat-card:hover .stat-icon,
+.home-shortcuts-section .card:hover .stat-icon {
+    transform: scale(1.14) rotate(6deg) !important;
+    box-shadow: 0 8px 25px rgba(2, 132, 199, 0.5) !important;
+}
+
+/* Glassmorphism Social Pill */
+.hero-social-pill {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 15px rgba(2, 132, 199, 0.2);
+    transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hero-social-pill:hover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.45);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3), 0 0 25px rgba(99, 102, 241, 0.35);
+}
+
+/* ---------- 3. Scroll Reveal + Stagger Animation ---------- */
+.reveal, .reveal-up {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+}
+
+.reveal-scale {
+    opacity: 0;
+    transform: scale(0.93) translateY(20px);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+}
+
+.stagger-group .stagger-item {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, transform;
+}
+
+.reveal.revealed, 
+.reveal-up.revealed, 
+.reveal-scale.revealed, 
+.stagger-group .stagger-item.revealed {
+    opacity: 1 !important;
+    transform: translateY(0) scale(1) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .reveal, .reveal-up, .reveal-scale, .stagger-item {
+        opacity: 1 !important;
+        transform: none !important;
+        transition: none !important;
+    }
+    .hero {
+        animation: none !important;
+    }
+    .hero-art {
+        animation: none !important;
+    }
+}

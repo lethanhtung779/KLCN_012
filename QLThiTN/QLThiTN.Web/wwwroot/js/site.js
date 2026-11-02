@@ -63,4 +63,66 @@ $(function () {
     }
 
     repositionQuestionImages();
+
+    // -------------------------------------------------------------
+    // Sticky Navbar + Glassmorphism on Scroll
+    // -------------------------------------------------------------
+    var $navbar = $('.main-nav');
+    function handleNavbarScroll() {
+        if ($(window).scrollTop() > 24) {
+            $navbar.addClass('nav-scrolled');
+        } else {
+            $navbar.removeClass('nav-scrolled');
+        }
+    }
+    $(window).on('scroll', handleNavbarScroll);
+    handleNavbarScroll();
+
+    // -------------------------------------------------------------
+    // Scroll Reveal + Stagger Animation
+    // -------------------------------------------------------------
+    function initScrollReveal() {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            $('.reveal, .reveal-up, .reveal-scale, .stagger-item').addClass('revealed');
+            return;
+        }
+
+        if (!('IntersectionObserver' in window)) {
+            $('.reveal, .reveal-up, .reveal-scale, .stagger-item').addClass('revealed');
+            return;
+        }
+
+        var observerOptions = {
+            root: null,
+            rootMargin: '0px 0px -40px 0px',
+            threshold: 0.08
+        };
+
+        var revealObserver = new IntersectionObserver(function (entries, observer) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    var $el = $(entry.target);
+                    if ($el.hasClass('stagger-group')) {
+                        var $items = $el.find('.stagger-item');
+                        $items.each(function (idx) {
+                            var item = this;
+                            setTimeout(function () {
+                                $(item).addClass('revealed');
+                            }, idx * 110);
+                        });
+                        $el.addClass('revealed');
+                    } else {
+                        $el.addClass('revealed');
+                    }
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, observerOptions);
+
+        $('.reveal, .reveal-up, .reveal-scale, .stagger-group').each(function () {
+            revealObserver.observe(this);
+        });
+    }
+
+    initScrollReveal();
 });

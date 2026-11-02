@@ -31,7 +31,7 @@
                 {
                     <span class="badge-gradient mb-3"><i class="bi bi-megaphone me-1"></i> Thi thử THPT Quốc gia miễn phí — mở đăng ký</span>
                 }
-                <h1 class="hero-title mb-3">Kiểm tra — đánh giá <span class="text-nowrap">chuẩn khoa học</span></h1>
+                <h1 class="hero-title mb-3">Kiểm tra — đánh giá <span class="text-nowrap glow-text">chuẩn khoa học</span></h1>
 
                 @* Social-proof tu so lieu that cua he thong *@
                 <div class="hero-social-pill mb-4">
@@ -157,13 +157,13 @@
     <!-- How it works (Quy trình thi trực tuyến 3 bước) -->
     <section class="py-5">
         <div class="container">
-            <div class="text-center mb-5">
+            <div class="text-center mb-5 reveal-up">
                 <span class="badge-status badge-status-info mb-2"><i class="bi bi-lightning-charge-fill me-1"></i>Đơn giản & Nhanh chóng</span>
                 <h2 class="section-title mb-2">Quy trình thi trực tuyến 3 bước</h2>
                 <p class="section-subtitle">Dễ dàng tham gia luyện đề và kiểm tra năng lực mọi lúc, mọi nơi</p>
             </div>
-            <div class="row g-4">
-                <div class="col-md-4">
+            <div class="row g-4 stagger-group">
+                <div class="col-md-4 stagger-item">
                     <div class="card card-exam h-100 text-center border-0 rounded-4 shadow-sm">
                         <div class="card-body p-4 d-flex flex-column align-items-center">
                             <span class="stat-icon mx-auto mb-3 d-inline-flex align-items-center justify-content-center text-white" style="background: var(--primary); width: 64px; height: 64px; font-size: 1.6rem; border-radius: 16px;">
@@ -174,7 +174,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 stagger-item">
                     <div class="card card-exam h-100 text-center border-0 rounded-4 shadow-sm">
                         <div class="card-body p-4 d-flex flex-column align-items-center">
                             <span class="stat-icon mx-auto mb-3 d-inline-flex align-items-center justify-content-center text-white" style="background: var(--gradient); width: 64px; height: 64px; font-size: 1.6rem; border-radius: 16px;">
@@ -185,7 +185,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4 stagger-item">
                     <div class="card card-exam h-100 text-center border-0 rounded-4 shadow-sm">
                         <div class="card-body p-4 d-flex flex-column align-items-center">
                             <span class="stat-icon mx-auto mb-3 d-inline-flex align-items-center justify-content-center text-white" style="background: var(--success); width: 64px; height: 64px; font-size: 1.6rem; border-radius: 16px;">
@@ -204,8 +204,8 @@
 <!-- Stats -->
 <section class="py-4 home-stats-section">
     <div class="container">
-        <div class="row g-4">
-            <div class="col-md-6 col-lg-3">
+        <div class="row g-4 stagger-group">
+            <div class="col-md-6 col-lg-3 stagger-item">
                 <div class="card stat-card">
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--gradient);"><i class="bi bi-calendar-event"></i></span>
@@ -216,7 +216,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-3 stagger-item">
                 <div class="card stat-card">
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--primary);"><i class="bi bi-hourglass-split"></i></span>
@@ -227,7 +227,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-3 stagger-item">
                 <div class="card stat-card">
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--success);"><i class="bi bi-check2-circle"></i></span>
@@ -238,7 +238,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6 col-lg-3">
+            <div class="col-md-6 col-lg-3 stagger-item">
                 <div class="card stat-card">
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--accent2);"><i class="bi bi-trophy"></i></span>
@@ -256,7 +256,7 @@
 <!-- Latest public exams -->
 <section class="py-4">
     <div class="container">
-        <div class="d-flex align-items-end justify-content-between mb-4">
+        <div class="d-flex align-items-end justify-content-between mb-4 reveal-up">
             <div>
                 <h2 class="section-title mb-1">Thi thử THPT miễn phí</h2>
                 @if (isLoggedIn)
@@ -271,12 +271,12 @@
             <a asp-controller="Exam" asp-action="Schedule" class="btn btn-outline-primary btn-sm rounded-pill">Xem tất cả <i class="bi bi-arrow-right ms-1"></i></a>
         </div>
 
-        <div class="row g-4">
+        <div class="row g-4 stagger-group">
             @if (Model.LatestPublicExams.Any())
             {
                 @foreach (var exam in Model.LatestPublicExams)
                 {
-                    <div class="col-md-6 col-lg-4">
+                    <div class="col-md-6 col-lg-4 stagger-item">
                         <div class="card exam-cover-card h-100">
                             <partial name="_ExamCover" model="exam" />
                             <div class="card-body p-3 d-flex flex-column">
@@ -335,7 +335,7 @@
     <!-- Quick Shortcuts for Logged-in Students -->
     <section class="py-5 home-shortcuts-section">
         <div class="container">
-            <div class="text-center mb-5">
+            <div class="text-center mb-5 reveal-up">
                 <span class="badge-status badge-status-info mb-2">
                     <i class="bi @(isCenterStudent ? "bi-building-check" : "bi-person-workspace") me-1"></i>
                     @(isCenterStudent ? "Khu vực Học viên Trung tâm" : "Không gian Luyện thi Trực tuyến")
@@ -348,10 +348,10 @@
                 </p>
             </div>
 
-            <div class="row g-4">
+            <div class="row g-4 stagger-group">
                 @if (isCenterStudent)
                 {
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 <span class="stat-icon mx-auto mb-3" style="background: var(--primary); width: 60px; height: 60px; font-size: 1.5rem;">
@@ -365,7 +365,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 <span class="stat-icon mx-auto mb-3" style="background: var(--gradient); width: 60px; height: 60px; font-size: 1.5rem;">
@@ -379,7 +379,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 <span class="stat-icon mx-auto mb-3" style="background: var(--success); width: 60px; height: 60px; font-size: 1.5rem;">
@@ -393,7 +393,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 <span class="stat-icon mx-auto mb-3" style="background: var(--accent2); width: 60px; height: 60px; font-size: 1.5rem;">
@@ -410,7 +410,7 @@
                 }
                 else
                 {
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 <span class="stat-icon mx-auto mb-3" style="background: var(--primary); width: 60px; height: 60px; font-size: 1.5rem;">
@@ -424,7 +424,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 <span class="stat-icon mx-auto mb-3" style="background: var(--success); width: 60px; height: 60px; font-size: 1.5rem;">
@@ -438,7 +438,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 <span class="stat-icon mx-auto mb-3" style="background: var(--accent2); width: 60px; height: 60px; font-size: 1.5rem;">
@@ -452,7 +452,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6 col-lg-3">
+                    <div class="col-md-6 col-lg-3 stagger-item">
                         <div class="card card-exam h-100 border-0 rounded-4 shadow-sm">
                             <div class="card-body p-4 d-flex flex-column text-center">
                                 @if (isVip)
@@ -490,12 +490,12 @@ else
     <!-- Features for Unauthenticated Guests -->
     <section class="py-5 home-features-section">
         <div class="container">
-            <div class="text-center mb-5">
+            <div class="text-center mb-5 reveal-up">
                 <h2 class="section-title mb-2">Trải nghiệm thi trực tuyến chuyên nghiệp</h2>
                 <p class="section-subtitle">Nền tảng luyện thi và đánh giá năng lực trắc nghiệm trực tuyến chuẩn cấu trúc tốt nghiệp THPT</p>
             </div>
-            <div class="row g-4">
-                <div class="col-md-6 col-lg-4">
+            <div class="row g-4 stagger-group">
+                <div class="col-md-6 col-lg-4 stagger-item">
                     <div class="d-flex gap-3">
                         <span class="stat-icon" style="background: var(--gradient);"><i class="bi bi-alarm"></i></span>
                         <div>
@@ -504,7 +504,7 @@ else
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-lg-4 stagger-item">
                     <div class="d-flex gap-3">
                         <span class="stat-icon" style="background: var(--success);"><i class="bi bi-cloud-arrow-up"></i></span>
                         <div>
@@ -513,7 +513,7 @@ else
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-lg-4 stagger-item">
                     <div class="d-flex gap-3">
                         <span class="stat-icon" style="background: var(--accent2);"><i class="bi bi-check2-circle"></i></span>
                         <div>
@@ -522,7 +522,7 @@ else
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-lg-4 stagger-item">
                     <div class="d-flex gap-3">
                         <span class="stat-icon" style="background: var(--primary);"><i class="bi bi-search"></i></span>
                         <div>
@@ -531,7 +531,7 @@ else
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-lg-4 stagger-item">
                     <div class="d-flex gap-3">
                         <span class="stat-icon" style="background: var(--warning);"><i class="bi bi-journal-bookmark-fill"></i></span>
                         <div>
@@ -540,7 +540,7 @@ else
                         </div>
                     </div>
                 </div>
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-6 col-lg-4 stagger-item">
                     <div class="d-flex gap-3">
                         <span class="stat-icon" style="background: var(--pink);"><i class="bi bi-phone"></i></span>
                         <div>
@@ -557,7 +557,7 @@ else
 <!-- CTA -->
 <section class="py-5">
     <div class="container">
-        <div class="card border-0 rounded-4" style="background: var(--gradient-dark);">
+        <div class="card border-0 rounded-4 reveal-scale" style="background: var(--gradient-dark); box-shadow: 0 15px 40px rgba(0,0,0,0.3);">
             <div class="card-body p-5 text-center">
                 @if (isLoggedIn)
                 {
