@@ -14,8 +14,14 @@
         return !!(window.katex && window.renderMathInElement);
     }
 
+    function hasMath(el) {
+        if (!el) return false;
+        var text = el.textContent || '';
+        return text.indexOf('$') !== -1 || text.indexOf('\\[') !== -1 || text.indexOf('\\(') !== -1;
+    }
+
     function renderWithKatex(root) {
-        if (!root || !katexReady()) return;
+        if (!root || !katexReady() || !hasMath(root)) return;
         try {
             window.renderMathInElement(root, {
                 delimiters: DELIM,
@@ -31,7 +37,7 @@
 
     function render(root) {
         root = root || document.body;
-        if (!root) return;
+        if (!root || !hasMath(root)) return;
 
         if (katexReady()) {
             renderWithKatex(root);
@@ -40,6 +46,7 @@
             var rendered = false;
             var safeRender = function () {
                 if (rendered) return;
+                if (!hasMath(root)) return;
                 if (katexReady()) {
                     rendered = true;
                     renderWithKatex(root);

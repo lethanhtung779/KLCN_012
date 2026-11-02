@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -11,10 +12,12 @@ namespace QLThiTN.Web.Services;
         };
 
         private readonly HttpClient _http;
+        private readonly IMemoryCache _cache;
 
-        public ApiClient(HttpClient http, IHttpContextAccessor context)
+        public ApiClient(HttpClient http, IHttpContextAccessor context, IMemoryCache cache)
         {
             _http = http;
+            _cache = cache;
             var token = context.HttpContext?.Session.GetString("ApiAccessToken");
             if (!string.IsNullOrWhiteSpace(token))
                 _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
@@ -68,13 +71,22 @@ namespace QLThiTN.Web.Services;
 
     public async Task<List<ApiDeThi>> GetDeThisAsync(int? monHocId = null, string? loaiDe = null)
     {
+        var cacheKey = $"Cache_DeThis_{monHocId}_{loaiDe}";
+        if (_cache.TryGetValue(cacheKey, out List<ApiDeThi>? cached) && cached != null)
+            return cached;
+
         var url = "/api/dethi";
         var query = new List<string>();
         if (monHocId.HasValue) query.Add($"monHocId={monHocId.Value}");
         if (!string.IsNullOrWhiteSpace(loaiDe)) query.Add($"loaiDe={Uri.EscapeDataString(loaiDe)}");
         if (query.Count > 0) url += "?" + string.Join("&", query);
 
-        return await _http.GetFromJsonAsync<List<ApiDeThi>>(url, JsonOptions) ?? new();
+        var list = await _http.GetFromJsonAsync<List<ApiDeThi>>(url, JsonOptions) ?? new();
+        if (list.Count > 0)
+        {
+            _cache.Set(cacheKey, list, TimeSpan.FromSeconds(30));
+        }
+        return list;
     }
 
     public async Task<ApiDeThi?> GetDeThiAsync(int id)
@@ -140,15 +152,28 @@ namespace QLThiTN.Web.Services;
 
     public async Task<List<ApiDotThi>> GetDotThisAsync(int? hocVienId = null)
     {
+        var cacheKey = hocVienId.HasValue ? $"Cache_DotThis_{hocVienId.Value}" : "Cache_DotThis_All";
+        if (_cache.TryGetValue(cacheKey, out List<ApiDotThi>? cached) && cached != null)
+            return cached;
+
         var url = hocVienId.HasValue ? $"/api/dotthi?hocVienId={hocVienId.Value}" : "/api/dotthi";
-        return await _http.GetFromJsonAsync<List<ApiDotThi>>(url, JsonOptions) ?? new();
+        var list = await _http.GetFromJsonAsync<List<ApiDotThi>>(url, JsonOptions) ?? new();
+        if (list.Count > 0)
+        {
+            _cache.Set(cacheKey, list, TimeSpan.FromSeconds(20));
+        }
+        return list;
     }
 
     public async Task<(bool Success, string Message)> DangKyDotThiAsync(int dotThiId, int hocVienId)
     {
         var response = await _http.PostAsJsonAsync($"/api/dotthi/{dotThiId}/dangky", new { HocVienID = hocVienId }, JsonOptions);
         if (response.IsSuccessStatusCode)
+        {
+            _cache.Remove($"Cache_DotThis_{hocVienId}");
+            _cache.Remove("Cache_DotThis_All");
             return (true, "Đăng ký đợt thi thành công!");
+        }
 
         var err = await ReadErrorMessageAsync(response);
         return (false, err ?? "Đăng ký thất bại.");
@@ -158,7 +183,11 @@ namespace QLThiTN.Web.Services;
     {
         var response = await _http.DeleteAsync($"/api/dotthi/{dotThiId}/dangky/{hocVienId}");
         if (response.IsSuccessStatusCode)
+        {
+            _cache.Remove($"Cache_DotThis_{hocVienId}");
+            _cache.Remove("Cache_DotThis_All");
             return (true, "Đã hủy đăng ký đợt thi.");
+        }
 
         var err = await ReadErrorMessageAsync(response);
         return (false, err ?? "Hủy đăng ký thất bại.");
@@ -240,12 +269,28 @@ namespace QLThiTN.Web.Services;
 
     public async Task<List<ApiMonHoc>> GetMonHocsAsync()
     {
-        return await _http.GetFromJsonAsync<List<ApiMonHoc>>("/api/monhoc", JsonOptions) ?? new();
+        if (_cache.TryGetValue("Cache_Web_MonHocs", out List<ApiMonHoc>? cached) && cached != null)
+            return cached;
+
+        var list = await _http.GetFromJsonAsync<List<ApiMonHoc>>("/api/monhoc", JsonOptions) ?? new();
+        if (list.Count > 0)
+        {
+            _cache.Set("Cache_Web_MonHocs", list, TimeSpan.FromMinutes(15));
+        }
+        return list;
     }
 
     public async Task<ApiExamStats?> GetExamStatsAsync()
     {
-        return await _http.GetFromJsonAsync<ApiExamStats>("/api/dethi/stats", JsonOptions);
+        if (_cache.TryGetValue("Cache_Web_ExamStats", out ApiExamStats? cached) && cached != null)
+            return cached;
+
+        var stats = await _http.GetFromJsonAsync<ApiExamStats>("/api/dethi/stats", JsonOptions);
+        if (stats != null)
+        {
+            _cache.Set("Cache_Web_ExamStats", stats, TimeSpan.FromSeconds(30));
+        }
+        return stats;
     }
 
     public async Task<List<ApiHistoryItem>> GetHistoryAsync(int hocVienId)

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QLThiTN.API.Data;
@@ -11,12 +12,23 @@ namespace QLThiTN.API.Controllers;
 public class MonHocController : ControllerBase
 {
     private readonly QLThiTNDbContext _db;
+    private readonly IMemoryCache? _cache;
 
-    public MonHocController(QLThiTNDbContext db) => _db = db;
+    public MonHocController(QLThiTNDbContext db, IMemoryCache? cache = null)
+    {
+        _db = db;
+        _cache = cache;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
+        const string cacheKey = "Cache_MonHoc_List";
+        if (_cache != null && _cache.TryGetValue(cacheKey, out List<MonHocDto>? cached) && cached != null)
+        {
+            return Ok(cached);
+        }
+
         var list = await _db.MonHocs
             .OrderBy(m => m.TenMon)
             .Select(m => new MonHocDto
@@ -28,6 +40,7 @@ public class MonHocController : ControllerBase
             })
             .ToListAsync();
 
+        _cache?.Set(cacheKey, list, TimeSpan.FromMinutes(10));
         return Ok(list);
     }
 

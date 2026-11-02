@@ -27,7 +27,19 @@ public static class GoiSession
         if (userId is not > 0)
             return;
 
+        // Throttle: Tránh gọi API lấy profile liên tục trên mỗi click (chỉ refresh sau mỗi 60 giây)
+        var lastRefreshStr = http.Session.GetString("LastGoiRefresh");
+        if (long.TryParse(lastRefreshStr, out var lastRefreshTicks))
+        {
+            var lastRefresh = new DateTime(lastRefreshTicks, DateTimeKind.Utc);
+            if (DateTime.UtcNow - lastRefresh < TimeSpan.FromSeconds(60))
+            {
+                return;
+            }
+        }
+
         var profile = await api.GetProfileAsync(userId.Value);
+        http.Session.SetString("LastGoiRefresh", DateTime.UtcNow.Ticks.ToString());
         if (profile is null)
             return;
 

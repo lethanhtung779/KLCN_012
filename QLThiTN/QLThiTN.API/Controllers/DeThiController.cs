@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
@@ -12,8 +13,13 @@ namespace QLThiTN.API.Controllers;
 public class DeThiController : ControllerBase
 {
     private readonly QLThiTNDbContext _db;
+    private readonly IMemoryCache? _cache;
 
-    public DeThiController(QLThiTNDbContext db) => _db = db;
+    public DeThiController(QLThiTNDbContext db, IMemoryCache? cache = null)
+    {
+        _db = db;
+        _cache = cache;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll(
@@ -41,6 +47,12 @@ public class DeThiController : ControllerBase
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats()
     {
+        const string cacheKey = "Cache_ExamStatsDto";
+        if (_cache != null && _cache.TryGetValue(cacheKey, out ExamStatsDto? cached) && cached != null)
+        {
+            return Ok(cached);
+        }
+
         var raw = await _db.BaiLams
             .Where(b => b.TrangThai != "DangLam")
             .Join(_db.DotThis, b => b.DotThiID, d => d.DotThiID,
@@ -68,6 +80,7 @@ public class DeThiController : ControllerBase
             TongHocVien = await _db.HocViens.CountAsync(),
             TheoDe = theoDe
         };
+        _cache?.Set(cacheKey, stats, TimeSpan.FromSeconds(30));
         return Ok(stats);
     }
 

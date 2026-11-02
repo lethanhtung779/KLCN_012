@@ -7,6 +7,7 @@ builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, relo
 builder.Configuration.AddJsonFile("appsettings.Payment.json", optional: true, reloadOnChange: true);
 
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 builder.Services.Configure<VipPaymentSettings>(builder.Configuration.GetSection("VipPayment"));
 builder.Services.AddHttpClient<PayOsGateway>(client => {
     client.BaseAddress = new Uri("https://api-merchant.payos.vn/");

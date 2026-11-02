@@ -13,25 +13,23 @@ public class HomeController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        await GoiSession.RefreshAsync(HttpContext, _api);
-        var exams = await _api.GetDeThisAsync();
-        var schedules = exams.Select(ExamMapping.ToSchedule).ToList();
-        var stats = await _api.GetExamStatsAsync();
-        var statsByDe = (stats?.TheoDe ?? new()).ToDictionary(x => x.DeThiID);
-
-        int completedExams = 0;
-        decimal averageScore = 0m;
-
         var hocVienId = HttpContext.Session.GetInt32("HocVienId");
-        if (hocVienId.HasValue)
-        {
-            var stats2 = await _api.GetStudentStatsAsync(hocVienId.Value);
-            if (stats2 != null)
-            {
-                completedExams = stats2.TotalExams;
-                averageScore = stats2.AverageScore;
-            }
-        }
+
+        var refreshTask = GoiSession.RefreshAsync(HttpContext, _api);
+        var examsTask = _api.GetDeThisAsync();
+        var statsTask = _api.GetExamStatsAsync();
+        var studentStatsTask = hocVienId.HasValue ? _api.GetStudentStatsAsync(hocVienId.Value) : Task.FromResult<ApiStudentStats?>(null);
+
+        await Task.WhenAll(refreshTask, examsTask, statsTask, studentStatsTask);
+
+        var exams = await examsTask;
+        var schedules = exams.Select(ExamMapping.ToSchedule).ToList();
+        var stats = await statsTask;
+        var statsByDe = (stats?.TheoDe ?? new()).ToDictionary(x => x.DeThiID);
+        var stats2 = await studentStatsTask;
+
+        int completedExams = stats2?.TotalExams ?? 0;
+        decimal averageScore = stats2?.AverageScore ?? 0m;
 
         var model = new HomeViewModel
         {

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QLThiTN.API.Data;
@@ -12,13 +13,23 @@ namespace QLThiTN.API.Controllers;
 public class DotThiController : ControllerBase
 {
     private readonly QLThiTNDbContext _db;
+    private readonly IMemoryCache? _cache;
 
-    public DotThiController(QLThiTNDbContext db) => _db = db;
+    public DotThiController(QLThiTNDbContext db, IMemoryCache? cache = null)
+    {
+        _db = db;
+        _cache = cache;
+    }
 
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int? hocVienId)
     {
         hocVienId = User.StudentId() > 0 ? User.StudentId() : null;
+        var cacheKey = hocVienId.HasValue ? $"Cache_DotThi_HocVien_{hocVienId.Value}" : "Cache_DotThi_Public";
+        if (_cache != null && _cache.TryGetValue(cacheKey, out object? cached) && cached != null)
+        {
+            return Ok(cached);
+        }
         var lopIds = hocVienId.HasValue
             ? await _db.HocVien_Lops.Where(h => h.HocVienID == hocVienId.Value && h.TrangThai == "DangHoc")
                 .Select(h => h.LopHocID).ToListAsync()
@@ -46,7 +57,7 @@ public class DotThiController : ControllerBase
                 .ToListAsync()).ToHashSet()
             : new HashSet<int>();
 
-        return Ok(list.Select(d =>
+        var result = list.Select(d =>
         {
             var dto = ToDto(d);
             dto.SoDangKy = counts.GetValueOrDefault(d.DotThiID);
@@ -55,7 +66,10 @@ public class DotThiController : ControllerBase
                 : null;
             dto.DaDangKy = myRegs.Contains(d.DotThiID);
             return dto;
-        }));
+        }).ToList();
+
+        _cache?.Set(cacheKey, result, TimeSpan.FromSeconds(15));
+        return Ok(result);
     }
 
     [HttpGet("{id:int}")]
