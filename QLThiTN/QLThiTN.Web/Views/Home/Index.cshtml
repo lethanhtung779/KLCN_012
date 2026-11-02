@@ -9,6 +9,10 @@
 
 <!-- Hero -->
 <section class="hero">
+    <!-- Ambient Aurora Orbs Background -->
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
     <div class="container position-relative">
         <div class="row align-items-center">
             <div class="col-lg-8 col-xl-7">
@@ -40,7 +44,7 @@
                         <span class="mini-avatar"><i class="bi bi-person-fill"></i></span>
                         <span class="mini-avatar"><i class="bi bi-person-fill"></i></span>
                     </span>
-                    <span><b>@Model.TongCauHoi.ToString("N0")</b> câu hỏi trong ngân hàng • <b>@Model.TongLuotLamBai.ToString("N0")</b> lượt làm bài</span>
+                    <span><b class="counter-value" data-target="@Model.TongCauHoi">@Model.TongCauHoi.ToString("N0")</b> câu hỏi trong ngân hàng • <b class="counter-value" data-target="@Model.TongLuotLamBai">@Model.TongLuotLamBai.ToString("N0")</b> lượt làm bài</span>
                 </div>
 
                 <p class="hero-lead mb-4">Hệ thống thi trắc nghiệm trực tuyến của trung tâm luyện thi: làm bài tính giờ, tự động lưu tiến trình, chấm điểm tức thì và phân tích kết quả chi tiết cho từng học viên.</p>
@@ -68,15 +72,15 @@
                 }
                 <div class="d-flex gap-4 mt-4 pt-2">
                     <div>
-                        <h4 class="fw-bold mb-0 text-white">@Model.TotalExams</h4>
+                        <h4 class="fw-bold mb-0 text-white counter-value" data-target="@Model.TotalExams">@Model.TotalExams</h4>
                         <small class="hero-stat-label">Kỳ thi / đề luyện</small>
                     </div>
                     <div>
-                        <h4 class="fw-bold mb-0 text-white">@Model.UpcomingExams</h4>
+                        <h4 class="fw-bold mb-0 text-white counter-value" data-target="@Model.UpcomingExams">@Model.UpcomingExams</h4>
                         <small class="hero-stat-label">Đợt thi đang mở</small>
                     </div>
                     <div>
-                        <h4 class="fw-bold mb-0 text-white">@Model.CompletedExams</h4>
+                        <h4 class="fw-bold mb-0 text-white counter-value" data-target="@Model.CompletedExams">@Model.CompletedExams</h4>
                         <small class="hero-stat-label">Bài đã hoàn thành</small>
                     </div>
                 </div>
@@ -210,7 +214,7 @@
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--gradient);"><i class="bi bi-calendar-event"></i></span>
                         <div>
-                            <h3>@Model.TotalExams</h3>
+                            <h3 class="counter-value" data-target="@Model.TotalExams">@Model.TotalExams</h3>
                             <div class="stat-label">Tổng kỳ thi</div>
                         </div>
                     </div>
@@ -221,7 +225,7 @@
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--primary);"><i class="bi bi-hourglass-split"></i></span>
                         <div>
-                            <h3>@Model.UpcomingExams</h3>
+                            <h3 class="counter-value" data-target="@Model.UpcomingExams">@Model.UpcomingExams</h3>
                             <div class="stat-label">Sắp / đang mở</div>
                         </div>
                     </div>
@@ -232,7 +236,7 @@
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--success);"><i class="bi bi-check2-circle"></i></span>
                         <div>
-                            <h3>@Model.CompletedExams</h3>
+                            <h3 class="counter-value" data-target="@Model.CompletedExams">@Model.CompletedExams</h3>
                             <div class="stat-label">Đã hoàn thành</div>
                         </div>
                     </div>
@@ -243,7 +247,7 @@
                     <div class="card-body d-flex align-items-center gap-3">
                         <span class="stat-icon" style="background: var(--accent2);"><i class="bi bi-trophy"></i></span>
                         <div>
-                            <h3>@Model.AverageScore.ToString("0.0")</h3>
+                            <h3 class="counter-value" data-target="@Model.AverageScore.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-decimals="1">@Model.AverageScore.ToString("0.0")</h3>
                             <div class="stat-label">Điểm trung bình</div>
                         </div>
                     </div>

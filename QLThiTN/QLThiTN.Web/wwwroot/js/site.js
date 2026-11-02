@@ -125,4 +125,127 @@ $(function () {
     }
 
     initScrollReveal();
+
+    // -------------------------------------------------------------
+    // Top Reading / Scroll Progress Bar
+    // -------------------------------------------------------------
+    var $progressBar = $('#scrollProgressBar');
+    function updateScrollProgress() {
+        var winScroll = $(window).scrollTop();
+        var docHeight = $(document).height() - $(window).height();
+        var scrolled = docHeight > 0 ? (winScroll / docHeight) * 100 : 0;
+        if ($progressBar.length) {
+            $progressBar.css('width', Math.min(scrolled, 100) + '%');
+        }
+    }
+    $(window).on('scroll resize', updateScrollProgress);
+    updateScrollProgress();
+
+    // -------------------------------------------------------------
+    // Back to Top Button
+    // -------------------------------------------------------------
+    var $btnBackToTop = $('#btnBackToTop');
+    function checkBackToTop() {
+        if ($(window).scrollTop() > 320) {
+            $btnBackToTop.addClass('show');
+        } else {
+            $btnBackToTop.removeClass('show');
+        }
+    }
+    $(window).on('scroll', checkBackToTop);
+    checkBackToTop();
+
+    $btnBackToTop.on('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // -------------------------------------------------------------
+    // Animated Rolling Number Counter
+    // -------------------------------------------------------------
+    function animateCounter($el) {
+        if ($el.data('counted')) return;
+        $el.data('counted', true);
+
+        var targetVal = parseFloat($el.attr('data-target'));
+        if (isNaN(targetVal)) return;
+
+        var decimals = parseInt($el.attr('data-decimals') || '0', 10);
+        var duration = 1500;
+        var startTimestamp = null;
+
+        function step(timestamp) {
+            if (!startTimestamp) startTimestamp = timestamp;
+            var progress = Math.min((timestamp - startTimestamp) / duration, 1);
+            // Ease out expo
+            var ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+            var current = ease * targetVal;
+
+            if (decimals > 0) {
+                $el.text(current.toFixed(decimals));
+            } else {
+                $el.text(Math.floor(current).toLocaleString('vi-VN'));
+            }
+
+            if (progress < 1) {
+                window.requestAnimationFrame(step);
+            } else {
+                if (decimals > 0) {
+                    $el.text(targetVal.toFixed(decimals));
+                } else {
+                    $el.text(Math.round(targetVal).toLocaleString('vi-VN'));
+                }
+            }
+        }
+        window.requestAnimationFrame(step);
+    }
+
+    if ('IntersectionObserver' in window) {
+        var counterObserver = new IntersectionObserver(function (entries, observer) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) {
+                    animateCounter($(entry.target));
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.2 });
+
+        $('.counter-value').each(function () {
+            counterObserver.observe(this);
+        });
+    } else {
+        $('.counter-value').each(function () {
+            animateCounter($(this));
+        });
+    }
+
+    // -------------------------------------------------------------
+    // Mouse Spotlight on Cards (Stripe / Linear effect)
+    // -------------------------------------------------------------
+    $(document).on('mousemove', '.card-exam, .stat-card, .exam-cover-card, .home-shortcuts-section .card', function (e) {
+        var rect = this.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+        this.style.setProperty('--mouse-x', x + 'px');
+        this.style.setProperty('--mouse-y', y + 'px');
+    });
+
+    // -------------------------------------------------------------
+    // Ripple Effect on Button Click
+    // -------------------------------------------------------------
+    $(document).on('click', '.btn-primary-custom, .btn-outline-custom, .btn-user, .subject-chip', function (e) {
+        var $btn = $(this);
+        var rect = this.getBoundingClientRect();
+        var x = e.clientX - rect.left;
+        var y = e.clientY - rect.top;
+
+        var $ripple = $('<span class="btn-ripple"></span>');
+        $ripple.css({
+            top: y + 'px',
+            left: x + 'px'
+        });
+        $btn.append($ripple);
+        setTimeout(function () {
+            $ripple.remove();
+        }, 650);
+    });
 });
