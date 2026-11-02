@@ -9,7 +9,7 @@
 <section class="hero">
     <div class="container position-relative">
         <div class="row align-items-center">
-            <div class="col-lg-7">
+            <div class="col-lg-8 col-xl-7">
                 @if (isLoggedIn)
                 {
                     <span class="badge-gradient mb-3"><i class="bi bi-person-check-fill me-1"></i> Xin chào, @userFullName</span>
@@ -18,7 +18,7 @@
                 {
                     <span class="badge-gradient mb-3"><i class="bi bi-megaphone me-1"></i> Thi thử THPT Quốc gia miễn phí — mở đăng ký</span>
                 }
-                <h1 class="mb-3">Kiểm tra — đánh giá chuẩn khoa học</h1>
+                <h1 class="hero-title mb-3">Kiểm tra — đánh giá <span class="text-nowrap">chuẩn khoa học</span></h1>
 
                 @* Social-proof tu so lieu that cua he thong *@
                 <div class="hero-social-pill mb-4">
@@ -30,7 +30,7 @@
                     <span><b>@Model.TongCauHoi.ToString("N0")</b> câu hỏi trong ngân hàng • <b>@Model.TongLuotLamBai.ToString("N0")</b> lượt làm bài</span>
                 </div>
 
-                <p class="fs-5 mb-4">Hệ thống thi trắc nghiệm trực tuyến của trung tâm luyện thi: làm bài tính giờ, tự động lưu tiến trình, chấm điểm tức thì và phân tích kết quả chi tiết cho từng học viên.</p>
+                <p class="hero-lead mb-4">Hệ thống thi trắc nghiệm trực tuyến của trung tâm luyện thi: làm bài tính giờ, tự động lưu tiến trình, chấm điểm tức thì và phân tích kết quả chi tiết cho từng học viên.</p>
                 @if (isLoggedIn)
                 {
                     <div class="d-flex gap-3 flex-wrap">
@@ -47,20 +47,20 @@
                 }
                 <div class="d-flex gap-4 mt-4 pt-2">
                     <div>
-                        <h4 class="fw-bold mb-0">@Model.TotalExams</h4>
-                        <small class="text-white-50">Kỳ thi / đề luyện</small>
+                        <h4 class="fw-bold mb-0 text-white">@Model.TotalExams</h4>
+                        <small class="hero-stat-label">Kỳ thi / đề luyện</small>
                     </div>
                     <div>
-                        <h4 class="fw-bold mb-0">@Model.UpcomingExams</h4>
-                        <small class="text-white-50">Đợt thi đang mở</small>
+                        <h4 class="fw-bold mb-0 text-white">@Model.UpcomingExams</h4>
+                        <small class="hero-stat-label">Đợt thi đang mở</small>
                     </div>
                     <div>
-                        <h4 class="fw-bold mb-0">@Model.CompletedExams</h4>
-                        <small class="text-white-50">Bài đã hoàn thành</small>
+                        <h4 class="fw-bold mb-0 text-white">@Model.CompletedExams</h4>
+                        <small class="hero-stat-label">Bài đã hoàn thành</small>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-5 d-none d-lg-block">
+            <div class="col-lg-4 col-xl-5 d-none d-lg-block text-center text-xl-end">
                 <svg class="hero-art" viewBox="0 0 460 400" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Minh họa học sinh làm bài thi trắc nghiệm trực tuyến">
                     <defs>
                         <linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1">

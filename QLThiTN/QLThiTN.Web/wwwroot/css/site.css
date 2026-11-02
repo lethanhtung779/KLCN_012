@@ -1,36 +1,40 @@
 :root {
-    --primary: #1b2a4e;
-    --primary-dark: #131f3a;
-    --accent: #01b4ff;
-    --accent2: #7c4dff;
-    --success: #28a745;
-    --danger: #dc3545;
-    --warning: #ff9f43;
-    --pink: #e83e8c;
-    --gradient: linear-gradient(135deg, #01b4ff 0%, #7c4dff 100%);
-    --gradient-dark: linear-gradient(135deg, #1b2a4e 0%, #2d4a8f 100%);
-    --bg-soft: #f4f7fb;
+    --primary: #0f2444;
+    --primary-dark: #0a172c;
+    --accent: #0284c7;
+    --accent2: #6366f1;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --pink: #db2777;
+    --gradient: linear-gradient(135deg, #0284c7 0%, #6366f1 100%);
+    --gradient-dark: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    --bg-soft: #f8fafc;
     --bg-card: #ffffff;
-    --text-main: #2b3452;
-    --text-muted: #64748b;
-    --border-soft: #e2e8f0;
-    --card-shadow: 0 4px 20px rgba(27, 42, 78, .06);
-    --card-shadow-hover: 0 8px 30px rgba(27, 42, 78, .12);
+    --text-main: #0f172a;
+    --text-muted: #334155;
+    --border-soft: #cbd5e1;
+    --card-shadow: 0 4px 20px rgba(15, 23, 42, .06);
+    --card-shadow-hover: 0 10px 30px rgba(15, 23, 42, .12);
 }
 
 [data-bs-theme="dark"] {
-    --primary: #82aaff;
-    --primary-dark: #0f172a;
+    --primary: #93c5fd;
+    --primary-dark: #030712;
     --accent: #38bdf8;
     --accent2: #a78bfa;
-    --bg-soft: #0b1120;
-    --bg-card: #1e293b;
-    --text-main: #f1f5f9;
-    --text-muted: #94a3b8;
-    --border-soft: #334155;
-    --gradient-dark: linear-gradient(135deg, #0f172a 0%, #1e1e38 100%);
-    --card-shadow: 0 4px 20px rgba(0, 0, 0, .35);
-    --card-shadow-hover: 0 8px 30px rgba(0, 0, 0, .5);
+    --success: #4ade80;
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --pink: #f472b6;
+    --bg-soft: #080d1a;
+    --bg-card: #131c2e;
+    --text-main: #f8fafc;
+    --text-muted: #cbd5e1;
+    --border-soft: #24344d;
+    --gradient-dark: linear-gradient(135deg, #090e1a 0%, #172338 100%);
+    --card-shadow: 0 4px 20px rgba(0, 0, 0, .45);
+    --card-shadow-hover: 0 10px 30px rgba(0, 0, 0, .65);
 }
 
 html, body {
@@ -43,7 +47,21 @@ body {
     color: var(--text-main);
     display: flex;
     flex-direction: column;
+    font-size: 1rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     transition: background-color .25s ease, color .25s ease;
+}
+
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+    color: var(--text-main);
+    font-weight: 700;
+    letter-spacing: -0.3px;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
 }
 
 main {
@@ -373,29 +391,44 @@ main {
     letter-spacing: 0.3px;
 }
 
-.hero h1 {
-    font-size: 2.75rem;
+.hero h1, .hero-title {
+    font-size: clamp(1.85rem, 2.5vw, 2.35rem);
     font-weight: 800;
     line-height: 1.25;
     letter-spacing: -0.5px;
-    background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.85) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: #ffffff !important;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
-.hero p {
-    color: rgba(255, 255, 255, .88);
+@media (min-width: 992px) {
+    .hero h1, .hero-title {
+        white-space: nowrap;
+    }
+}
+
+.hero p, .hero-lead {
+    color: #e2e8f0 !important;
+    font-size: 1.1rem;
+    line-height: 1.7;
 }
 
 .hero-social-pill {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.12);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 999px;
-    padding: 0.4rem 1rem;
+    padding: 0.45rem 1.1rem;
     display: inline-flex;
     align-items: center;
     gap: 0.75rem;
+    font-size: 0.88rem;
+    color: #f8fafc;
+    font-weight: 500;
+}
+
+.hero .text-white-50, .hero-stat-label {
+    color: #cbd5e1 !important;
+    font-weight: 500;
     font-size: 0.85rem;
 }
 
@@ -834,56 +867,70 @@ body.zen-mode .site-footer {
 /* ---------- Misc ---------- */
 .section-title {
     font-weight: 800;
-    font-size: 1.6rem;
-    color: var(--primary);
+    font-size: clamp(1.5rem, 2.2vw, 1.85rem);
+    color: var(--text-main);
+    letter-spacing: -0.4px;
 }
 
 .section-subtitle {
-    color: #6c7693;
-    font-size: .95rem;
+    color: var(--text-muted) !important;
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.55;
 }
 
 .badge-status {
     padding: .4rem .9rem;
     border-radius: 20px;
     font-size: .75rem;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 0.2px;
 }
 
 /* Bo badge trang thai thong nhat — thay the cac inline style rgba roi rac */
 .badge-status-success {
-    background: rgba(40, 167, 69, .14);
-    color: #1e7e34;
+    background: rgba(22, 163, 74, .14);
+    color: #15803d;
 }
 
 .badge-status-warn {
-    background: rgba(255, 159, 67, .16);
-    color: #b36200;
+    background: rgba(217, 119, 6, .14);
+    color: #b45309;
 }
 
 .badge-status-muted {
-    background: rgba(108, 117, 125, .15);
-    color: #495057;
+    background: rgba(100, 116, 139, .15);
+    color: #334155;
 }
 
 .badge-status-info {
-    background: rgba(1, 180, 255, .12);
-    color: #0275a8;
+    background: rgba(2, 132, 199, .14);
+    color: #0369a1;
 }
 
 .badge-status-danger {
-    background: rgba(220, 53, 69, .14);
-    color: #c82333;
+    background: rgba(220, 38, 38, .14);
+    color: #b91c1c;
 }
 
 .badge-status-purple {
-    background: rgba(124, 77, 255, .12);
-    color: #5e2fd4;
+    background: rgba(99, 102, 241, .14);
+    color: #4f46e5;
 }
 
 /* Footer mau thuong hieu (thay cho inline style trong _Layout) */
 .site-footer {
-    background-color: var(--primary);
+    background-color: #0b1528;
+    color: #cbd5e1;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.site-footer h5, .site-footer h6 {
+    color: #ffffff;
+}
+
+.site-footer p, .site-footer .text-white-50, .site-footer small, .site-footer li {
+    color: #cbd5e1 !important;
 }
 
 /* Menu dang mo duoc to dam vien duoi */
@@ -940,8 +987,8 @@ body.zen-mode .site-footer {
 }
 
 @media (max-width: 992px) {
-    .hero h1 {
-        font-size: 1.9rem;
+    .hero h1, .hero-title {
+        font-size: 1.85rem;
     }
     .hero {
         padding: 3rem 0;
@@ -1434,8 +1481,9 @@ mjx-container[jax="CHTML"][display="true"] {
 [data-bs-theme="dark"] .section-subtitle,
 [data-bs-theme="dark"] .stat-label,
 [data-bs-theme="dark"] .small.text-muted,
-[data-bs-theme="dark"] p.text-muted {
-    color: #94a3b8 !important;
+[data-bs-theme="dark"] p.text-muted,
+[data-bs-theme="dark"] .text-white-50 {
+    color: #cbd5e1 !important;
 }
 
 [data-bs-theme="dark"] .text-secondary {
