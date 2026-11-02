@@ -152,44 +152,54 @@
     </div>
 </section>
 
-<!-- How it works -->
-<section class="py-5">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="section-title mb-2">Mô hình hoạt động</h2>
-            <p class="section-subtitle">Học viên vẫn học tại lớp như thường lệ, kỳ thi được tổ chức trực tuyến</p>
+@if (!isLoggedIn)
+{
+    <!-- How it works (Quy trình thi trực tuyến 3 bước) -->
+    <section class="py-5">
+        <div class="container">
+            <div class="text-center mb-5">
+                <span class="badge-status badge-status-info mb-2"><i class="bi bi-lightning-charge-fill me-1"></i>Đơn giản & Nhanh chóng</span>
+                <h2 class="section-title mb-2">Quy trình thi trực tuyến 3 bước</h2>
+                <p class="section-subtitle">Dễ dàng tham gia luyện đề và kiểm tra năng lực mọi lúc, mọi nơi</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card card-exam h-100 text-center border-0 rounded-4 shadow-sm">
+                        <div class="card-body p-4 d-flex flex-column align-items-center">
+                            <span class="stat-icon mx-auto mb-3 d-inline-flex align-items-center justify-content-center text-white" style="background: var(--primary); width: 64px; height: 64px; font-size: 1.6rem; border-radius: 16px;">
+                                <i class="bi bi-journal-check"></i>
+                            </span>
+                            <h5 class="fw-bold mb-2">1. Chọn đề thi</h5>
+                            <p class="text-muted small mb-0">Lựa chọn môn học và bộ đề thi thử trong kho đề chuẩn cấu trúc tốt nghiệp THPT hoặc đợt thi đang mở.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card card-exam h-100 text-center border-0 rounded-4 shadow-sm">
+                        <div class="card-body p-4 d-flex flex-column align-items-center">
+                            <span class="stat-icon mx-auto mb-3 d-inline-flex align-items-center justify-content-center text-white" style="background: var(--gradient); width: 64px; height: 64px; font-size: 1.6rem; border-radius: 16px;">
+                                <i class="bi bi-stopwatch"></i>
+                            </span>
+                            <h5 class="fw-bold mb-2">2. Làm bài trực tuyến</h5>
+                            <p class="text-muted small mb-0">Hệ thống đếm ngược tính giờ như phòng thi thật, tự động lưu tiến trình từng câu trả lời chống mất mạng.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card card-exam h-100 text-center border-0 rounded-4 shadow-sm">
+                        <div class="card-body p-4 d-flex flex-column align-items-center">
+                            <span class="stat-icon mx-auto mb-3 d-inline-flex align-items-center justify-content-center text-white" style="background: var(--success); width: 64px; height: 64px; font-size: 1.6rem; border-radius: 16px;">
+                                <i class="bi bi-award"></i>
+                            </span>
+                            <h5 class="fw-bold mb-2">3. Nhận điểm & Lời giải</h5>
+                            <p class="text-muted small mb-0">Chấm điểm tự động tức thì khi nộp bài, xem đối chiếu đáp án chi tiết để nhận biết lỗ hổng và rút kinh nghiệm.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="row g-4">
-            <div class="col-md-4">
-                <div class="card card-exam h-100 text-center">
-                    <div class="card-body">
-                        <span class="stat-icon mx-auto mb-3" style="background: var(--primary); width: 64px; height: 64px; font-size: 1.6rem;"><i class="bi bi-easel"></i></span>
-                        <h5 class="fw-bold">1. Học Offline</h5>
-                        <p class="text-muted small mb-0">Đến lớp theo lịch học buổi tối, nghe giảng và tương tác trực tiếp với giáo viên chuyên môn.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card card-exam h-100 text-center">
-                    <div class="card-body">
-                        <span class="stat-icon mx-auto mb-3" style="background: var(--gradient); width: 64px; height: 64px; font-size: 1.6rem;"><i class="bi bi-pencil-square"></i></span>
-                        <h5 class="fw-bold">2. Thi Online</h5>
-                        <p class="text-muted small mb-0">Kiểm tra 15 phút, bài tập về nhà, thi thử cuối tháng và thi thử THPT đều làm trực tuyến trên Website.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card card-exam h-100 text-center">
-                    <div class="card-body">
-                        <span class="stat-icon mx-auto mb-3" style="background: var(--success); width: 64px; height: 64px; font-size: 1.6rem;"><i class="bi bi-graph-up-arrow"></i></span>
-                        <h5 class="fw-bold">3. Chấm điểm tự động</h5>
-                        <p class="text-muted small mb-0">Hệ thống đếm giờ, thu bài, chấm điểm ngay lập tức; giáo viên theo dõi tiến bộ của từng học viên.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+    </section>
+}
 
 <!-- Stats -->
 <section class="py-4 home-stats-section">
