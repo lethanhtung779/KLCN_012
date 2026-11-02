@@ -12,7 +12,6 @@ public class frmQuestionEdit : Form
     private readonly ComboBox _cboLoai = Ui.Combo(240);
     private readonly ComboBox _cboMuc = Ui.Combo(180);
     private readonly ComboBox _track = Ui.Combo(240);
-    private readonly NumericUpDown _numDiem = new() { Width = 80, DecimalPlaces = 2, Increment = 0.25m, Minimum = 0.01m, Maximum = 100m, Value = 0.25m };
     private readonly QuestionContentEditor _question = new() { Height = 350 };
     private readonly QuestionContentEditor[] _answers = Enumerable.Range(0, 4).Select(_ => new QuestionContentEditor()).ToArray();
     private readonly TextBox _explanation = new() { Multiline = true, Height = 90, Dock = DockStyle.Top, Font = Ui.Body, ScrollBars = ScrollBars.Vertical };
@@ -44,7 +43,6 @@ public class frmQuestionEdit : Form
         AddField(metadata, "Chủ đề *", _cboChuDe);
         AddField(metadata, "Loại câu hỏi *", _cboLoai);
         AddField(metadata, "Độ khó", _cboMuc);
-        AddField(metadata, "Điểm", _numDiem);
         _track.Items.AddRange(new object[]{new ComboItem("ChuaPhanLoai","Chưa phân loại"),new ComboItem("Chung","Phần chung"),new ComboItem("KhoaHocMayTinh","Khoa học máy tính"),new ComboItem("TinHocUngDung","Tin học ứng dụng")});
         _track.SelectedIndex=0;
         AddField(metadata,"Nhánh THPT (câu Đ/S môn Tin học)",_track);
@@ -146,7 +144,6 @@ public class frmQuestionEdit : Form
         Select(_cboMon, topic.MonHocID); Select(_cboChuDe, q.ChuDeID);
         Select(_cboLoai, q.LoaiCauHoi); Select(_cboMuc, q.MucDoKho);
         Select(_track,q.NhomTHPT);
-        _numDiem.Maximum = Math.Max(_numDiem.Maximum, q.Diem); _numDiem.Value = Math.Max(_numDiem.Minimum, q.Diem);
         _question.Input.Text = q.NoiDung; _question.LoadImages(q.HinhAnhs);
         _explanation.Text = q.GiaiThichDapAn ?? "";
         for (var i = 0; i < Math.Min(4, q.DapAns.Count); i++)
@@ -167,7 +164,7 @@ public class frmQuestionEdit : Form
             NhomTHPT = (_track.SelectedItem as ComboItem)?.Value as string ?? "ChuaPhanLoai",
             NoiDung = _question.Input.Text.Trim(), HinhAnhs = _question.Images,
             LoaiCauHoi = QuestionType, MucDoKho = (_cboMuc.SelectedItem as ComboItem)?.Value as string ?? MucDoKho.ChuaXacDinh,
-            Diem = _numDiem.Value, GiaiThichDapAn = _explanation.Text.Trim()
+            Diem = 0.25m, GiaiThichDapAn = _explanation.Text.Trim()
         };
         if (QuestionType == LoaiCauHoi.TraLoiNgan)
             q.DapAns.Add(new DapAn { NoiDung = _shortAnswer.Text.Trim(), LaDapAnDung = true, HinhAnhs = _answers[0].Images });

@@ -156,7 +156,8 @@ public class BaiLamController : ControllerBase
         {
             var cau = ct.CauHoi!;
             var orderIndex = dtchMap.GetValueOrDefault(ct.CauHoiID, order++);
-            var diemToiDa = cau.Diem > 0 ? cau.Diem : (cau.LoaiCauHoi == "DungSai" ? 1.0m : (cau.LoaiCauHoi == "TraLoiNgan" ? 0.5m : 0.25m));
+            var subjectName = baiLam.DotThi?.DeThi?.MonHoc?.TenMon ?? string.Empty;
+            var diemToiDa = QLThiTN.Shared.ThptScoring.MaxPoint(subjectName, cau.LoaiCauHoi);
             var diemDat = ct.DiemDatDuoc ?? 0m;
 
             if (cau.LoaiCauHoi == "TraLoiNgan")

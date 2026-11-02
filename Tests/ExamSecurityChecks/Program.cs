@@ -54,7 +54,7 @@ try
         TenDe = "Security test", MonHoc = subject, NguoiTao = teacher.TaiKhoan, LoaiDe = "ThiThu",
         HinhThucTao = "ThuCong", SoLuongCauHoi = 1, LaMienPhi = true, DaDuyet = true,
         DeThi_CauHois = [new() { CauHoi = question, ThuTu = 1 }],
-        MaDeThis = [new() { TenMaDe = "101" }]
+        MaDeThis = [new() { TenMaDe = "101" }, new() { TenMaDe = "102" }, new() { TenMaDe = "103" }]
     };
     var session = new DotThi
     {
@@ -137,6 +137,13 @@ try
     var begins = await Task.WhenAll(Begin(), Begin());
     var attempt = begins[0];
     Check(begins[0].BaiLamID == begins[1].BaiLamID, "Concurrent starts share one attempt");
+    Check(begins[0].MaDeID == begins[1].MaDeID
+        && begins[0].ThoiGianBatDau == begins[1].ThoiGianBatDau,
+        "Concurrent starts preserve variant and start time before any answer");
+    var blankResume = await Begin();
+    Check(blankResume.IsResume && blankResume.BaiLamID == attempt.BaiLamID
+        && blankResume.MaDeID == attempt.MaDeID && blankResume.ThoiGianBatDau == attempt.ThoiGianBatDau,
+        "Reopening an unanswered attempt preserves variant and timer");
     var activity = new { BaiLamID = attempt.BaiLamID, EventID = Guid.NewGuid(), EventType = "hidden" };
     Check((await anonymous.PostAsJsonAsync("/api/examactivity", activity)).StatusCode == HttpStatusCode.Unauthorized, "Anonymous activity denied");
     Check((await b.PostAsJsonAsync("/api/examactivity", activity)).StatusCode == HttpStatusCode.NotFound, "Other student's activity denied");
@@ -223,6 +230,9 @@ try
     Check(takingResponse.IsSuccessStatusCode && takingHtml.Contains("exam-autosave.js"), "Web opens exam with autosave client");
     var attemptMatch = System.Text.RegularExpressions.Regex.Match(takingHtml, "name=\"BaiLamID\" value=\"(\\d+)\"");
     var webAttemptId = int.Parse(attemptMatch.Groups[1].Value);
+    var webAttempt = await db.BaiLams.AsNoTracking().SingleAsync(x => x.BaiLamID == webAttemptId);
+    Check(webAttempt.BaiLamID != attempt.BaiLamID && webAttempt.MaDeID != attempt.MaDeID,
+        "Retaking through the website assigns a different variant after submission");
     Check(takingHtml.Contains("exam-guard.js"), "Exam includes leave guard");
     var webActivity = new { BaiLamID = webAttemptId, EventID = Guid.NewGuid(), EventType = "visible" };
     Check((await browser.PostAsJsonAsync("/Exam/Activity", webActivity)).StatusCode == HttpStatusCode.BadRequest, "Activity requires antiforgery token");
@@ -243,6 +253,8 @@ try
     Check(resumedResponse.StatusCode == HttpStatusCode.Redirect && resumedResponse.Headers.Location!.ToString().Contains("Result"), "Web finalizes expired resumed attempt");
 
     var abandoned = await Begin();
+    Check(abandoned.MaDeID != attempt.MaDeID && abandoned.MaDeID != webAttempt.MaDeID,
+        "Third attempt receives the remaining unseen variant");
     Check((await a.PostAsJsonAsync(prefix + "/luutam", new LuuTamRequestDto
         { BaiLamID = abandoned.BaiLamID, HocVienID = student.HocVienID, Answers = Correct() })).IsSuccessStatusCode,
         "Save abandoned attempt snapshot");
@@ -257,6 +269,9 @@ try
     Check(autoClosed!.TrangThai == "HetGio" && autoClosed.TongDiem == 10, "Worker grades saved snapshot without any client submission");
     Check((await a.PostAsJsonAsync("/api/examactivity", new { BaiLamID = abandoned.BaiLamID, EventID = Guid.NewGuid(), EventType = "hidden" })).StatusCode == HttpStatusCode.Conflict,
         "Closed attempt rejects activity");
+    var recycled = await Begin();
+    Check(recycled.MaDeID != abandoned.MaDeID,
+        "After all variants have been used, the next attempt avoids the most recent variant");
     await db.TaiKhoans.Where(x => x.TaiKhoanID == student.TaiKhoanID).ExecuteUpdateAsync(s => s.SetProperty(x => x.TrangThai, "BiKhoa"));
     Check((await a.GetAsync($"/api/auth/profile/{student.TaiKhoanID}")).StatusCode == HttpStatusCode.Unauthorized, "Locking account revokes existing token");
     Console.WriteLine($"All {passed} security/integrity checks passed.");

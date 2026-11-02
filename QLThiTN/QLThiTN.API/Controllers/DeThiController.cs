@@ -474,7 +474,7 @@ public class DeThiController : ControllerBase
         // Helper: Chọn mã đề ngẫu nhiên thông minh:
         // 1. Ưu tiên chọn mã đề học viên chưa từng làm ở đề thi này
         // 2. Nếu đã làm tất cả mã đề, chọn ngẫu nhiên mã đề khác với lần thi gần nhất
-        async Task<MaDeThi> ChonMaDeNgauNhienAsync(int? excludeMaDeId = null)
+        async Task<MaDeThi> ChonMaDeNgauNhienAsync()
         {
             var dsMaDe = await _db.MaDeThis.Where(m => m.DeThiID == id).ToListAsync();
             if (dsMaDe.Count == 0)
@@ -494,15 +494,11 @@ public class DeThiController : ControllerBase
                 .Select(b => b.MaDeID)
                 .ToListAsync();
 
-            if (excludeMaDeId.HasValue && !pastMaDeIds.Contains(excludeMaDeId.Value))
-            {
-                pastMaDeIds.Insert(0, excludeMaDeId.Value);
-            }
-
-            var lastMaDeId = excludeMaDeId ?? pastMaDeIds.FirstOrDefault();
+            var lastMaDeId = pastMaDeIds.FirstOrDefault();
+            var usedMaDeIds = pastMaDeIds.ToHashSet();
 
             // Ưu tiên các mã đề chưa từng làm
-            var chuaLam = dsMaDe.Where(m => !pastMaDeIds.Contains(m.MaDeID)).ToList();
+            var chuaLam = dsMaDe.Where(m => !usedMaDeIds.Contains(m.MaDeID)).ToList();
             if (chuaLam.Count > 0)
             {
                 return chuaLam[Random.Shared.Next(chuaLam.Count)];
@@ -539,19 +535,9 @@ public class DeThiController : ControllerBase
             dangLam = null;
         }
 
-        if (dangLam is not null && dangLam.ChiTietBaiLams.Count == 0)
-        {
-            // Học viên chưa trả lời câu nào trong bài này, mới vào rồi thoát ra hoặc vào lại
-            // -> Đổi mã đề ngẫu nhiên mới và reset thời gian bắt đầu để mỗi lần vào là một đề ngẫu nhiên!
-            maDe = await ChonMaDeNgauNhienAsync(dangLam.MaDeID);
-            dangLam.MaDeID = maDe.MaDeID;
-            dangLam.ThoiGianBatDau = now;
-            await _db.SaveChangesAsync();
-
-            baiLam = dangLam;
-            isResume = false;
-        }
-        else if (dangLam is not null)
+        // Mở lại/F5 luôn tiếp tục cùng lượt, kể cả khi chưa trả lời câu nào.
+        // Chỉ cấp mã khác khi tạo một lượt thi mới sau khi lượt trước đã kết thúc.
+        if (dangLam is not null)
         {
             baiLam = dangLam;
             isResume = true;
@@ -718,6 +704,8 @@ public class DeThiController : ControllerBase
             return BadRequest(new { message = "Câu trả lời bị trùng." });
         var items = await LoadExamItemsAsync(id);
         if (items.Count == 0) return NotFound();
+        var subjectName = await _db.DeThis.Where(d => d.DeThiID == id)
+            .Select(d => d.MonHoc!.TenMon).FirstOrDefaultAsync() ?? string.Empty;
         var validationError = ValidateAnswers(items, request.Answers);
         if (validationError is not null) return validationError;
 
@@ -731,7 +719,7 @@ public class DeThiController : ControllerBase
         {
             var cau = item.CauHoi!;
             var answer = answerMap.GetValueOrDefault(cau.CauHoiID);
-            var diemToiDa = cau.Diem > 0 ? cau.Diem : DiemMacDinh(cau.LoaiCauHoi);
+            var diemToiDa = QLThiTN.Shared.ThptScoring.MaxPoint(subjectName, cau.LoaiCauHoi);
             var diemDat = 0m;
             bool isCorrect;
 
@@ -758,13 +746,11 @@ public class DeThiController : ControllerBase
             }
             else if (cau.LoaiCauHoi == "DungSai")
             {
-                // Cham theo tung y a-d: 0.25 diem moi y (diemToiDa / so y).
                 var yRows = cau.DapAns.OrderBy(d => d.ThuTu).ToList();
                 var chonMap = (answer?.YChoices ?? new List<SubmitYChoiceDto>())
                     .Where(y => y.DapAnID != 0)
                     .GroupBy(y => y.DapAnID)
                     .ToDictionary(g => g.Key, g => g.Last().LaDung);
-                var diemMoiY = yRows.Count > 0 ? diemToiDa / yRows.Count : 0m;
                 var yResults = new List<YResultDto>();
                 int soYDung = 0;
 
@@ -772,7 +758,7 @@ public class DeThiController : ControllerBase
                 {
                     var clientChon = chonMap.GetValueOrDefault(y.DapAnID);
                     var yDung = clientChon.HasValue && clientChon.Value == y.LaDapAnDung;
-                    if (yDung) { soYDung++; diemDat += diemMoiY; }
+                    if (yDung) soYDung++;
 
                     yResults.Add(new YResultDto
                     {
@@ -788,6 +774,7 @@ public class DeThiController : ControllerBase
                 }
 
                 isCorrect = yRows.Count > 0 && soYDung == yRows.Count;
+                diemDat = QLThiTN.Shared.ThptScoring.TrueFalsePoint(soYDung);
 
                 results.Add(new QuestionResultDto
                 {
@@ -1012,13 +999,6 @@ public class DeThiController : ControllerBase
         }
         return rows;
     }
-
-    private static decimal DiemMacDinh(string loai) => loai switch
-    {
-        "DungSai" => 1.00m,
-        "TraLoiNgan" => 0.50m,
-        _ => 0.25m
-    };
 
     /// <summary>So sanh tra loi ngan: dung ca chuoi (khong phan biet hoa/thuong)
     /// va so (663 = 663,0 = 663.0).</summary>

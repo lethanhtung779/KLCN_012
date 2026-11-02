@@ -268,7 +268,7 @@ public class QuestionResultDto
     /// <summary>Diem dat duoc cho cau nay (tru diem theo tung y voi DungSai).</summary>
     public decimal DiemDat { get; set; }
 
-    /// <summary>Diem toi da cua cau (cot Diem trong bang CauHoi).</summary>
+    /// <summary>Điểm tối đa theo chuẩn cấu trúc đề tốt nghiệp THPT 2025.</summary>
     public decimal DiemToiDa { get; set; }
 }
 

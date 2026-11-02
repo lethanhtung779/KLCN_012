@@ -13,21 +13,22 @@ public static class QuestionImportTemplate
         string[] Row(string type, string content)
         {
             var row = Enumerable.Repeat("", QuestionImportService.Headers.Length).ToArray();
-            row[0] = topic; row[1] = content; row[2] = type; row[3] = "NhanBiet"; row[4] = "0.25"; row[21] = subject;
+            row[0] = topic; row[1] = content; row[2] = type; row[3] = "NhanBiet";
+            row[QuestionImportService.Headers.ToList().IndexOf("MonHoc")] = subject;
             rows.Add(row); return row;
         }
         var tn = Row("TracNghiem", @"Giá trị của $\frac{1}{2}+\frac{1}{2}$ là bao nhiêu?");
-        tn[5] = "$1$"; tn[6] = "$2$"; tn[7] = "$3$"; tn[8] = "$4$"; tn[9] = "A";
-        tn[15] = @"Ta có $\frac{1}{2}+\frac{1}{2}=1$.";
+        tn[4] = "$1$"; tn[5] = "$2$"; tn[6] = "$3$"; tn[7] = "$4$"; tn[8] = "A";
+        tn[14] = @"Ta có $\frac{1}{2}+\frac{1}{2}=1$.";
         var ds = Row("DungSai", "Xét các khẳng định sau:");
-        ds[22] = "Chung";
-        ds[5] = "$1+1=2$"; ds[6] = "$2+2=5$"; ds[7] = "$3>2$"; ds[8] = "$4<1$";
-        ds[10] = "D"; ds[11] = "S"; ds[12] = "D"; ds[13] = "S";
-        var shortAnswer = Row("TraLoiNgan", @"Tính $\sqrt{9}$."); shortAnswer[14] = "3";
+        ds[QuestionImportService.Headers.ToList().IndexOf("NhomTHPT")] = "Chung";
+        ds[4] = "$1+1=2$"; ds[5] = "$2+2=5$"; ds[6] = "$3>2$"; ds[7] = "$4<1$";
+        ds[9] = "D"; ds[10] = "S"; ds[11] = "D"; ds[12] = "S";
+        var shortAnswer = Row("TraLoiNgan", @"Tính $\sqrt{9}$."); shortAnswer[13] = "3";
         if (withImages)
         {
+            tn[15] = "images/minh_hoa.png";
             tn[16] = "images/minh_hoa.png";
-            tn[17] = "images/minh_hoa.png";
         }
         if (Path.GetExtension(path).Equals(".txt", StringComparison.OrdinalIgnoreCase))
         {
@@ -62,7 +63,7 @@ public static class QuestionImportTemplate
             "Nhiều ảnh: phân cách bằng dấu chấm phẩy, ví dụ images/1.png;images/2.png.",
             "Trắc nghiệm: đủ 4 đáp án bằng chữ/ảnh; DapAnDung là A/B/C/D. Đúng-sai: đủ 4 ý và Y_a_Dung…Y_d_Dung là D/S.",
             "Trả lời ngắn: nhập DapSo bằng chữ/số; chỉ dùng ảnh ở AnhCauHoi.",
-            "Điểm trống mặc định 0.25. Chấp nhận 0.25 hoặc 0,25. Tối đa 500 dòng mỗi lần.",
+            "Điểm được tự động xác định theo môn và dạng câu hỏi trong cấu trúc đề tốt nghiệp THPT 2025. Tối đa 500 dòng mỗi lần.",
             "TXT mẫu dùng TAB và dấu ngoặc kép. Với nội dung chứa dấu phân cách hoặc xuống dòng, bao trường bằng dấu ngoặc kép; dấu ngoặc kép bên trong viết hai lần.",
             "Ảnh PNG/JPEG/BMP/GIF tối đa 15 MB, 25 triệu điểm ảnh; GIF chỉ giữ khung hiện tại. ZIP tối đa 100 MB.",
             "Dòng lỗi bị bỏ qua; chỉ nhập các dòng hợp lệ được chọn sau khi xem trước. Đóng màn hình không ghi dữ liệu."

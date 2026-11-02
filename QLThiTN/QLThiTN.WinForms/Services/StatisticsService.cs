@@ -82,13 +82,19 @@ public class StatisticsService
         return Database.ReadList(@"
             SELECT dch.CauHoiID, dch.ThuTu, c.NoiDung,
                    COUNT(ct.ChiTietID) AS SoLanTraLoi,
-                   SUM(CASE WHEN ct.DiemDatDuoc >= c.Diem THEN 1 ELSE 0 END) AS SoLanDung
+                   SUM(CASE WHEN ct.DiemDatDuoc >= CASE
+                       WHEN c.LoaiCauHoi = N'DungSai' THEN 1.00
+                       WHEN c.LoaiCauHoi = N'TraLoiNgan'
+                           AND mh.TenMon COLLATE Latin1_General_100_CI_AI LIKE N'%Toan%' THEN 0.50
+                       ELSE 0.25 END THEN 1 ELSE 0 END) AS SoLanDung
             FROM DeThi_CauHoi dch
             JOIN CauHoi c ON c.CauHoiID = dch.CauHoiID
+            JOIN DeThi de ON de.DeThiID = dch.DeThiID
+            JOIN MonHoc mh ON mh.MonHocID = de.MonHocID
             LEFT JOIN ChiTietBaiLam ct ON ct.CauHoiID = dch.CauHoiID
                  AND ct.BaiLamID IN (SELECT BaiLamID FROM BaiLam WHERE DotThiID = @id AND TrangThai <> N'DangLam')
             WHERE dch.DeThiID = (SELECT DeThiID FROM DotThi WHERE DotThiID = @id)
-            GROUP BY dch.CauHoiID, dch.ThuTu, c.NoiDung, c.Diem
+            GROUP BY dch.CauHoiID, dch.ThuTu, c.NoiDung
             ORDER BY dch.ThuTu",
             r => new ThongKeCauHoi
             {

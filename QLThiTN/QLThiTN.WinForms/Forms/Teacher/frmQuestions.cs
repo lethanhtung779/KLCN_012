@@ -275,15 +275,15 @@ public class frmQuestions : Form
             _next.Enabled = (_page + 1) * PageSize < _totalCount;
             Ui.RenameColumns(_grid,
                 ("CauHoiID", "ID câu hỏi"), ("NoiDung", "Nội dung câu hỏi"), ("LoaiCauHoi", "Loại"),
-                ("MucDoKho", "Độ khó"), ("Diem", "Điểm"), ("TrangThai", "Trạng thái"),
+                ("MucDoKho", "Độ khó"), ("TrangThai", "Trạng thái"),
                 ("TenChuDe", "Chủ đề"), ("TenMon", "Môn"), ("TenGiaoVien", "Người soạn"), ("NgayTao", "Ngày tạo"));
-            Ui.HideColumns(_grid, "ChuDeID", "NguoiTaoID", "NgayTao", "TotalCount");
+            Ui.HideColumns(_grid, "ChuDeID", "NguoiTaoID", "NgayTao", "TotalCount", "Diem");
 
             _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             foreach (var (column, width) in new[]
                      {
                          ("CauHoiID", 90), ("NoiDung", 300), ("LoaiCauHoi", 120), ("MucDoKho", 110),
-                         ("Diem", 65), ("TrangThai", 110), ("TenChuDe", 130),
+                         ("TrangThai", 110), ("TenChuDe", 130),
                          ("TenMon", 110), ("TenGiaoVien", 140)
                      })
                 if (_grid.Columns.Contains(column)) _grid.Columns[column]!.Width = width;

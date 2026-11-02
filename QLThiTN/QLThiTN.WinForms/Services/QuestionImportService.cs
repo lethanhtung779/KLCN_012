@@ -27,7 +27,7 @@ public sealed class QuestionImportRow
 /// <summary>Đọc và kiểm tra trước khi ghi DB; ảnh ZIP luôn được đọc trong bộ nhớ.</summary>
 public sealed class QuestionImportService
 {
-    public static readonly string[] Headers = ["ChuDe", "NoiDung", "LoaiCauHoi", "MucDoKho", "Diem",
+    public static readonly string[] Headers = ["ChuDe", "NoiDung", "LoaiCauHoi", "MucDoKho",
         "DapAnA", "DapAnB", "DapAnC", "DapAnD", "DapAnDung", "Y_a_Dung", "Y_b_Dung", "Y_c_Dung", "Y_d_Dung",
         "DapSo", "GiaiThich", "AnhCauHoi", "AnhA", "AnhB", "AnhC", "AnhD", "MonHoc", "NhomTHPT"];
     private const int MaxRows = 500;
@@ -243,7 +243,7 @@ public sealed class QuestionImportService
         var headers = parser.ReadFields() ?? [];
         // Header mẫu cũ chứa dấu | trong phần chú thích, chưa đặt trong ngoặc kép.
         if (separator == "|" && first.StartsWith("ChuDe (", StringComparison.OrdinalIgnoreCase) && headers.Length > 22)
-            headers = Headers.Take(16).ToArray();
+            headers = Headers.Take(4).Append("Diem").Concat(Headers.Skip(4)).ToArray();
         headers = CheckHeaders(headers);
         var result = new List<RawRow>();
         while (!parser.EndOfData)
@@ -290,12 +290,7 @@ public sealed class QuestionImportService
         };
         if (q.LoaiCauHoi.Length == 0) row.Errors.Add("Loại câu hỏi không hợp lệ.");
         if (q.MucDoKho.Length == 0) row.Errors.Add("Mức độ khó không hợp lệ.");
-        if (Get("Diem").Length > 0)
-        {
-            if (!decimal.TryParse(Get("Diem").Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var score) || score <= 0 || score > 100 || decimal.Round(score, 2) != score)
-                row.Errors.Add("Điểm phải từ 0,01 đến 100, tối đa hai số thập phân.");
-            else q.Diem = score;
-        }
+        q.Diem = 0.25m;
         var candidates = _topics.Where(t => string.Equals(t.TenChuDe.Trim(), Get("ChuDe"), StringComparison.OrdinalIgnoreCase));
         if (Get("MonHoc").Length > 0)
         {

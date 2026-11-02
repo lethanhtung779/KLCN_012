@@ -212,8 +212,8 @@ public class QuestionService
 
     public static void KiemTraHopLe(CauHoi c)
     {
-        if ((string.IsNullOrWhiteSpace(c.NoiDung) && c.HinhAnhs?.Count is not > 0) || c.ChuDeID <= 0 || c.Diem <= 0)
-            throw new InvalidOperationException("Hãy nhập chủ đề, nội dung và điểm hợp lệ.");
+        if ((string.IsNullOrWhiteSpace(c.NoiDung) && c.HinhAnhs?.Count is not > 0) || c.ChuDeID <= 0)
+            throw new InvalidOperationException("Hãy nhập chủ đề và nội dung hợp lệ.");
         var hopLe = c.LoaiCauHoi switch
         {
             LoaiCauHoi.TracNghiem => c.DapAns.Count == 4 && c.DapAns.Count(d => d.LaDapAnDung) == 1,
@@ -278,7 +278,7 @@ public class QuestionService
         cmd.Parameters.AddWithValue("@nd", c.NoiDung.Trim());
         cmd.Parameters.AddWithValue("@loai", c.LoaiCauHoi);
         cmd.Parameters.AddWithValue("@muc", c.MucDoKho);
-        cmd.Parameters.AddWithValue("@diem", c.Diem);
+        cmd.Parameters.AddWithValue("@diem", 0.25m);
         cmd.Parameters.AddWithValue("@gt", (object?)c.GiaiThichDapAn ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@id", c.CauHoiID);
         var id = Convert.ToInt32(cmd.ExecuteScalar());
