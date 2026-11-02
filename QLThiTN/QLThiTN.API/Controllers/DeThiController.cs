@@ -458,10 +458,87 @@ public class DeThiController : ControllerBase
             .FirstOrDefaultAsync(b => b.HocVienID == request.HocVienID
                 && b.DotThiID == dot.DotThiID && b.TrangThai == "DangLam");
 
+        // Helper: Chọn mã đề ngẫu nhiên thông minh:
+        // 1. Ưu tiên chọn mã đề học viên chưa từng làm ở đề thi này
+        // 2. Nếu đã làm tất cả mã đề, chọn ngẫu nhiên mã đề khác với lần thi gần nhất
+        async Task<MaDeThi> ChonMaDeNgauNhienAsync(int? excludeMaDeId = null)
+        {
+            var dsMaDe = await _db.MaDeThis.Where(m => m.DeThiID == id).ToListAsync();
+            if (dsMaDe.Count == 0)
+            {
+                var mNew = new MaDeThi { DeThiID = id, TenMaDe = "101" };
+                _db.MaDeThis.Add(mNew);
+                await _db.SaveChangesAsync();
+                return mNew;
+            }
+
+            if (dsMaDe.Count == 1) return dsMaDe[0];
+
+            // Danh sách MaDeID mà học viên đã từng làm ở đề thi này (sắp xếp theo lần thi mới nhất)
+            var pastMaDeIds = await _db.BaiLams
+                .Where(b => b.HocVienID == request.HocVienID && b.DotThi!.DeThiID == id)
+                .OrderByDescending(b => b.BaiLamID)
+                .Select(b => b.MaDeID)
+                .ToListAsync();
+
+            if (excludeMaDeId.HasValue && !pastMaDeIds.Contains(excludeMaDeId.Value))
+            {
+                pastMaDeIds.Insert(0, excludeMaDeId.Value);
+            }
+
+            var lastMaDeId = excludeMaDeId ?? pastMaDeIds.FirstOrDefault();
+
+            // Ưu tiên các mã đề chưa từng làm
+            var chuaLam = dsMaDe.Where(m => !pastMaDeIds.Contains(m.MaDeID)).ToList();
+            if (chuaLam.Count > 0)
+            {
+                return chuaLam[Random.Shared.Next(chuaLam.Count)];
+            }
+
+            // Nếu đã làm hết tất cả các mã đề: tránh mã đề vừa làm ở lần thi gần nhất
+            var khacLanTruoc = dsMaDe.Where(m => m.MaDeID != lastMaDeId).ToList();
+            if (khacLanTruoc.Count > 0)
+            {
+                return khacLanTruoc[Random.Shared.Next(khacLanTruoc.Count)];
+            }
+
+            return dsMaDe[Random.Shared.Next(dsMaDe.Count)];
+        }
+
         BaiLam baiLam;
         bool isResume;
         MaDeThi maDe;
-        if (dangLam is not null)
+
+        if (dangLam is not null && request.ForceNew == true)
+        {
+            if (dot.SoLanThiToiDa > 0)
+            {
+                var soLanDa = await _db.BaiLams
+                    .CountAsync(b => b.HocVienID == request.HocVienID
+                        && b.DotThiID == dot.DotThiID && b.TrangThai != "DangLam");
+                if (soLanDa + 1 >= dot.SoLanThiToiDa)
+                    return Conflict(new { message = $"Ban da het luot thi toi da ({dot.SoLanThiToiDa} lan)" });
+            }
+
+            dangLam.TrangThai = "HetGio";
+            dangLam.ThoiGianNop = now;
+            await _db.SaveChangesAsync();
+            dangLam = null;
+        }
+
+        if (dangLam is not null && dangLam.ChiTietBaiLams.Count == 0)
+        {
+            // Học viên chưa trả lời câu nào trong bài này, mới vào rồi thoát ra hoặc vào lại
+            // -> Đổi mã đề ngẫu nhiên mới và reset thời gian bắt đầu để mỗi lần vào là một đề ngẫu nhiên!
+            maDe = await ChonMaDeNgauNhienAsync(dangLam.MaDeID);
+            dangLam.MaDeID = maDe.MaDeID;
+            dangLam.ThoiGianBatDau = now;
+            await _db.SaveChangesAsync();
+
+            baiLam = dangLam;
+            isResume = false;
+        }
+        else if (dangLam is not null)
         {
             baiLam = dangLam;
             isResume = true;
@@ -470,18 +547,7 @@ public class DeThiController : ControllerBase
         }
         else
         {
-            var dsMaDe = await _db.MaDeThis.Where(m => m.DeThiID == id).ToListAsync();
-            if (dsMaDe.Count == 0)
-            {
-                maDe = new MaDeThi { DeThiID = id, TenMaDe = "101" };
-                _db.MaDeThis.Add(maDe);
-                await _db.SaveChangesAsync();
-            }
-            else
-            {
-                // Phân phối ngẫu nhiên 1 mã đề trong danh sách các mã đề của đề thi
-                maDe = dsMaDe[Random.Shared.Next(dsMaDe.Count)];
-            }
+            maDe = await ChonMaDeNgauNhienAsync();
 
             var maxLanThi = await _db.BaiLams
                 .Where(b => b.HocVienID == request.HocVienID && b.DotThiID == dot.DotThiID)

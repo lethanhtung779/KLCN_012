@@ -250,7 +250,7 @@ public class ExamController : Controller
 
     [HttpGet]
     [RequireLogin]
-    public async Task<IActionResult> Taking(int id, int? dotThiId)
+    public async Task<IActionResult> Taking(int id, int? dotThiId, bool? forceNew = false)
     {
         if (HocVienId is not int hocVienId)
             return RedirectToAction("Login", "Account");
@@ -268,7 +268,7 @@ public class ExamController : Controller
 
         // Bat dau (hoac phuc hoi) bai thi: server kiem tra thoi gian/so lan thi/
         // dang ky va tra ve so giay con lai tinh theo dong ho server.
-        var (batDau, error) = await _api.BatDauAsync(id, hocVienId, dotThiId);
+        var (batDau, error) = await _api.BatDauAsync(id, hocVienId, dotThiId, forceNew == true);
         if (batDau == null)
         {
             TempData["ErrorMessage"] = error;

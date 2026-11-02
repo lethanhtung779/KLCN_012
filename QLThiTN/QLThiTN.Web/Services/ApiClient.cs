@@ -119,9 +119,9 @@ namespace QLThiTN.Web.Services;
 
     /// <summary>Goi bat dau lam bai: kiem tra thoi gian/so lan thi/dang ky,
     /// tao hoac phuc hoi bai DangLam. Tra ve ket qua hoac thong bao loi tu API.</summary>
-    public async Task<(ApiBatDauResult? Result, string? Error)> BatDauAsync(int deThiId, int hocVienId, int? dotThiId = null)
+    public async Task<(ApiBatDauResult? Result, string? Error)> BatDauAsync(int deThiId, int hocVienId, int? dotThiId = null, bool forceNew = false)
     {
-        var response = await _http.PostAsJsonAsync($"/api/dethi/{deThiId}/batdau", new { HocVienID = hocVienId, DotThiID = dotThiId }, JsonOptions);
+        var response = await _http.PostAsJsonAsync($"/api/dethi/{deThiId}/batdau", new { HocVienID = hocVienId, DotThiID = dotThiId, ForceNew = forceNew }, JsonOptions);
         if (response.IsSuccessStatusCode)
             return (await response.Content.ReadFromJsonAsync<ApiBatDauResult>(JsonOptions), null);
 
