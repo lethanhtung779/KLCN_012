@@ -84,7 +84,7 @@ namespace QLThiTN.Web.Services;
         var list = await _http.GetFromJsonAsync<List<ApiDeThi>>(url, JsonOptions) ?? new();
         if (list.Count > 0)
         {
-            _cache.Set(cacheKey, list, TimeSpan.FromSeconds(30));
+            _cache.Set(cacheKey, list, TimeSpan.FromMinutes(5));
         }
         return list;
     }
@@ -150,19 +150,30 @@ namespace QLThiTN.Web.Services;
         return (false, err ?? "Luu tam that bai.");
     }
 
-    public async Task<List<ApiDotThi>> GetDotThisAsync(int? hocVienId = null)
+    public async Task<List<ApiDotThi>> GetDotThisAsync(int? hocVienId = null, int? monHocId = null)
     {
-        var cacheKey = hocVienId.HasValue ? $"Cache_DotThis_{hocVienId.Value}" : "Cache_DotThis_All";
+        var cacheKey = $"Cache_DotThis_{hocVienId}_{monHocId}";
         if (_cache.TryGetValue(cacheKey, out List<ApiDotThi>? cached) && cached != null)
             return cached;
 
-        var url = hocVienId.HasValue ? $"/api/dotthi?hocVienId={hocVienId.Value}" : "/api/dotthi";
-        var list = await _http.GetFromJsonAsync<List<ApiDotThi>>(url, JsonOptions) ?? new();
-        if (list.Count > 0)
+        var q = new List<string>();
+        if (hocVienId.HasValue) q.Add($"hocVienId={hocVienId.Value}");
+        if (monHocId.HasValue) q.Add($"monHocId={monHocId.Value}");
+        var url = "/api/dotthi" + (q.Count > 0 ? "?" + string.Join("&", q) : "");
+
+        try
         {
-            _cache.Set(cacheKey, list, TimeSpan.FromSeconds(20));
+            var list = await _http.GetFromJsonAsync<List<ApiDotThi>>(url, JsonOptions) ?? new();
+            if (list.Count > 0)
+            {
+                _cache.Set(cacheKey, list, TimeSpan.FromMinutes(5));
+            }
+            return list;
         }
-        return list;
+        catch
+        {
+            return new();
+        }
     }
 
     public async Task<(bool Success, string Message)> DangKyDotThiAsync(int dotThiId, int hocVienId)

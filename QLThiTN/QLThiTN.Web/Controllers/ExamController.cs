@@ -74,14 +74,8 @@ public class ExamController : Controller
     {
         var hocVienId = HocVienId;
 
-        // 1. Khoi chay song song cac tac vu doc lap
-        var refreshTask = RefreshGoiAsync();
+        // 1. Khoi chay danh sach mon
         var monHocsTask = _api.GetMonHocsAsync();
-        var statsTask = _api.GetExamStatsAsync();
-        var dotThisTask = _api.GetDotThisAsync(hocVienId);
-        var historyTask = hocVienId.HasValue ? _api.GetHistoryAsync(hocVienId.Value) : Task.FromResult(new List<ApiHistoryItem>());
-
-        // 2. Cho danh sach mon de xac dinh monId
         var monHocs = await monHocsTask;
         var monId = mon.HasValue && monHocs.Any(m => m.MonHocID == mon.Value)
             ? mon.Value
@@ -89,11 +83,14 @@ public class ExamController : Controller
 
         if (monId == null)
         {
-            await Task.WhenAll(refreshTask, statsTask, dotThisTask, historyTask);
             return View(new KhoDeViewModel { MonHocs = monHocs });
         }
 
-        // 3. Lay danh sach de thi cho monId song song voi cac tac vu con lai
+        // 2. Khoi chay song song tat ca tac vu loc chinh xac theo monId
+        var refreshTask = RefreshGoiAsync();
+        var statsTask = _api.GetExamStatsAsync();
+        var dotThisTask = _api.GetDotThisAsync(hocVienId, monId);
+        var historyTask = hocVienId.HasValue ? _api.GetHistoryAsync(hocVienId.Value) : Task.FromResult(new List<ApiHistoryItem>());
         var examsTask = _api.GetDeThisAsync(monId);
 
         await Task.WhenAll(refreshTask, statsTask, dotThisTask, historyTask, examsTask);

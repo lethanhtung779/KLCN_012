@@ -57,7 +57,7 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseResponseCompression();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment()) { app.UseHttpsRedirection(); }
 app.UseStaticFiles(new StaticFileOptions
 {
     OnPrepareResponse = ctx =>

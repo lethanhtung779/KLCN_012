@@ -26,6 +26,12 @@ public class DeThiController : ControllerBase
         [FromQuery] int? monHocId,
         [FromQuery] string? loaiDe)
     {
+        var cacheKey = $"Cache_DeThi_All_{monHocId}_{loaiDe}";
+        if (_cache != null && _cache.TryGetValue(cacheKey, out object? cached) && cached != null)
+        {
+            return Ok(cached);
+        }
+
         var query = _db.DeThis.AsNoTracking()
             .Where(d => d.DaDuyet)
             .Include(d => d.MonHoc)
@@ -39,7 +45,9 @@ public class DeThiController : ControllerBase
             query = query.Where(d => d.LoaiDe == loaiDe);
 
         var list = await query.ToListAsync();
-        return Ok(list.Select(ToListItemDto));
+        var dtos = list.Select(ToListItemDto).ToList();
+        _cache?.Set(cacheKey, dtos, TimeSpan.FromMinutes(5));
+        return Ok(dtos);
     }
 
     /// <summary>Thong ke tong hop: so lieu toan he thong + theo tung de

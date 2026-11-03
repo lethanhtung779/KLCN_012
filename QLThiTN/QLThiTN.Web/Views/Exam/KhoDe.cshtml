@@ -9,7 +9,8 @@
         @foreach (var m in Model.MonHocs)
         {
             <a asp-controller="Exam" asp-action="KhoDe" asp-route-mon="@m.MonHocID"
-               class="subject-chip @(m.MonHocID == Model.MonHocId ? "active" : "")">
+               class="subject-chip @(m.MonHocID == Model.MonHocId ? "active" : "")"
+               data-mon="@m.MonHocID">
                 <i class="bi @MonHocVisual.ToIcon(m.TenMon)"></i> @MonHocVisual.ToDisplayName(m.TenMon)
             </a>
         }
@@ -17,7 +18,7 @@
 </div>
 
 <section class="py-4">
-    <div class="container">
+    <div class="container" id="khoDeContainer" style="transition: opacity 0.15s ease;">
         @if (Model.MonHocId == null)
         {
             <div class="text-center py-5">
@@ -267,6 +268,45 @@
             });
 
             apDungBoLoc();
+
+            // Chuyen tab mon hoc tuc thi bang AJAX khong reload trang
+            $(document).on('click', '.subject-chip', function (e) {
+                e.preventDefault();
+                var $chip = $(this);
+                var href = $chip.attr('href');
+                if ($chip.hasClass('active')) return;
+
+                $('.subject-chip').removeClass('active');
+                $chip.addClass('active');
+
+                var $box = $('#khoDeContainer');
+                $box.css('opacity', '0.4');
+
+                fetch(href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function (r) { return r.text(); })
+                    .then(function (html) {
+                        var parser = new DOMParser();
+                        var doc = parser.parseFromString(html, 'text/html');
+                        var newCont = doc.querySelector('#khoDeContainer');
+                        if (newCont) {
+                            $box.html(newCont.innerHTML);
+                        }
+                        $box.css('opacity', '1');
+                        window.history.pushState(null, '', href);
+                        apDungBoLoc();
+                        if (window.renderMathInElement) {
+                            window.renderMathInElement(document.getElementById('khoDeContainer'));
+                        }
+                    })
+                    .catch(function () {
+                        window.location.href = href;
+                    });
+            });
+
+            // Ho tro nut Back/Forward cua trinh duyet
+            window.addEventListener('popstate', function () {
+                window.location.reload();
+            });
         });
     </script>
 }

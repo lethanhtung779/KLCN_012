@@ -22,10 +22,10 @@ public class DotThiController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int? hocVienId)
+    public async Task<IActionResult> GetAll([FromQuery] int? hocVienId, [FromQuery] int? monHocId)
     {
-        hocVienId = User.StudentId() > 0 ? User.StudentId() : null;
-        var cacheKey = hocVienId.HasValue ? $"Cache_DotThi_HocVien_{hocVienId.Value}" : "Cache_DotThi_Public";
+        hocVienId = User.StudentId() > 0 ? User.StudentId() : hocVienId;
+        var cacheKey = $"Cache_DotThi_{hocVienId}_{monHocId}";
         if (_cache != null && _cache.TryGetValue(cacheKey, out object? cached) && cached != null)
         {
             return Ok(cached);
@@ -36,8 +36,16 @@ public class DotThiController : ControllerBase
             : new List<int>();
         var eligibleDotIds = await _db.DotThi_LopHocs.Where(x => lopIds.Contains(x.LopHocID))
             .Select(x => x.DotThiID).Distinct().ToListAsync();
-        var list = await _db.DotThis
-            .Where(d => d.DeThi!.DaDuyet)
+
+        var query = _db.DotThis
+            .Where(d => d.DeThi!.DaDuyet);
+
+        if (monHocId.HasValue)
+        {
+            query = query.Where(d => d.DeThi!.MonHocID == monHocId.Value);
+        }
+
+        var list = await query
             .Include(d => d.DeThi)
                 .ThenInclude(d => d!.MonHoc)
             .Where(d => d.PhamVi != "TheoLop" || eligibleDotIds.Contains(d.DotThiID))
@@ -68,7 +76,7 @@ public class DotThiController : ControllerBase
             return dto;
         }).ToList();
 
-        _cache?.Set(cacheKey, result, TimeSpan.FromSeconds(15));
+        _cache?.Set(cacheKey, result, TimeSpan.FromMinutes(5));
         return Ok(result);
     }
 

@@ -51,7 +51,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseResponseCompression();
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment()) { app.UseHttpsRedirection(); }
 app.UseAuthentication();
 // Re-check active status and password on authenticated requests, cached in memory to avoid repetitive DB hits
 app.Use(async (context, next) =>
