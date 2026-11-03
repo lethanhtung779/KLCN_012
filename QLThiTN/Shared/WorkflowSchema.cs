@@ -128,6 +128,14 @@ public static class WorkflowSchema
             EXEC sp_executesql N'CREATE INDEX IX_CauHoi_NguoiTao ON CauHoi(NguoiTaoID)';
         IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('DeThi') AND name='IX_DeThi_NguoiTao')
             EXEC sp_executesql N'CREATE INDEX IX_DeThi_NguoiTao ON DeThi(NguoiTaoID)';
+        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('HocVien_Lop') AND name='IX_HocVienLop_LopHoc_TrangThai')
+            EXEC sp_executesql N'CREATE INDEX IX_HocVienLop_LopHoc_TrangThai ON HocVien_Lop(LopHocID,TrangThai) INCLUDE(HocVienID)';
+        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('LichHoc') AND name='IX_LichHoc_LopHoc_ThoiGian')
+            EXEC sp_executesql N'CREATE INDEX IX_LichHoc_LopHoc_ThoiGian ON LichHoc(LopHocID,ThoiGianBatDau)';
+        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('BaiLam') AND name='IX_BaiLam_DotThi_TrangThai')
+            EXEC sp_executesql N'CREATE INDEX IX_BaiLam_DotThi_TrangThai ON BaiLam(DotThiID,TrangThai) INCLUDE(HocVienID,TongDiem,ThoiGianNop)';
+        IF NOT EXISTS(SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('CauHoi') AND name='IX_CauHoi_BoLoc')
+            EXEC sp_executesql N'CREATE INDEX IX_CauHoi_BoLoc ON CauHoi(ChuDeID,TrangThai,LoaiCauHoi,MucDoKho) INCLUDE(NguoiTaoID,NgayTao)';
         COMMIT;
         """ + InvalidationTriggers();
 

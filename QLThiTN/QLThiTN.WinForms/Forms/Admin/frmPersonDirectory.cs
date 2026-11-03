@@ -21,13 +21,21 @@ public sealed class frmPersonDirectory : Form
         };
         management.Controls.Add(new PersonDirectoryPanel(role));
         var personalInfo = new TabPage("Thông tin chi tiết") { BackColor = Color.White };
-        var personalPanel = new PersonPersonalInfoPanel(role);
-        personalInfo.Controls.Add(personalPanel);
+        PersonPersonalInfoPanel? personalPanel = null;
         tabs.TabPages.Add(management);
         tabs.TabPages.Add(personalInfo);
         tabs.SelectedIndexChanged += (_, _) =>
         {
-            if (tabs.SelectedTab == personalInfo) personalPanel.RefreshList();
+            if (tabs.SelectedTab != personalInfo) return;
+            if (personalPanel == null)
+            {
+                personalPanel = new PersonPersonalInfoPanel(role);
+                personalInfo.Controls.Add(personalPanel);
+            }
+            else
+            {
+                personalPanel.RefreshList();
+            }
         };
         Controls.Add(tabs);
     }

@@ -97,6 +97,22 @@ END");
         return conn;
     }
 
+    /// <summary>Mo ket noi ma khong khoa UI thread cua WinForms.</summary>
+    public static async Task<SqlConnection> OpenAsync(CancellationToken cancellationToken = default)
+    {
+        var conn = new SqlConnection(_connectionString);
+        try
+        {
+            await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return conn;
+        }
+        catch
+        {
+            await conn.DisposeAsync().ConfigureAwait(false);
+            throw;
+        }
+    }
+
     /// <summary>Thuc thi lenh khong tra ve du lieu; tra ve so dong bi anh huong.</summary>
     public static int Execute(string sql, Action<SqlParameterCollection>? bind = null)
     {
@@ -142,6 +158,23 @@ END");
         bind?.Invoke(cmd.Parameters);
         using var reader = cmd.ExecuteReader();
         while (reader.Read()) list.Add(map(reader));
+        return list;
+    }
+
+    /// <summary>Ban bat dong bo cua ReadList, dung cho cac thao tac khoi tao giao dien.</summary>
+    public static async Task<List<T>> ReadListAsync<T>(
+        string sql,
+        Func<SqlDataReader, T> map,
+        Action<SqlParameterCollection>? bind = null,
+        CancellationToken cancellationToken = default)
+    {
+        var list = new List<T>();
+        await using var conn = await OpenAsync(cancellationToken).ConfigureAwait(false);
+        await using var cmd = new SqlCommand(sql, conn) { CommandTimeout = 120 };
+        bind?.Invoke(cmd.Parameters);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            list.Add(map(reader));
         return list;
     }
 }

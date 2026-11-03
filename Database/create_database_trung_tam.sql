@@ -562,6 +562,10 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_HocVienLop_LopHoc' AN
     CREATE INDEX IX_HocVienLop_LopHoc ON HocVien_Lop (LopHocID);
 GO
 
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_HocVienLop_LopHoc_TrangThai' AND object_id = OBJECT_ID(N'dbo.HocVien_Lop'))
+    CREATE INDEX IX_HocVienLop_LopHoc_TrangThai ON HocVien_Lop (LopHocID, TrangThai) INCLUDE (HocVienID);
+GO
+
 -- Dọn quan hệ lớp cũ không hợp lệ trước khi bật chốt chặn nghiệp vụ.
 DELETE hvl
 FROM HocVien_Lop hvl
@@ -586,6 +590,10 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_LichHoc_LopHoc' AND object_id = OBJECT_ID(N'dbo.LichHoc'))
     CREATE INDEX IX_LichHoc_LopHoc ON LichHoc (LopHocID);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_LichHoc_LopHoc_ThoiGian' AND object_id = OBJECT_ID(N'dbo.LichHoc'))
+    CREATE INDEX IX_LichHoc_LopHoc_ThoiGian ON LichHoc (LopHocID, ThoiGianBatDau);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PhanCong_MonHoc' AND object_id = OBJECT_ID(N'dbo.PhanCongGiangDay'))
@@ -622,6 +630,14 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_BaiLam_DotThi' AND object_id = OBJECT_ID(N'dbo.BaiLam'))
     CREATE INDEX IX_BaiLam_DotThi ON BaiLam (DotThiID);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_BaiLam_DotThi_TrangThai' AND object_id = OBJECT_ID(N'dbo.BaiLam'))
+    CREATE INDEX IX_BaiLam_DotThi_TrangThai ON BaiLam (DotThiID, TrangThai) INCLUDE (HocVienID, TongDiem, ThoiGianNop);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_CauHoi_BoLoc' AND object_id = OBJECT_ID(N'dbo.CauHoi'))
+    CREATE INDEX IX_CauHoi_BoLoc ON CauHoi (ChuDeID, TrangThai, LoaiCauHoi, MucDoKho) INCLUDE (NguoiTaoID, NgayTao);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_BaiLam_MaDe' AND object_id = OBJECT_ID(N'dbo.BaiLam'))

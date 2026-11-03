@@ -19,6 +19,9 @@ public class frmExams : Form
     private readonly Button _btnGoiDe = Ui.ButtonOutline("Đổi quyền làm bài", 165);
     private readonly Button _btnXoaDe = Ui.ButtonDanger("Xóa đề", 100);
     private readonly ToolTip _tips = new();
+    private int _examLoadVersion;
+    private int _sessionLoadVersion;
+    private bool _bindingExams;
 
     public frmExams()
     {
@@ -109,7 +112,7 @@ public class frmExams : Form
 
         Ui.StyleGrid(_gridDe);
         _gridDe.Dock = DockStyle.Fill;
-        _gridDe.SelectionChanged += (s, e) => TaiDotThi();
+        _gridDe.SelectionChanged += (s, e) => { if (!_bindingExams) TaiDotThi(); };
         _gridDe.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) MoXemCacMaDe(); };
         _gridDe.DataError += (s, e) => { e.ThrowException = false; };
 
@@ -167,7 +170,11 @@ public class frmExams : Form
         Controls.Add(_split);
         Controls.Add(topArea);
 
-        Load += (s, e) => { try { _service.DongDotThiQuaHan(); } catch { } TaiLai(); };
+        Load += async (s, e) =>
+        {
+            try { await Task.Run(_service.DongDotThiQuaHan); } catch { }
+            if (!IsDisposed && !Disposing) TaiLai();
+        };
     }
 
     private void TaoDe(Func<int, Form> createForm)
@@ -176,9 +183,22 @@ public class frmExams : Form
         if (form.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
     }
 
-    private void TaiLai()
+    private async void TaiLai()
     {
-        var danhSach = _service.LayDanhSachDe();
+        var version = ++_examLoadVersion;
+        _lblDeDangChon.Text = "Đang tải danh sách đề thi...";
+        DataTable danhSach;
+        try
+        {
+            danhSach = await Task.Run(_service.LayDanhSachDe);
+            if (IsDisposed || Disposing || version != _examLoadVersion) return;
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _examLoadVersion)
+                _lblDeDangChon.Text = "Không tải được danh sách đề thi: " + ex.Message;
+            return;
+        }
         danhSach.Columns.Add("TrangThaiWeb", typeof(string));
         foreach (DataRow row in danhSach.Rows)
         {
@@ -190,7 +210,9 @@ public class frmExams : Form
                     ? "Chưa hiển thị — chưa có lịch"
                     : "Đã có lịch trên Web";
         }
-        _gridDe.DataSource = danhSach;
+        _bindingExams = true;
+        try { _gridDe.DataSource = danhSach; }
+        finally { _bindingExams = false; }
         Ui.RenameColumns(_gridDe,
             ("DeThiID", "ID"), ("TenDe", "Tên đề"), ("TenMon", "Môn"), ("LoaiDe", "Loại đề"),
             ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Hình thức tạo"), ("QuyenThi", "Quyền thi"),
@@ -295,10 +317,24 @@ public class frmExams : Form
         TaiLai();
     }
 
-    private void TaiDotThi()
+    private async void TaiDotThi()
     {
+        var version = ++_sessionLoadVersion;
         var id = DeIdDangChon();
-        _gridDot.DataSource = id == 0 ? new DataTable() : _service.LayDanhSachDotThi(id);
+        _lblDot.Text = id == 0 ? "Lịch thi của đề đang chọn" : "Đang tải lịch thi...";
+        DataTable data;
+        try
+        {
+            data = id == 0 ? new DataTable() : await Task.Run(() => _service.LayDanhSachDotThi(id));
+            if (IsDisposed || Disposing || version != _sessionLoadVersion) return;
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _sessionLoadVersion)
+                _lblDot.Text = "Không tải được lịch thi: " + ex.Message;
+            return;
+        }
+        _gridDot.DataSource = data;
         Ui.RenameColumns(_gridDot,
             ("DotThiID", "ID"), ("TenDotThi", "Tên lịch thi"), ("TenDe", "Đề"),
             ("ThoiGianMoCong", "Mở cổng"), ("ThoiGianDongCong", "Đóng cổng"),

@@ -246,4 +246,22 @@ public class StatisticsService
         return (Convert.ToInt32(row["CauHoi"]), Convert.ToInt32(row["DeThi"]),
                 Convert.ToInt32(row["HocVien"]), Convert.ToInt32(row["BaiThi"]));
     }
+
+    public async Task<(int CauHoi, int DeThi, int HocVien, int BaiThi)> ThongKeTongQuanAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var row = (await Database.ReadListAsync(@"
+            SELECT
+                (SELECT COUNT_BIG(1) FROM CauHoi WHERE TrangThai=N'HoatDong') AS CauHoi,
+                (SELECT COUNT_BIG(1) FROM DeThi) AS DeThi,
+                (SELECT COUNT_BIG(1) FROM HocVien) AS HocVien,
+                (SELECT COUNT_BIG(1) FROM BaiLam WHERE TrangThai<>N'DangLam') AS BaiThi",
+            r => (
+                CauHoi: Convert.ToInt32(r.GetInt64(0)),
+                DeThi: Convert.ToInt32(r.GetInt64(1)),
+                HocVien: Convert.ToInt32(r.GetInt64(2)),
+                BaiThi: Convert.ToInt32(r.GetInt64(3))),
+            cancellationToken: cancellationToken)).Single();
+        return row;
+    }
 }

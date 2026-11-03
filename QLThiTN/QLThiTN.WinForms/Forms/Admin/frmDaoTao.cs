@@ -43,6 +43,12 @@ public class frmDaoTao : Form
     private const int TabTongHopIndex = 4;
     private int _selectedClassId;
     private bool _bindingClass;
+    private int _courseLoadVersion;
+    private int _classLoadVersion;
+    private int _summaryLoadVersion;
+    private int _studentInClassLoadVersion;
+    private int _availableStudentLoadVersion;
+    private int _scheduleLoadVersion;
 
     public frmDaoTao()
     {
@@ -85,7 +91,6 @@ public class frmDaoTao : Form
                     break;
                 case 1: // Lớp học
                     NapLocKhoaLop();
-                    TaiLopHoc();
                     break;
                 case 2: // Xếp học viên
                     NapComboLop(_cboLopXep);
@@ -105,10 +110,8 @@ public class frmDaoTao : Form
         Load += (_, _) =>
         {
             if (_tabs.SelectedIndex == TabTongHopIndex) TaiTongHop();
+            else NapLocMonKhoa();
         };
-
-        NapLocMonKhoa();
-        TaiKhoaHoc();
     }
 
     private void CapNhatTongHop() => TaiTongHop();
@@ -221,10 +224,24 @@ public class frmDaoTao : Form
 
     private void ChonKhoaXemChiTiet() => TaiChiTietKhoa(IdKhoaTongHopDangChon());
 
-    private void TaiTongHop()
+    private async void TaiTongHop()
     {
+        var version = ++_summaryLoadVersion;
         var selectedId = IdKhoaTongHopDangChon();
-        _tongHopCache = _service.LayTongHopDaoTao(_txtTimTongHop.Text);
+        _lblTongHopStats.Text = "Đang tải dữ liệu tổng hợp...";
+        try
+        {
+            var search = _txtTimTongHop.Text;
+            var data = await Task.Run(() => _service.LayTongHopDaoTao(search));
+            if (IsDisposed || Disposing || version != _summaryLoadVersion) return;
+            _tongHopCache = data;
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _summaryLoadVersion)
+                _lblTongHopStats.Text = "Không tải được dữ liệu: " + ex.Message;
+            return;
+        }
 
         var dtKhoa = new System.Data.DataTable();
         dtKhoa.Columns.Add("KhoaHocID", typeof(int));
@@ -403,9 +420,19 @@ public class frmDaoTao : Form
         return page;
     }
 
-    private void NapLocMonKhoa()
+    private async void NapLocMonKhoa()
     {
-        var dt = _service.LayDanhSachMonHoc();
+        System.Data.DataTable dt;
+        try
+        {
+            dt = await Task.Run(_service.LayDanhSachMonHoc);
+            if (IsDisposed || Disposing) return;
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing) _lblKhoaCount.Text = "Không tải được danh mục môn: " + ex.Message;
+            return;
+        }
         var all = dt.Clone();
         all.Rows.Add(0, "Tất cả môn");
         foreach (System.Data.DataRow r in dt.Rows) all.Rows.Add(r.ItemArray);
@@ -414,10 +441,24 @@ public class frmDaoTao : Form
         _cboLocMonKhoa.DataSource = all;
     }
 
-    private void TaiKhoaHoc()
+    private async void TaiKhoaHoc()
     {
+        var version = ++_courseLoadVersion;
         int? monId = _cboLocMonKhoa.SelectedValue is int m && m > 0 ? m : null;
-        var dt = _service.LayDanhSachKhoaHoc(_txtTimKhoa.Text, monId);
+        var search = _txtTimKhoa.Text;
+        _lblKhoaCount.Text = "Đang tải danh sách khóa học...";
+        System.Data.DataTable dt;
+        try
+        {
+            dt = await Task.Run(() => _service.LayDanhSachKhoaHoc(search, monId));
+            if (IsDisposed || Disposing || version != _courseLoadVersion) return;
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _courseLoadVersion)
+                _lblKhoaCount.Text = "Không tải được khóa học: " + ex.Message;
+            return;
+        }
         _gridKhoa.DataSource = dt;
         Ui.RenameColumns(_gridKhoa,
             ("KhoaHocID", "ID"), ("TenKhoaHoc", "Tên khóa học"), ("TenMon", "Môn học"),
@@ -563,9 +604,19 @@ public class frmDaoTao : Form
         return page;
     }
 
-    private void NapLocKhoaLop()
+    private async void NapLocKhoaLop()
     {
-        var dt = _service.LayComboKhoaHoc();
+        System.Data.DataTable dt;
+        try
+        {
+            dt = await Task.Run(_service.LayComboKhoaHoc);
+            if (IsDisposed || Disposing) return;
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing) _lblLopCount.Text = "Không tải được danh mục khóa học: " + ex.Message;
+            return;
+        }
         var all = dt.Clone();
         all.Rows.Add(0, "Tất cả khóa học");
         foreach (System.Data.DataRow r in dt.Rows) all.Rows.Add(r.ItemArray);
@@ -574,10 +625,24 @@ public class frmDaoTao : Form
         _cboLocKhoaLop.DataSource = all;
     }
 
-    private void TaiLopHoc()
+    private async void TaiLopHoc()
     {
+        var version = ++_classLoadVersion;
         int? khId = _cboLocKhoaLop.SelectedValue is int k && k > 0 ? k : null;
-        var dt = _service.LayDanhSachLopHoc(khId, _txtTimLop.Text);
+        var search = _txtTimLop.Text;
+        _lblLopCount.Text = "Đang tải danh sách lớp học...";
+        System.Data.DataTable dt;
+        try
+        {
+            dt = await Task.Run(() => _service.LayDanhSachLopHoc(khId, search));
+            if (IsDisposed || Disposing || version != _classLoadVersion) return;
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _classLoadVersion)
+                _lblLopCount.Text = "Không tải được lớp học: " + ex.Message;
+            return;
+        }
         var view = dt.DefaultView;
         if (_chkChuaPhanCong.Checked) view.RowFilter = "TrangThaiPhanCong = 'Chưa phân công'";
         _bindingClass = true;
@@ -740,15 +805,22 @@ public class frmDaoTao : Form
         return page;
     }
 
-    private void NapComboLop(ComboBox cbo)
+    private async void NapComboLop(ComboBox cbo)
     {
         var previous = _selectedClassId > 0 ? _selectedClassId : cbo.SelectedValue is int value ? value : 0;
+        System.Data.DataTable data;
+        try
+        {
+            data = await Task.Run(_service.LayComboLopHoc);
+            if (IsDisposed || Disposing || cbo.IsDisposed) return;
+        }
+        catch { return; }
         _bindingClass = true;
         try
         {
             cbo.DisplayMember = "TenHienThi";
             cbo.ValueMember = "LopHocID";
-            cbo.DataSource = _service.LayComboLopHoc();
+            cbo.DataSource = data;
             cbo.DropDownWidth = 850;
             if (previous > 0) cbo.SelectedValue = previous;
             if (cbo.SelectedIndex < 0 && cbo.Items.Count > 0) cbo.SelectedIndex = 0;
@@ -759,8 +831,9 @@ public class frmDaoTao : Form
 
     private int LopXepId() => _cboLopXep.SelectedValue is int i ? i : 0;
 
-    private void TaiHocVienLop()
+    private async void TaiHocVienLop()
     {
+        var version = ++_studentInClassLoadVersion;
         var lop = LopXepId();
         if (lop <= 0)
         {
@@ -768,7 +841,13 @@ public class frmDaoTao : Form
             _gridChuaLop.DataSource = null;
             return;
         }
-        _gridTrongLop.DataSource = _service.LayHocVienTrongLop(lop);
+        try
+        {
+            var data = await Task.Run(() => _service.LayHocVienTrongLop(lop));
+            if (IsDisposed || Disposing || version != _studentInClassLoadVersion || lop != LopXepId()) return;
+            _gridTrongLop.DataSource = data;
+        }
+        catch { return; }
         Ui.RenameColumns(_gridTrongLop,
             ("MaTaiKhoan", "Mã tài khoản"), ("HocVienID", "ID"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"),
             ("Email", "Email"), ("NgayThamGia", "Ngày tham gia"), ("TrangThai", "Trạng thái"));
@@ -777,11 +856,19 @@ public class frmDaoTao : Form
         TaiHocVienChuaLop();
     }
 
-    private void TaiHocVienChuaLop()
+    private async void TaiHocVienChuaLop()
     {
+        var version = ++_availableStudentLoadVersion;
         var lop = LopXepId();
         if (lop <= 0) return;
-        _gridChuaLop.DataSource = _service.LayHocVienChuaTrongLop(lop, _txtTimHv.Text);
+        var search = _txtTimHv.Text;
+        try
+        {
+            var data = await Task.Run(() => _service.LayHocVienChuaTrongLop(lop, search));
+            if (IsDisposed || Disposing || version != _availableStudentLoadVersion || lop != LopXepId()) return;
+            _gridChuaLop.DataSource = data;
+        }
+        catch { return; }
         Ui.RenameColumns(_gridChuaLop,
             ("MaTaiKhoan", "Mã tài khoản"), ("HocVienID", "ID"), ("HoTen", "Họ tên"), ("TenDangNhap", "Tài khoản"), ("Email", "Email"));
         Ui.HideColumns(_gridChuaLop, "HocVienID");
@@ -887,11 +974,18 @@ public class frmDaoTao : Form
 
     private int LopLhId() => _cboLopLh.SelectedValue is int i ? i : 0;
 
-    private void TaiLichHoc()
+    private async void TaiLichHoc()
     {
+        var version = ++_scheduleLoadVersion;
         var lop = LopLhId();
         if (lop <= 0) { _gridLh.DataSource = null; return; }
-        _gridLh.DataSource = _service.LayLichHocTheoLop(lop);
+        try
+        {
+            var data = await Task.Run(() => _service.LayLichHocTheoLop(lop));
+            if (IsDisposed || Disposing || version != _scheduleLoadVersion || lop != LopLhId()) return;
+            _gridLh.DataSource = data;
+        }
+        catch { return; }
         Ui.RenameColumns(_gridLh,
             ("LichHocID", "ID"), ("NoiDung", "Nội dung"), ("ThoiGianBatDau", "Bắt đầu"),
             ("ThoiGianKetThuc", "Kết thúc"), ("DiaDiem", "Địa điểm"));

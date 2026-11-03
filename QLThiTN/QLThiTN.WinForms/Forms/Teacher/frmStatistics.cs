@@ -32,6 +32,12 @@ public class frmStatistics : Form
     };
     private bool _hasSubmittedAttempts;
     private readonly int? _dotThiIdKhoiTao;
+    private int _examListLoadVersion;
+    private int _classListLoadVersion;
+    private int _scoreLoadVersion;
+    private int _questionStatsLoadVersion;
+    private int _studentListLoadVersion;
+    private int _studentDetailLoadVersion;
 
     public frmStatistics(int? dotThiId = null)
     {
@@ -306,13 +312,17 @@ public class frmStatistics : Form
         return panel;
     }
 
-    private void TaiDotThi()
+    private async void TaiDotThi()
     {
+        var version = ++_examListLoadVersion;
         var save = ((_cboDotThi.SelectedItem as ComboItem)?.Value as int?) ?? _dotThiIdKhoiTao;
-        _cboDotThi.Items.Clear();
+        _lblTongQuan.Text = "Đang tải danh sách đợt thi...";
         try
         {
-            foreach (System.Data.DataRow row in _service.LayDanhSachDotThiChoThongKe().Rows)
+            var exams = await Task.Run(_service.LayDanhSachDotThiChoThongKe);
+            if (IsDisposed || Disposing || version != _examListLoadVersion) return;
+            _cboDotThi.Items.Clear();
+            foreach (System.Data.DataRow row in exams.Rows)
                 _cboDotThi.Items.Add(new ComboItem(Convert.ToInt32(row["DotThiID"]), row["HienThi"].ToString() ?? ""));
         }
         catch (Exception ex)
@@ -356,32 +366,46 @@ public class frmStatistics : Form
     private int? LopId => (_cboLopHoc.SelectedItem as ComboItem)?.Value is int id && id > 0 ? id : null;
     private int? HocVienId => (_cboHocVien.SelectedItem as ComboItem)?.Value is int id && id > 0 ? id : null;
 
-    private void TaiDanhSachLopChoDot()
+    private async void TaiDanhSachLopChoDot()
     {
+        var version = ++_classListLoadVersion;
+        var dotId = DotId;
         _dangKhoiTaoLop = true;
-        _cboLopHoc.Items.Clear();
-        _cboLopHoc.Items.Add(new ComboItem(0, "Tất cả lớp"));
-        if (DotId.HasValue)
+        try
         {
-            try
+            System.Data.DataTable? classes = null;
+            if (dotId.HasValue)
+                classes = await Task.Run(() => _service.LayDanhSachLopChoDotThi(dotId.Value));
+            if (IsDisposed || Disposing || version != _classListLoadVersion) return;
+
+            _cboLopHoc.Items.Clear();
+            _cboLopHoc.Items.Add(new ComboItem(0, "Tất cả lớp"));
+            if (classes != null)
             {
-                var dtLop = _service.LayDanhSachLopChoDotThi(DotId.Value);
-                foreach (System.Data.DataRow row in dtLop.Rows)
+                foreach (System.Data.DataRow row in classes.Rows)
                     _cboLopHoc.Items.Add(new ComboItem(Convert.ToInt32(row["LopHocID"]), row["TenHienThi"].ToString() ?? ""));
             }
-            catch { }
+            _cboLopHoc.SelectedIndex = 0;
         }
-        _cboLopHoc.SelectedIndex = 0;
-        _dangKhoiTaoLop = false;
+        catch { }
+        finally
+        {
+            if (version == _classListLoadVersion) _dangKhoiTaoLop = false;
+        }
     }
 
-    private void TaiThongKeDiem()
+    private async void TaiThongKeDiem()
     {
-        if (DotId == null) return;
+        var dotId = DotId;
+        var lopId = LopId;
+        if (dotId == null) return;
+        var version = ++_scoreLoadVersion;
         try
         {
             Cursor = Cursors.WaitCursor;
-            var ketQua = _service.LayKetQuaDotThi(DotId.Value, LopId);
+            _lblTongQuan.Text = "Đang tải kết quả bài thi...";
+            var ketQua = await Task.Run(() => _service.LayKetQuaDotThi(dotId.Value, lopId));
+            if (IsDisposed || Disposing || version != _scoreLoadVersion) return;
             _hasSubmittedAttempts = ketQua.Count > 0;
             _gridDiem.DataSource = ketQua;
             Ui.RenameColumns(_gridDiem,
@@ -408,13 +432,14 @@ public class frmStatistics : Form
         }
         finally
         {
-            Cursor = Cursors.Default;
+            if (version == _scoreLoadVersion) Cursor = Cursors.Default;
         }
     }
 
-    private void TaiThongKeCauHoi()
+    private async void TaiThongKeCauHoi()
     {
-        if (DotId == null) return;
+        var dotId = DotId;
+        if (dotId == null) return;
         if (!_hasSubmittedAttempts)
         {
             _gridCauHoi.DataSource = null;
@@ -422,10 +447,13 @@ public class frmStatistics : Form
             _lblCauHoiInfo.Text = "Chưa có bài nộp để đánh giá chất lượng câu hỏi.";
             return;
         }
+        var version = ++_questionStatsLoadVersion;
         try
         {
             Cursor = Cursors.WaitCursor;
-            var data = _service.LayChatLuongCauHoi(DotId.Value);
+            _lblCauHoiInfo.Text = "Đang tải chất lượng câu hỏi...";
+            var data = await Task.Run(() => _service.LayChatLuongCauHoi(dotId.Value));
+            if (IsDisposed || Disposing || version != _questionStatsLoadVersion) return;
             _gridCauHoi.DataSource = data;
             Ui.RenameColumns(_gridCauHoi,
                 ("CauHoiID", "ID"), ("ThuTu", "Câu"), ("NoiDung", "Nội dung câu hỏi"),
@@ -457,7 +485,7 @@ public class frmStatistics : Form
         }
         finally
         {
-            Cursor = Cursors.Default;
+            if (version == _questionStatsLoadVersion) Cursor = Cursors.Default;
         }
     }
 
@@ -473,12 +501,15 @@ public class frmStatistics : Form
         }
     }
 
-    private void TaiDanhSachHocVien()
+    private async void TaiDanhSachHocVien()
     {
-        _cboHocVien.Items.Clear();
+        var version = ++_studentListLoadVersion;
+        _lblHocVienTongQuan.Text = "Đang tải danh sách học viên...";
         try
         {
-            var dtHv = _service.LayDanhSachHocVienChoThongKe();
+            var dtHv = await Task.Run(_service.LayDanhSachHocVienChoThongKe);
+            if (IsDisposed || Disposing || version != _studentListLoadVersion) return;
+            _cboHocVien.Items.Clear();
             foreach (System.Data.DataRow row in dtHv.Rows)
                 _cboHocVien.Items.Add(new ComboItem(Convert.ToInt32(row["HocVienID"]), row["HienThi"].ToString() ?? ""));
         }
@@ -497,13 +528,17 @@ public class frmStatistics : Form
         }
     }
 
-    private void TaiChiTietHocVien()
+    private async void TaiChiTietHocVien()
     {
-        if (HocVienId == null) return;
+        var hocVienId = HocVienId;
+        if (hocVienId == null) return;
+        var version = ++_studentDetailLoadVersion;
         try
         {
             Cursor = Cursors.WaitCursor;
-            var data = _service.LayLichSuThiCuaHocVien(HocVienId.Value);
+            _lblHocVienTongQuan.Text = "Đang tải lịch sử thi...";
+            var data = await Task.Run(() => _service.LayLichSuThiCuaHocVien(hocVienId.Value));
+            if (IsDisposed || Disposing || version != _studentDetailLoadVersion) return;
             _gridHocVien.DataSource = data;
             Ui.RenameColumns(_gridHocVien,
                 ("BaiLamID", "ID"), ("TenDotThi", "Đợt thi"), ("TenDe", "Tên đề thi"),
@@ -536,7 +571,7 @@ public class frmStatistics : Form
         }
         finally
         {
-            Cursor = Cursors.Default;
+            if (version == _studentDetailLoadVersion) Cursor = Cursors.Default;
         }
     }
 

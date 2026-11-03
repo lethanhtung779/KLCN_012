@@ -9,6 +9,7 @@ public class frmLogin : Form
     private readonly TextBox _txtUser = Ui.Input(280);
     private readonly TextBox _txtPass = Ui.Input(280);
     private readonly Label _lblError = Ui.Label("", Ui.Small, Ui.Danger);
+    private bool _isLoggingIn;
 
     public frmLogin()
     {
@@ -59,17 +60,17 @@ public class frmLogin : Form
         var lblPass = Ui.Label("Mật khẩu", Ui.H2, Ui.Navy);
         _txtPass.UseSystemPasswordChar = true;
         _txtUser.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) _txtPass.Focus(); };
-        _txtPass.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) DangNhap(); };
+        _txtPass.KeyDown += async (s, e) => { if (e.KeyCode == Keys.Enter) await DangNhapAsync(); };
 
         var btnLogin = Ui.ButtonAccent("Đăng nhập", 280, 44);
         Ui.GradientButton(btnLogin, Ui.Accent, Ui.Accent2);
-        btnLogin.Click += (s, e) => DangNhap();
+        btnLogin.Click += async (s, e) => await DangNhapAsync();
 
         var lblQuickLogin = Ui.Label("Đăng nhập nhanh", Ui.Small, Ui.TextMuted);
         var btnGiaoVien = Ui.ButtonOutline("Giáo viên", 135, 38);
-        btnGiaoVien.Click += (s, e) => DangNhapNhanhGiaoVien();
+        btnGiaoVien.Click += async (s, e) => await DangNhapNhanhGiaoVienAsync();
         var btnAdmin = Ui.ButtonOutline("Admin", 135, 38);
-        btnAdmin.Click += (s, e) => DangNhapNhanh("admin", "admin123");
+        btnAdmin.Click += async (s, e) => await DangNhapNhanhAsync("admin", "admin123");
 
         var lblNote = Ui.Label("Thí sinh vui lòng đăng nhập trên website để làm bài thi.", Ui.Small, Ui.TextMuted);
 
@@ -92,42 +93,64 @@ public class frmLogin : Form
         lblNote.Location = new Point(x, 486);
     }
 
-    private void DangNhapNhanh(string username, string password)
+    private async Task DangNhapNhanhAsync(string username, string password)
     {
         _txtUser.Text = username;
         _txtPass.Text = password;
-        DangNhap();
+        await DangNhapAsync();
     }
 
-    private void DangNhapNhanhGiaoVien()
+    private async Task DangNhapNhanhGiaoVienAsync()
     {
+        if (_isLoggingIn) return;
+        _isLoggingIn = true;
+        UseWaitCursor = true;
         _lblError.Text = "";
         _txtUser.Text = "giaovien1";
-        // Hai phiên bản dữ liệu mẫu đang được dùng: DB cũ và seed_admin.sql.
-        foreach (var password in new[] { "Abc@123456", "123456" })
+        try
         {
-            var (user, _) = _auth.Login("giaovien1", password);
-            if (user == null) continue;
-            _txtPass.Text = password;
-            DialogResult = DialogResult.OK;
-            Close();
-            return;
+            // Hai phiên bản dữ liệu mẫu đang được dùng: DB cũ và seed_admin.sql.
+            foreach (var password in new[] { "Abc@123456", "123456" })
+            {
+                var (user, _) = await _auth.LoginAsync("giaovien1", password);
+                if (user == null) continue;
+                _txtPass.Text = password;
+                DialogResult = DialogResult.OK;
+                Close();
+                return;
+            }
+            _txtPass.Clear();
+            _lblError.Text = "Tài khoản mẫu đã đổi mật khẩu hoặc không còn hoạt động. Hãy đăng nhập thủ công.";
         }
-        _txtPass.Clear();
-        _lblError.Text = "Tài khoản mẫu đã đổi mật khẩu hoặc không còn hoạt động. Hãy đăng nhập thủ công.";
+        finally
+        {
+            _isLoggingIn = false;
+            UseWaitCursor = false;
+        }
     }
 
-    private void DangNhap()
+    private async Task DangNhapAsync()
     {
+        if (_isLoggingIn) return;
+        _isLoggingIn = true;
+        UseWaitCursor = true;
         _lblError.Text = "";
-        var (user, error) = _auth.Login(_txtUser.Text, _txtPass.Text);
-        if (user == null)
+        try
         {
-            _lblError.Text = "⚠ " + error;
-            return;
-        }
+            var (user, error) = await _auth.LoginAsync(_txtUser.Text, _txtPass.Text);
+            if (user == null)
+            {
+                _lblError.Text = "⚠ " + error;
+                return;
+            }
 
-        DialogResult = DialogResult.OK;
-        Close();
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+        finally
+        {
+            _isLoggingIn = false;
+            UseWaitCursor = false;
+        }
     }
 }

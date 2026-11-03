@@ -9,6 +9,8 @@ public class frmMain : Form
 
     private readonly Panel _content = new() { Dock = DockStyle.Fill, BackColor = Ui.BgSoft };
     private readonly StatisticsService _stats = new();
+    private bool _navigationLocked;
+    private readonly System.Windows.Forms.Timer _navigationUnlockTimer = new() { Interval = 350 };
 
     public frmMain()
     {
@@ -17,6 +19,13 @@ public class frmMain : Form
         WindowState = FormWindowState.Maximized;
         MinimumSize = new Size(1100, 680);
         BackColor = Ui.BgSoft;
+
+        _navigationUnlockTimer.Tick += (_, _) =>
+        {
+            _navigationUnlockTimer.Stop();
+            _navigationLocked = false;
+        };
+        FormClosed += (_, _) => _navigationUnlockTimer.Dispose();
 
         Controls.Add(_content);
         BuildSidebar();
@@ -152,6 +161,9 @@ public class frmMain : Form
     /// <summary>Do mot form con (TopLevel=false) vao vung noi dung.</summary>
     private void MoManHinh(string tieuDe, Func<Form> tao)
     {
+        if (_navigationLocked) return;
+        _navigationLocked = true;
+        UseWaitCursor = true;
         _content.SuspendLayout();
         try
         {
@@ -182,36 +194,42 @@ public class frmMain : Form
         finally
         {
             _content.ResumeLayout(true);
+            UseWaitCursor = false;
+            _navigationUnlockTimer.Stop();
+            _navigationUnlockTimer.Start();
         }
     }
 
     /// <summary>Dashboard tong quan: 4 the so lieu that tu DB.</summary>
     private Form TaoTongQuan()
     {
-        var f = new Form { Dock = DockStyle.Fill };
-        int cauHoi, deThi, hocVien, baiThi;
-        try
+        var f = new Form { Dock = DockStyle.Fill, BackColor = Ui.BgSoft };
+        var loading = Ui.Label("Đang tải số liệu tổng quan...", Ui.Body, Ui.TextMuted);
+        loading.AutoSize = true;
+        loading.Location = new Point(28, 28);
+        f.Controls.Add(loading);
+
+        f.Shown += async (_, _) =>
         {
-            (cauHoi, deThi, hocVien, baiThi) = _stats.ThongKeTongQuan();
-        }
-        catch (Exception ex)
-        {
-            // Thống kê chỉ là dữ liệu phụ; SQL tạm nghẽn không được làm sập
-            // toàn bộ ứng dụng sau khi người dùng đã đăng nhập.
-            var message = Ui.Label(
-                "Chưa tải được số liệu tổng quan. SQL Server có thể đang bận.\n" +
-                "Bạn vẫn có thể sử dụng các chức năng khác hoặc bấm Thử lại.\n\n" + ex.Message,
-                Ui.Body, Ui.Danger);
-            message.AutoSize = true;
-            message.MaximumSize = new Size(760, 0);
-            message.Location = new Point(28, 28);
-            var retry = Ui.ButtonAccent("Thử lại", 120, 40);
-            retry.Location = new Point(28, 142);
-            retry.Click += (_, _) => MoManHinh("Tổng quan", TaoTongQuan);
-            f.BackColor = Ui.BgSoft;
-            f.Controls.AddRange([message, retry]);
-            return f;
-        }
+            try
+            {
+                var (cauHoi, deThi, hocVien, baiThi) = await _stats.ThongKeTongQuanAsync();
+                if (f.IsDisposed) return;
+                HienThiTongQuan(f, cauHoi, deThi, hocVien, baiThi);
+            }
+            catch (Exception ex)
+            {
+                if (f.IsDisposed) return;
+                HienThiLoiTongQuan(f, ex);
+            }
+        };
+
+        return f;
+    }
+
+    private void HienThiTongQuan(Form f, int cauHoi, int deThi, int hocVien, int baiThi)
+    {
+        f.Controls.Clear();
 
         (string Title, string Value, Color Color)[] cards =
         [
@@ -253,6 +271,21 @@ public class frmMain : Form
         panel.Controls.Add(cardGrid);
 
         f.Controls.Add(panel);
-        return f;
+    }
+
+    private void HienThiLoiTongQuan(Form f, Exception ex)
+    {
+        f.Controls.Clear();
+        var message = Ui.Label(
+            "Chưa tải được số liệu tổng quan. SQL Server có thể đang bận.\n" +
+            "Bạn vẫn có thể sử dụng các chức năng khác hoặc bấm Thử lại.\n\n" + ex.Message,
+            Ui.Body, Ui.Danger);
+        message.AutoSize = true;
+        message.MaximumSize = new Size(760, 0);
+        message.Location = new Point(28, 28);
+        var retry = Ui.ButtonAccent("Thử lại", 120, 40);
+        retry.Location = new Point(28, 142);
+        retry.Click += (_, _) => MoManHinh("Tổng quan", TaoTongQuan);
+        f.Controls.AddRange([message, retry]);
     }
 }

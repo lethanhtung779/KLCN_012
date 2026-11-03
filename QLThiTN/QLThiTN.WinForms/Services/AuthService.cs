@@ -5,10 +5,36 @@ namespace QLThiTN.WinForms.Services;
 /// <summary>Tai khoan dang nhap hien tai cua phan mem.</summary>
 public static class Session
 {
+    private static readonly object ActiveCheckLock = new();
+    private static int _checkedAccountId;
+    private static DateTime _checkedAtUtc;
+    private static bool _checkedActive;
+    private static int _activeRefreshRunning;
+    private static readonly TimeSpan ActiveCheckTtl = TimeSpan.FromSeconds(30);
+
     public static TaiKhoan? Current { get; private set; }
 
-    public static void Set(TaiKhoan tk) => Current = tk;
-    public static void Clear() => Current = null;
+    public static void Set(TaiKhoan tk)
+    {
+        Current = tk;
+        lock (ActiveCheckLock)
+        {
+            _checkedAccountId = tk.TaiKhoanID;
+            _checkedAtUtc = DateTime.UtcNow;
+            _checkedActive = tk.TrangThai == "HoatDong";
+        }
+    }
+
+    public static void Clear()
+    {
+        Current = null;
+        lock (ActiveCheckLock)
+        {
+            _checkedAccountId = 0;
+            _checkedAtUtc = default;
+            _checkedActive = false;
+        }
+    }
 
     public static bool IsQuanTriVien => Current?.VaiTro == "QuanTriVien";
     public static bool IsGiaoVien => Current?.VaiTro == "GiaoVien";
@@ -23,18 +49,58 @@ public static class Session
 
     public static bool IsAccountActive()
     {
-        if (Current == null) return false;
+        var current = Current;
+        if (current == null) return false;
+        if (current.TrangThai != "HoatDong") return false;
+
+        bool active;
+        bool needsRefresh;
+        lock (ActiveCheckLock)
+        {
+            active = _checkedAccountId == current.TaiKhoanID && _checkedActive;
+            needsRefresh = _checkedAccountId != current.TaiKhoanID ||
+                           DateTime.UtcNow - _checkedAtUtc >= ActiveCheckTtl;
+        }
+
+        // Phan quyen phai tra ve ngay. Viec kiem tra lai tren SQL chay nen;
+        // loi ket noi tam thoi khong duoc bien thanh loi "khong co quyen".
+        if (needsRefresh && Interlocked.CompareExchange(ref _activeRefreshRunning, 1, 0) == 0)
+            _ = RefreshAccountStateAsync(current.TaiKhoanID);
+
+        return active;
+    }
+
+    private static async Task RefreshAccountStateAsync(int accountId)
+    {
         try
         {
-            var trangThai = Database.ExecuteScalarString($"SELECT TrangThai FROM TaiKhoan WHERE TaiKhoanID = {Current.TaiKhoanID}");
-            if (trangThai != "HoatDong")
+            var rows = await Database.ReadListAsync(
+                "SELECT TrangThai FROM TaiKhoan WHERE TaiKhoanID = @id",
+                r => r.GetString(0),
+                p => p.AddWithValue("@id", accountId));
+            if (Current?.TaiKhoanID != accountId) return;
+
+            var active = rows.FirstOrDefault() == "HoatDong";
+            lock (ActiveCheckLock)
             {
-                Clear();
-                return false;
+                _checkedAccountId = accountId;
+                _checkedAtUtc = DateTime.UtcNow;
+                _checkedActive = active;
             }
+            if (!active)
+                Clear();
         }
-        catch { return false; }
-        return true;
+        catch
+        {
+            // Giu phien hien tai khi SQL Server tam thoi ban/khong ket noi duoc.
+            // Lan lam moi sau se thu lai, thay vi nem nham UnauthorizedAccessException.
+            lock (ActiveCheckLock)
+                if (_checkedAccountId == accountId) _checkedAtUtc = DateTime.UtcNow;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _activeRefreshRunning, 0);
+        }
     }
 
     public static void YeuCauDangNhap()
@@ -59,6 +125,18 @@ public static class Session
 /// <summary>Dang nhap, doi mat khau cho phan he Quan tri & Giao vien.</summary>
 public class AuthService
 {
+    private const string LoginSql = @"
+        SELECT tk.TaiKhoanID, tk.TenDangNhap, tk.MatKhau, tk.Email, tk.VaiTro,
+               tk.TrangThai, tk.NgayTao,
+               COALESCE(gv.GiaoVienID, qtv.QuanTriVienID) AS ProfileID,
+               COALESCE(gv.HoTen, qtv.HoTen, tk.TenDangNhap) AS HoTen
+        FROM TaiKhoan tk
+        LEFT JOIN GiaoVien gv ON gv.TaiKhoanID = tk.TaiKhoanID
+        LEFT JOIN QuanTriVien qtv ON qtv.TaiKhoanID = tk.TaiKhoanID
+        WHERE tk.TenDangNhap = @u";
+
+    private sealed record LoginRow(TaiKhoan Account, string Password);
+
     /// <summary>Dang nhap bang ten dang nhap + mat khau. Chi nhan GiaoVien / QuanTriVien
     /// (thi sinh dung website, khong dang nhap phan mem nay).</summary>
     public (TaiKhoan? User, string Error) Login(string username, string password)
@@ -74,28 +152,35 @@ public class AuthService
         }
     }
 
+    /// <summary>Dang nhap khong khoa UI thread.</summary>
+    public async Task<(TaiKhoan? User, string Error)> LoginAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await LoginCoreAsync(username, password, cancellationToken);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException)
+        {
+            Session.Clear();
+            return (null, "Không kết nối hoặc truy vấn được cơ sở dữ liệu. Kiểm tra SQL Server và cấu hình appsettings.json.");
+        }
+    }
+
     private (TaiKhoan? User, string Error) LoginCore(string username, string password)
     {
         if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
             return (null, "Vui lòng nhập tên đăng nhập và mật khẩu.");
 
-        var tk = Database.ReadList(
-            @"SELECT TaiKhoanID, TenDangNhap, Email, VaiTro, TrangThai, NgayTao
-              FROM TaiKhoan WHERE TenDangNhap = @u",
-            r => new TaiKhoan
-            {
-                TaiKhoanID = r.GetInt32(0),
-                TenDangNhap = r.GetString(1),
-                Email = r.GetString(2),
-                VaiTro = r.GetString(3),
-                TrangThai = r.GetString(4),
-                NgayTao = r.GetDateTime(5)
-            },
-            p => p.AddWithValue("@u", username.Trim())
-        ).FirstOrDefault();
+        var row = Database.ReadList(LoginSql, MapLoginRow,
+            p => p.AddWithValue("@u", username.Trim())).FirstOrDefault();
 
-        if (tk == null || !PasswordHelper.Verify(password, GetMatKhau(tk.TaiKhoanID)))
+        if (row == null || !PasswordHelper.Verify(password, row.Password))
             return (null, "Tên đăng nhập hoặc mật khẩu không chính xác.");
+
+        var tk = row.Account;
 
         if (tk.TrangThai != "HoatDong")
             return (null, "Tài khoản đã bị khóa, vui lòng liên hệ quản trị viên.");
@@ -103,22 +188,48 @@ public class AuthService
         if (tk.VaiTro != "GiaoVien" && tk.VaiTro != "QuanTriVien")
             return (null, "Phần mềm này dành cho giáo viên và quản trị viên. Thí sinh vui lòng dùng website.");
 
-        // Doc ho so tuong ung de lay HoTen + ProfileID
-        var profile = Database.ReadList(
-            tk.VaiTro == "GiaoVien"
-                ? "SELECT GiaoVienID, HoTen FROM GiaoVien WHERE TaiKhoanID = @id"
-                : tk.VaiTro == "QuanTriVien"
-                    ? "SELECT QuanTriVienID, HoTen FROM QuanTriVien WHERE TaiKhoanID = @id"
-                    : "SELECT HocVienID, HoTen FROM HocVien WHERE TaiKhoanID = @id",
-            r => (ProfileID: r.GetInt32(0), HoTen: r.GetString(1)),
-            p => p.AddWithValue("@id", tk.TaiKhoanID)
-        ).FirstOrDefault();
+        Session.Set(tk);
+        return (tk, "");
+    }
 
-        tk.ProfileID = profile.ProfileID;
-        tk.HoTen = string.IsNullOrWhiteSpace(profile.HoTen) ? tk.TenDangNhap : profile.HoTen;
+    private async Task<(TaiKhoan? User, string Error)> LoginCoreAsync(
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+            return (null, "Vui lòng nhập tên đăng nhập và mật khẩu.");
+
+        var row = (await Database.ReadListAsync(LoginSql, MapLoginRow,
+            p => p.AddWithValue("@u", username.Trim()), cancellationToken)).FirstOrDefault();
+
+        if (row == null || !PasswordHelper.Verify(password, row.Password))
+            return (null, "Tên đăng nhập hoặc mật khẩu không chính xác.");
+
+        var tk = row.Account;
+        if (tk.TrangThai != "HoatDong")
+            return (null, "Tài khoản đã bị khóa, vui lòng liên hệ quản trị viên.");
+        if (tk.VaiTro != "GiaoVien" && tk.VaiTro != "QuanTriVien")
+            return (null, "Phần mềm này dành cho giáo viên và quản trị viên. Thí sinh vui lòng dùng website.");
 
         Session.Set(tk);
         return (tk, "");
+    }
+
+    private static LoginRow MapLoginRow(Microsoft.Data.SqlClient.SqlDataReader r)
+    {
+        var tk = new TaiKhoan
+        {
+            TaiKhoanID = r.GetInt32(0),
+            TenDangNhap = r.GetString(1),
+            Email = r.GetString(3),
+            VaiTro = r.GetString(4),
+            TrangThai = r.GetString(5),
+            NgayTao = r.GetDateTime(6),
+            ProfileID = r.IsDBNull(7) ? 0 : r.GetInt32(7),
+            HoTen = r.IsDBNull(8) ? r.GetString(1) : r.GetString(8)
+        };
+        return new LoginRow(tk, r.GetString(2));
     }
 
     private string GetMatKhau(int taiKhoanId) =>
