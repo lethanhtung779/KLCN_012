@@ -49,6 +49,8 @@ QLThiTN/QLThiTN.API/appsettings.Payment.json
 # Local artifacts & backups
 outputs/
 database-backups/
+*.bak
+*.BAK
 
 # Google OAuth credentials
 QLThiTN/QLThiTN.Web/appsettings.Google.json
