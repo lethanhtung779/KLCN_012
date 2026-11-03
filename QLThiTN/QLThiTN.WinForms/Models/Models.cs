@@ -227,6 +227,7 @@ public class DotThi
     public string TenDe { get; set; } = "";
     public int SoDangKy { get; set; }
     public int SoBaiDaNop { get; set; }
+    public bool LaMienPhi { get; set; }
 }
 
 /// <summary>Ket qua thi cua mot hoc vien trong mot dot thi (cho man hinh thong ke).</summary>

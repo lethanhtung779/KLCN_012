@@ -17,6 +17,7 @@ public class frmDotThiEdit : Form
     private readonly NumericUpDown _capacity = new() { Minimum = 0, Maximum = 1000, Font = Ui.Body };
     private readonly NumericUpDown _attempts = new() { Minimum = 1, Maximum = 10, Value = 1, Font = Ui.Body };
     private readonly ComboBox _window = Ui.Combo(300);
+    private readonly ComboBox _access = Ui.Combo(300);
     private readonly ComboBox _scope = Ui.Combo(300);
     private readonly CheckBox _publish = new() { Text = "Công bố điểm ngay khi nộp bài", AutoSize = true, Font = Ui.Body, Checked = true };
     private readonly CheckedListBox _classes = new() { Height = 140, CheckOnClick = true, Font = Ui.Body, HorizontalScrollbar = true };
@@ -53,13 +54,16 @@ public class frmDotThiEdit : Form
         Add(Field("Đặt nhanh thời gian đóng cổng", _window), 1, 3);
         Add(Field("Số lần thi tối đa", _attempts), 0, 4);
         Add(Field("Số chỗ (0 = không giới hạn)", _capacity), 1, 4);
-        _scope.Items.AddRange(["Toàn trung tâm — mọi học viên đủ điều kiện", "Theo lớp — chỉ các lớp được chọn"]);
+        _access.Items.AddRange(["Miễn phí — Mọi học viên đều được thi (kể cả tự do / vãng lai)", "Đóng phí (VIP) — Chỉ học viên VIP và học viên trung tâm"]);
+        _access.SelectedIndex = 0; _access.DropDownWidth = 480;
+        Add(Field("Quyền dự thi (Gói tài khoản)", _access), 0, 5);
+        _scope.Items.AddRange(["Toàn trường — Mọi học viên đủ điều kiện", "Theo lớp — Chỉ các lớp được chọn"]);
         _scope.SelectedIndex = 0; _scope.DropDownWidth = 450;
-        Add(Field("Phạm vi dự thi", _scope), 0, 5);
-        Add(Field("Kết quả", _publish), 1, 5);
+        Add(Field("Phạm vi lớp học", _scope), 1, 5);
+        Add(Field("Kết quả thi", _publish), 0, 6);
         var note = Ui.Label("Khoảng mở cổng là thời gian được phép vào thi. Thời lượng là số phút mỗi người làm bài; đến giờ đóng cổng bài vẫn hết hạn. Bỏ chọn công bố điểm: điểm được công bố khi đóng cổng hoặc admin công bố sớm.", Ui.Small, Ui.TextMuted);
-        note.MaximumSize = new Size(720, 0); Add(note, 0, 6, true);
-        Add(Field("Lớp dự thi (bắt buộc chọn khi dùng phạm vi Theo lớp)", _classes), 0, 7, true);
+        note.MaximumSize = new Size(720, 0); Add(note, 0, 7, true);
+        Add(Field("Lớp dự thi (bắt buộc chọn khi dùng phạm vi Theo lớp)", _classes), 0, 8, true);
         foreach (System.Data.DataRow row in _service.LayLopChoDotThi(deThiId).Rows)
             _classes.Items.Add(new ClassOption(Convert.ToInt32(row["LopHocID"]), row["TenHienThi"].ToString() ?? ""));
         _classes.Enabled = false;
@@ -114,7 +118,8 @@ public class frmDotThiEdit : Form
                 ThoiGianMoCong = Opens, ThoiGianDongCong = Closes, ThoiLuongLamBai = (int)_duration.Value,
                 GioiHanSoLuong = _capacity.Value > 0 ? (int)_capacity.Value : null,
                 CongBoDiemSom = _publish.Checked, PhamVi = _scope.SelectedIndex == 1 ? "TheoLop" : "ToanTruong",
-                SoLanThiToiDa = (int)_attempts.Value };
+                SoLanThiToiDa = (int)_attempts.Value,
+                LaMienPhi = _access.SelectedIndex == 0 };
             var id = _service.TaoDotThi(dot, _classes.CheckedItems.Cast<ClassOption>().Select(x => x.Id).ToArray());
             MessageBox.Show(this, $"Đã tạo lịch thi #{id}.\nMở cổng: {Opens:dd/MM/yyyy HH:mm}\nĐóng cổng: {Closes:dd/MM/yyyy HH:mm}", "Hoàn tất");
             DialogResult = DialogResult.OK; Close();

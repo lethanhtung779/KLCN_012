@@ -32,5 +32,7 @@ public class DotThi
 
     public int SoLanThiToiDa { get; set; } = 1;
 
+    public bool LaMienPhi { get; set; }
+
     public DeThi? DeThi { get; set; }
 }

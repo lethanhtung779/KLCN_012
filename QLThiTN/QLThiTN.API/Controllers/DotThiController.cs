@@ -130,7 +130,8 @@ public class DotThiController : ControllerBase
             CongBoDiemSom = request.CongBoDiemSom,
             TrangThai = request.TrangThai,
             PhamVi = phamVi,
-            SoLanThiToiDa = request.SoLanThiToiDa > 0 ? request.SoLanThiToiDa : 1
+            SoLanThiToiDa = request.SoLanThiToiDa > 0 ? request.SoLanThiToiDa : 1,
+            LaMienPhi = request.LaMienPhi
         };
         _db.DotThis.Add(dot);
         await _db.SaveChangesAsync();
@@ -245,6 +246,17 @@ public class DotThiController : ControllerBase
         return Ok(new { message = "Da huy dang ky dot thi" });
     }
 
+    [Authorize(Roles = "QuanTriVien")]
+    [HttpPut("{id:int}/mienphi")]
+    public async Task<IActionResult> DatMienPhi(int id, [FromBody] bool laMienPhi)
+    {
+        var dot = await _db.DotThis.FindAsync(id);
+        if (dot is null) return NotFound();
+        dot.LaMienPhi = laMienPhi;
+        await _db.SaveChangesAsync();
+        return Ok(new { message = $"Đã cập nhật đợt thi thành {(laMienPhi ? "Miễn phí" : "VIP/Đóng phí")}." });
+    }
+
     private static DotThiDto ToDto(DotThi d) => new()
     {
         DotThiID = d.DotThiID,
@@ -259,6 +271,7 @@ public class DotThiController : ControllerBase
         CongBoDiemSom = d.CongBoDiemSom,
         TrangThai = d.TrangThai,
         PhamVi = d.PhamVi,
-        SoLanThiToiDa = d.SoLanThiToiDa
+        SoLanThiToiDa = d.SoLanThiToiDa,
+        LaMienPhi = d.LaMienPhi
     };
 }

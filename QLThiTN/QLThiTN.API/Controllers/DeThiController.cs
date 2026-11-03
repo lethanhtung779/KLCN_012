@@ -272,7 +272,7 @@ public class DeThiController : ControllerBase
         if (attempt is null || DateTime.Now >= ExamRules.Deadline(attempt, attempt.DotThi!)) return Forbid();
         if (maDeId.HasValue && maDeId.Value != attempt.MaDeID) return Forbid();
         maDeId = attempt.MaDeID;
-        var duocLam = await GoiThi.DuocLamAsync(_db, id, hocVienId);
+        var duocLam = await GoiThi.DuocLamAsync(_db, id, hocVienId, attempt.DotThiID);
         if (duocLam is null) return NotFound();
         if (duocLam == false) return StatusCode(403, new { message = GoiThi.ThongBao });
 
@@ -407,8 +407,6 @@ public class DeThiController : ControllerBase
 
         var hv = await _db.HocViens.FindAsync(request.HocVienID);
         if (hv is null) return Unauthorized(new { message = "Ban can dang nhap de lam bai thi" });
-        if (!de.LaMienPhi && await GoiThi.DuocLamAsync(_db, id, request.HocVienID) == false)
-            return StatusCode(403, new { message = GoiThi.ThongBao });
 
         var now = DateTime.Now;
         var dangLamSessionId = await _db.BaiLams
@@ -431,6 +429,10 @@ public class DeThiController : ControllerBase
             return BadRequest(new { message = de.DotThis.Count == 0
                 ? "Đề thi chưa có đợt thi được quản trị viên mở."
                 : "Hãy chọn đúng đợt thi trước khi bắt đầu." });
+
+        // Phan quyen goi thi VIP / Mien phi theo DOT THI
+        if (!dot.LaMienPhi && await GoiThi.DuocLamDotThiAsync(_db, dot.DotThiID, request.HocVienID) == false)
+            return StatusCode(403, new { message = "Đợt thi này yêu cầu tài khoản VIP hoặc học viên trung tâm. Tài khoản miễn phí chỉ được tham gia các đợt thi miễn phí." });
 
         if (dot.TrangThai == "DaDong")
             return BadRequest(new { message = "Đợt thi đã đóng, không thể bắt đầu làm bài" });
@@ -687,11 +689,7 @@ public class DeThiController : ControllerBase
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
         if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
-        if (!de.LaMienPhi && !expiredOnly)
-        {
-            if (await GoiThi.DuocLamAsync(_db, id, request.HocVienID) == false)
-                return StatusCode(403, new { message = GoiThi.ThongBao });
-        }
+        // Kiem tra quyen nop bai theo dot thi o phia duoi khi da load submittedAttempt.DotThi
 
         var now = DateTime.Now;
         if (request.BaiLamID is null or <= 0)
@@ -704,6 +702,11 @@ public class DeThiController : ControllerBase
             return Ok(new SubmitExamResultDto { BaiLamID = submittedAttempt.BaiLamID, DeThiID = id,
                 ScorePublished = false });
         var dotThi = submittedAttempt.DotThi;
+        if (dotThi != null && !dotThi.LaMienPhi && !expiredOnly)
+        {
+            if (await GoiThi.DuocLamDotThiAsync(_db, dotThi.DotThiID, request.HocVienID) == false)
+                return StatusCode(403, new { message = GoiThi.ThongBao });
+        }
         if (now < dotThi.ThoiGianMoCong) return BadRequest(new { message = "Đợt thi chưa mở." });
         request.HetGio = now >= ExamRules.Deadline(submittedAttempt, dotThi);
         if (expiredOnly && !request.HetGio) return Conflict();
@@ -1091,7 +1094,7 @@ public class DeThiController : ControllerBase
             ThoiGianDongCong = dot?.ThoiGianDongCong,
             ThoiLuongLamBai = dot?.ThoiLuongLamBai,
             TrangThai = trangThai,
-            LaMienPhi = d.LaMienPhi
+            LaMienPhi = dot != null ? dot.LaMienPhi : d.LaMienPhi
         };
     }
 }

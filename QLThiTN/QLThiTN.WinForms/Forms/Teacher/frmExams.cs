@@ -124,18 +124,23 @@ public class frmExams : Form
         // Grid dot thi (duoi)
         var headerDot = new TableLayoutPanel
         {
-            Dock = DockStyle.Top, Height = 52, ColumnCount = 3, RowCount = 1,
+            Dock = DockStyle.Top, Height = 52, ColumnCount = 4, RowCount = 1,
             Padding = new Padding(16, 6, 12, 6), BackColor = Color.White
         };
         headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240));
+        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+        headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
         headerDot.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
         _lblDot.Dock = DockStyle.Fill;
         _lblDot.AutoSize = false;
         _lblDot.AutoEllipsis = true;
         _lblDot.TextAlign = ContentAlignment.MiddleLeft;
         _lblDot.Margin = new Padding(0, 0, 12, 0);
-        var btnXemDiem = Ui.ButtonAccent("Bài làm và câu trả lời", 230, 32);
+        var btnDoiGoiDot = Ui.ButtonOutline("Đổi VIP / Miễn phí", 170, 32);
+        btnDoiGoiDot.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+        btnDoiGoiDot.Margin = new Padding(0, 3, 10, 0);
+        btnDoiGoiDot.Click += (s, e) => DoiGoiDot();
+        var btnXemDiem = Ui.ButtonAccent("Bài làm và câu trả lời", 210, 32);
         btnXemDiem.Anchor = AnchorStyles.Left | AnchorStyles.Top;
         btnXemDiem.Margin = new Padding(0, 3, 10, 0);
         btnXemDiem.Click += (s, e) => XemBangDiemDot();
@@ -144,8 +149,9 @@ public class frmExams : Form
         btnDongDot.Margin = new Padding(0, 3, 0, 0);
         btnDongDot.Click += (s, e) => DongDot();
         headerDot.Controls.Add(_lblDot, 0, 0);
-        headerDot.Controls.Add(btnXemDiem, 1, 0);
-        headerDot.Controls.Add(btnDongDot, 2, 0);
+        headerDot.Controls.Add(btnDoiGoiDot, 1, 0);
+        headerDot.Controls.Add(btnXemDiem, 2, 0);
+        headerDot.Controls.Add(btnDongDot, 3, 0);
 
         Ui.StyleGrid(_gridDot);
         _gridDot.ColumnHeadersHeight = 46;
@@ -300,7 +306,7 @@ public class frmExams : Form
             ("ThoiGianMoCong", "Mở cổng"), ("ThoiGianDongCong", "Đóng cổng"),
             ("ThoiLuongLamBai", "Thời lượng (phút)"), ("GioiHanSoLuong", "Giới hạn SL"),
             ("CongBoDiemSom", "Công bố điểm sớm"), ("TrangThai", "Trạng thái"),
-            ("PhamVi", "Phạm vi"), ("SoLanThiToiDa", "Lần thi tối đa"),
+            ("PhamVi", "Phạm vi"), ("LaMienPhi", "Đối tượng thi"), ("SoLanThiToiDa", "Lần thi tối đa"),
             ("SoDangKy", "Đã đăng ký"), ("SoBaiDaNop", "Bài đã nộp"));
         Ui.HideColumns(_gridDot, "DotThiID", "TenDe");
 
@@ -323,12 +329,19 @@ public class frmExams : Form
             foreach (DataGridViewRow row in _gridDot.Rows)
                 row.Cells["PhamVi"].Value = row.Cells["PhamVi"].Value switch
                 {
-                    "ToanTruong" => "Toàn trung tâm",
+                    "ToanTruong" => "Toàn trường",
                     "TheoLop" => "Theo lớp",
                     "CongKhai" => "Công khai",
                     "NoiBo" => "Nội bộ",
                     var x => x
                 };
+
+        if (_gridDot.Columns.Contains("Đối tượng thi"))
+            foreach (DataGridViewRow row in _gridDot.Rows)
+            {
+                var val = row.Cells["Đối tượng thi"].Value;
+                row.Cells["Đối tượng thi"].Value = LaDeMienPhi(val) ? "Miễn phí" : "VIP / Đóng phí";
+            }
 
         if (_gridDot.Columns.Contains("TenDotThi")) _gridDot.Columns["TenDotThi"]!.FillWeight = 160;
         if (_gridDot.Columns.Contains("ThoiGianMoCong")) _gridDot.Columns["ThoiGianMoCong"]!.FillWeight = 120;
@@ -444,6 +457,22 @@ public class frmExams : Form
         if (id == 0) { MessageBox.Show("Hãy chọn một lịch thi phía dưới để xem bài làm.", "Thông báo"); return; }
         using var f = new frmStatistics(id);
         f.ShowDialog(FindForm());
+    }
+
+    private void DoiGoiDot()
+    {
+        var id = DotIdDangChon();
+        if (id == 0) { MessageBox.Show("Hãy chọn một lịch thi phía dưới.", "Thông báo"); return; }
+        var ten = _gridDot.CurrentRow!.Cells["TenDotThi"].Value?.ToString() ?? "";
+        var dangMienPhi = LaDeMienPhi(_gridDot.CurrentRow.Cells["Đối tượng thi"].Value);
+        var sangMienPhi = !dangMienPhi;
+        var hoi = sangMienPhi
+            ? $"Đổi lịch thi '{ten}' sang MIỄN PHÍ?\nMọi học viên kể cả tài khoản tự do / vãng lai đều được làm bài."
+            : $"Đổi lịch thi '{ten}' sang ĐÓNG PHÍ (VIP)?\nChỉ học viên VIP hoặc học viên lớp trung tâm mới được làm bài.";
+        if (MessageBox.Show(hoi, "Phân quyền lịch thi", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            return;
+        _service.DatMienPhiDotThi(id, sangMienPhi);
+        TaiDotThi();
     }
 
     private void DongDot()

@@ -50,20 +50,44 @@ IF COL_LENGTH('DeThi', 'LaMienPhi') IS NULL
     ALTER TABLE DeThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DeThi_LaMienPhi DEFAULT 0;
 ";
 
-    /// <summary>null = khong co de; true = duoc lam; false = de dong phi va tai khoan chua VIP.</summary>
-    public static async Task<bool?> DuocLamAsync(QLThiTNDbContext db, int deThiId, int? hocVienId)
+    /// <summary>Kiem tra quyen duoc lam theo DotThi (Uu tien so 1 theo dung phan quyen ky thi).</summary>
+    public static async Task<bool?> DuocLamDotThiAsync(QLThiTNDbContext db, int dotThiId, int? hocVienId)
     {
+        var dot = await db.DotThis
+            .Where(d => d.DotThiID == dotThiId)
+            .Select(d => new { d.LaMienPhi, d.DeThiID })
+            .FirstOrDefaultAsync();
+
+        if (dot is null) return null;
+        if (dot.LaMienPhi) return true;
+        if (hocVienId is not > 0) return false;
+
+        return (await LayQuyenAsync(db, hocVienId.Value))?.LaVip == true;
+    }
+
+    /// <summary>null = khong co de; true = duoc lam; false = de/dot dong phi va tai khoan chua VIP.</summary>
+    public static async Task<bool?> DuocLamAsync(QLThiTNDbContext db, int deThiId, int? hocVienId, int? dotThiId = null)
+    {
+        if (dotThiId.HasValue && dotThiId.Value > 0)
+        {
+            return await DuocLamDotThiAsync(db, dotThiId.Value, hocVienId);
+        }
+
+        // Kiem tra xem de thi co dot thi nao dang mo va mien phi khong
+        var dotMienPhi = await db.DotThis
+            .Where(dt => dt.DeThiID == deThiId && dt.TrangThai == "DangMo")
+            .Select(dt => (bool?)dt.LaMienPhi)
+            .FirstOrDefaultAsync();
+        if (dotMienPhi == true) return true;
+
         var laMienPhi = await db.DeThis
             .Where(d => d.DeThiID == deThiId)
             .Select(d => (bool?)d.LaMienPhi)
             .FirstOrDefaultAsync();
 
-        if (laMienPhi is null)
-            return null;
-        if (laMienPhi == true)
-            return true;
-        if (hocVienId is not > 0)
-            return false;
+        if (laMienPhi is null) return null;
+        if (dotMienPhi is null && laMienPhi == true) return true;
+        if (hocVienId is not > 0) return false;
 
         return (await LayQuyenAsync(db, hocVienId.Value))?.LaVip == true;
     }

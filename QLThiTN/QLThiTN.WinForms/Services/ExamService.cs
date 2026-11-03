@@ -387,7 +387,7 @@ END", conn);
         var sql = @"
             SELECT dt.DotThiID, dt.TenDotThi, d.TenDe, dt.ThoiGianMoCong, dt.ThoiGianDongCong,
                    dt.ThoiLuongLamBai, dt.GioiHanSoLuong, dt.CongBoDiemSom, dt.TrangThai,
-                   dt.PhamVi, dt.SoLanThiToiDa,
+                   dt.PhamVi, dt.SoLanThiToiDa, dt.LaMienPhi,
                    (SELECT COUNT(1) FROM DangKyDotThi k WHERE k.DotThiID = dt.DotThiID AND k.TrangThai <> N'DaHuy') AS SoDangKy,
                    (SELECT COUNT(1) FROM BaiLam bl WHERE bl.DotThiID = dt.DotThiID AND bl.TrangThai <> N'DangLam') AS SoBaiDaNop
             FROM DotThi dt
@@ -433,8 +433,8 @@ END", conn);
             }
             using var create = new SqlCommand(@"
             INSERT INTO DotThi (DeThiID, TenDotThi, ThoiGianMoCong, ThoiGianDongCong, ThoiLuongLamBai,
-                                GioiHanSoLuong, CongBoDiemSom, TrangThai, PhamVi, SoLanThiToiDa)
-            VALUES (@de, @ten, @mo, @dong, @luong, @han, @cong, @tt, @pv, @lan);
+                                GioiHanSoLuong, CongBoDiemSom, TrangThai, PhamVi, SoLanThiToiDa, LaMienPhi)
+            VALUES (@de, @ten, @mo, @dong, @luong, @han, @cong, @tt, @pv, @lan, @mienphi);
             SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, tx);
             create.Parameters.AddWithValue("@de", d.DeThiID);
             create.Parameters.AddWithValue("@ten", d.TenDotThi.Trim());
@@ -446,6 +446,7 @@ END", conn);
             create.Parameters.AddWithValue("@tt", trangThai);
             create.Parameters.AddWithValue("@pv", d.PhamVi);
             create.Parameters.AddWithValue("@lan", d.SoLanThiToiDa);
+            create.Parameters.AddWithValue("@mienphi", d.LaMienPhi);
             var id = Convert.ToInt32(create.ExecuteScalar());
             foreach (var lop in classes)
             {
@@ -459,6 +460,13 @@ END", conn);
             return id;
         }
         catch { tx.Rollback(); throw; }
+    }
+
+    public void DatMienPhiDotThi(int dotThiId, bool laMienPhi)
+    {
+        YeuCauQuanTriVien();
+        Database.Execute("UPDATE DotThi SET LaMienPhi = @mf WHERE DotThiID = @id",
+            p => { p.AddWithValue("@mf", laMienPhi); p.AddWithValue("@id", dotThiId); });
     }
 
     public void CapNhatTrangThaiDot(int dotThiId, string trangThai)
