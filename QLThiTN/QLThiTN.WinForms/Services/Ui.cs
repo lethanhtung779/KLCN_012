@@ -190,4 +190,14 @@ public static class Ui
         }
         catch { }
     }
+
+    /// <summary>Lọc bỏ các thẻ HTML để hiển thị văn bản thuần túy sạch đẹp trên DataGridView WinForms.</summary>
+    public static string CleanHtml(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html) || !html.Contains('<')) return html ?? "";
+        var t = System.Text.RegularExpressions.Regex.Replace(html, @"</?(br|p|div|li|h[1-6])[^>]*>", " ", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        t = System.Text.RegularExpressions.Regex.Replace(t, @"<[^>]+>", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        t = System.Net.WebUtility.HtmlDecode(t);
+        return System.Text.RegularExpressions.Regex.Replace(t, @"\s+", " ").Trim();
+    }
 }

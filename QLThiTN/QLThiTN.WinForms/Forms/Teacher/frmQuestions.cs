@@ -121,6 +121,14 @@ public class frmQuestions : Form
         _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
         _grid.Dock = DockStyle.Fill;
         _grid.CellDoubleClick += (s, e) => { if (e.RowIndex >= 0) Sua(); };
+        _grid.CellFormatting += (s, e) =>
+        {
+            if (e.RowIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "NoiDung" && e.Value is string text && text.Contains('<'))
+            {
+                e.Value = Ui.CleanHtml(text);
+                e.FormattingApplied = true;
+            }
+        };
         _lblEmpty.AutoSize = false;
         _lblEmpty.Size = new Size(560, 68);
         _lblEmpty.TextAlign = ContentAlignment.MiddleCenter;

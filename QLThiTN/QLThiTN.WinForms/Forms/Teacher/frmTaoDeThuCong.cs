@@ -46,6 +46,14 @@ public class frmTaoDeThuCong : Form
         btnBoTatCa.Click += (s, e) => { foreach (DataGridViewRow row in _grid.Rows) row.Cells["Chon"].Value = false; CapNhatDem(); };
 
         Ui.StyleGrid(_grid);
+        _grid.CellFormatting += (s, e) =>
+        {
+            if (e.RowIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "NoiDung" && e.Value is string text && text.Contains('<'))
+            {
+                e.Value = Ui.CleanHtml(text);
+                e.FormattingApplied = true;
+            }
+        };
         _grid.Location = new Point(20, 142);
         _grid.Size = new Size(980, 438);
         _grid.ReadOnly = false;
