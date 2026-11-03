@@ -10,7 +10,7 @@ public sealed class ExamExpiryWorker(IServiceScopeFactory scopes, ILogger<ExamEx
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(60));
         while (!stoppingToken.IsCancellationRequested)
         {
             try

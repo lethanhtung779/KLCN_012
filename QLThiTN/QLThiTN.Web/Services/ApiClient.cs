@@ -285,12 +285,19 @@ namespace QLThiTN.Web.Services;
         if (_cache.TryGetValue("Cache_Web_ExamStats", out ApiExamStats? cached) && cached != null)
             return cached;
 
-        var stats = await _http.GetFromJsonAsync<ApiExamStats>("/api/dethi/stats", JsonOptions);
-        if (stats != null)
+        try
         {
-            _cache.Set("Cache_Web_ExamStats", stats, TimeSpan.FromSeconds(30));
+            var stats = await _http.GetFromJsonAsync<ApiExamStats>("/api/dethi/stats", JsonOptions);
+            if (stats != null)
+            {
+                _cache.Set("Cache_Web_ExamStats", stats, TimeSpan.FromMinutes(2));
+            }
+            return stats;
         }
-        return stats;
+        catch
+        {
+            return cached ?? new ApiExamStats();
+        }
     }
 
     public async Task<List<ApiHistoryItem>> GetHistoryAsync(int hocVienId)
@@ -308,7 +315,14 @@ namespace QLThiTN.Web.Services;
 
     public async Task<ApiStudentStats?> GetStudentStatsAsync(int hocVienId)
     {
-        return await _http.GetFromJsonAsync<ApiStudentStats>($"/api/bailam/stats/{hocVienId}", JsonOptions);
+        try
+        {
+            return await _http.GetFromJsonAsync<ApiStudentStats>($"/api/bailam/stats/{hocVienId}", JsonOptions);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>Thoi khoa bieu hoc vien theo lop da dang ky (LichHoc).</summary>

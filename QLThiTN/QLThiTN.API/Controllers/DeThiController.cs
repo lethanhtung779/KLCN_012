@@ -80,7 +80,7 @@ public class DeThiController : ControllerBase
             TongHocVien = await _db.HocViens.CountAsync(),
             TheoDe = theoDe
         };
-        _cache?.Set(cacheKey, stats, TimeSpan.FromSeconds(30));
+        _cache?.Set(cacheKey, stats, TimeSpan.FromMinutes(2));
         return Ok(stats);
     }
 
