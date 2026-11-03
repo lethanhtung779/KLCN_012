@@ -61,7 +61,6 @@ public class frmExams : Form
         _btnDotThi.Click += (s, e) => TaoDotThi();
         _btnTronDe.Click += (s, e) => MoManHinhTronDe();
         _btnXoaDe.Click += (s, e) => XoaDe();
-        _btnGoiDe.Click += (s, e) => DoiGoiDe();
         var btnLamMoi = Ui.ButtonOutline("Làm mới", 105);
         _btnDuyet.Click += (_, _) => MoXemCacMaDe();
         btnLamMoi.Click += (s, e) => TaiLai();
@@ -71,7 +70,7 @@ public class frmExams : Form
         var btnXuatJson = Ui.ButtonOutline("Xuất file JSON", 145);
         btnXuatJson.Click += (s, e) => XuatJsonDe();
 
-        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, _btnTronDe, _btnDuyet, btnInDe, btnXuatJson, _btnDotThi, _btnGoiDe, btnLamMoi, _btnXoaDe })
+        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, _btnTronDe, _btnDuyet, btnInDe, btnXuatJson, _btnDotThi, btnLamMoi, _btnXoaDe })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);
@@ -81,7 +80,6 @@ public class frmExams : Form
         {
             _btnDuyet.Text = "Xem các mã đề";
             _btnDotThi.Visible = false;
-            _btnGoiDe.Visible = false;
             _btnXoaDe.Visible = false;
         }
         _tips.SetToolTip(btnTHPTQG, "Tạo đề theo đúng cấu trúc THPT của môn học. Đây là lựa chọn nên dùng.");
@@ -198,7 +196,7 @@ public class frmExams : Form
             ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Hình thức tạo"), ("QuyenThi", "Quyền thi"),
             ("Duyet", "Kiểm duyệt"), ("TrangThaiWeb", "Hiển thị trên Web"),
             ("SoDotThi", "Số lịch thi"), ("SoMaDe", "Số mã đề"));
-        Ui.HideColumns(_gridDe, "DeThiID", "LaMienPhi");
+        Ui.HideColumns(_gridDe, "DeThiID", "LaMienPhi", "QuyenThi");
         if (_gridDe.Columns.Contains("LoaiDe"))
             foreach (DataGridViewRow row in _gridDe.Rows)
                 row.Cells["LoaiDe"].Value = row.Cells["LoaiDe"].Value switch
@@ -373,7 +371,6 @@ public class frmExams : Form
         _btnTronDe.Enabled = coDe;
         _btnDuyet.Enabled = coDe;
         _btnDotThi.Enabled = coDe;
-        _btnGoiDe.Enabled = coDe;
         _btnXoaDe.Enabled = coDe;
 
         if (!coDe)
