@@ -37,6 +37,18 @@ public static class Session
         return true;
     }
 
+    public static void YeuCauDangNhap()
+    {
+        if (Current == null || !IsAccountActive())
+            throw new UnauthorizedAccessException("Phiên đăng nhập đã hết hạn hoặc tài khoản không hoạt động.");
+    }
+
+    public static void YeuCauQuanTriVienHoacGiaoVien()
+    {
+        if ((!IsQuanTriVien && !IsGiaoVien) || !IsAccountActive())
+            throw new UnauthorizedAccessException("Chức năng chỉ dành cho Quản trị viên hoặc Giáo viên có tài khoản đang hoạt động.");
+    }
+
     public static void YeuCauQuanTriVien()
     {
         if (!IsQuanTriVien || !IsAccountActive())

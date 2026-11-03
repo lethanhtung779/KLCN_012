@@ -48,10 +48,35 @@ public class StatisticsService
             ORDER BY dt.ThoiGianMoCong DESC");
     }
 
-    /// <summary>Ket qua chi tiet tung hoc vien trong dot thi.</summary>
-    public List<KetQuaThi> LayKetQuaDotThi(int dotThiId)
+    /// <summary>Ket qua chi tiet tung hoc vien trong dot thi (co the loc theo LopHocID).</summary>
+    public List<KetQuaThi> LayKetQuaDotThi(int dotThiId, int? lopHocId = null)
     {
         KiemTraQuyenDotThi(dotThiId);
+        if (lopHocId.HasValue && lopHocId.Value > 0)
+        {
+            return Database.ReadList(@"
+                SELECT bl.BaiLamID, COALESCE(hv.HoTen, N'(khách)') AS HoTen, tk.TenDangNhap,
+                       bl.LanThi, bl.TongDiem, bl.ThoiGianBatDau, bl.ThoiGianNop, bl.TrangThai
+                FROM BaiLam bl
+                LEFT JOIN HocVien hv ON hv.HocVienID = bl.HocVienID
+                LEFT JOIN TaiKhoan tk ON tk.TaiKhoanID = hv.TaiKhoanID
+                WHERE bl.DotThiID = @id AND bl.TrangThai <> N'DangLam'
+                  AND EXISTS (SELECT 1 FROM HocVien_Lop hl WHERE hl.HocVienID = bl.HocVienID AND hl.LopHocID = @lop)
+                ORDER BY bl.TongDiem DESC, bl.ThoiGianNop",
+                r => new KetQuaThi
+                {
+                    BaiLamID = r.GetInt32(0),
+                    HoTen = r.GetString(1),
+                    TenDangNhap = r.IsDBNull(2) ? "" : r.GetString(2),
+                    LanThi = r.GetInt32(3),
+                    TongDiem = r.IsDBNull(4) ? null : r.GetDecimal(4),
+                    ThoiGianBatDau = r.GetDateTime(5),
+                    ThoiGianNop = r.IsDBNull(6) ? null : r.GetDateTime(6),
+                    TrangThai = r.GetString(7)
+                },
+                p => { p.AddWithValue("@id", dotThiId); p.AddWithValue("@lop", lopHocId.Value); });
+        }
+
         return Database.ReadList(@"
             SELECT bl.BaiLamID, COALESCE(hv.HoTen, N'(khách)') AS HoTen, tk.TenDangNhap,
                    bl.LanThi, bl.TongDiem, bl.ThoiGianBatDau, bl.ThoiGianNop, bl.TrangThai
@@ -72,6 +97,87 @@ public class StatisticsService
                 TrangThai = r.GetString(7)
             },
             p => p.AddWithValue("@id", dotThiId));
+    }
+
+    /// <summary>Danh sach lop hoc thuoc mon cua dot thi de loc ket qua theo lop.</summary>
+    public DataTable LayDanhSachLopChoDotThi(int dotThiId)
+    {
+        return Database.Query(@"
+            SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000'), N' · ', lh.TenLop, N' — ', kh.TenKhoaHoc) AS TenHienThi
+            FROM DotThi dt
+            JOIN DeThi d ON d.DeThiID = dt.DeThiID
+            JOIN KhoaHoc kh ON kh.MonHocID = d.MonHocID
+            JOIN LopHoc lh ON lh.KhoaHocID = kh.KhoaHocID
+            WHERE dt.DotThiID = @dt AND kh.TrangThai <> N'DaKetThuc'
+            ORDER BY kh.TenKhoaHoc, lh.TenLop", p => p.AddWithValue("@dt", dotThiId));
+    }
+
+    /// <summary>Danh sach tat ca hoc vien de xem thong ke ca nhan.</summary>
+    public DataTable LayDanhSachHocVienChoThongKe()
+    {
+        return Database.Query(@"
+            SELECT hv.HocVienID, CONCAT(hv.HoTen, N' (', tk.TenDangNhap, N')') AS HienThi
+            FROM HocVien hv
+            JOIN TaiKhoan tk ON tk.TaiKhoanID = hv.TaiKhoanID
+            WHERE tk.TrangThai = N'HoatDong'
+            ORDER BY hv.HoTen");
+    }
+
+    /// <summary>Lich su thi tat ca cac dot cua mot hoc vien.</summary>
+    public List<KetQuaThiHocVien> LayLichSuThiCuaHocVien(int hocVienId)
+    {
+        Session.YeuCauDangNhap();
+        if (Session.IsGiaoVien)
+        {
+            if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
+            return Database.ReadList(@"
+                SELECT bl.BaiLamID, dt.TenDotThi, d.TenDe, mh.TenMon, bl.LanThi, bl.TongDiem,
+                       bl.ThoiGianBatDau, bl.ThoiGianNop, bl.TrangThai
+                FROM BaiLam bl
+                JOIN DotThi dt ON dt.DotThiID = bl.DotThiID
+                JOIN DeThi d ON d.DeThiID = dt.DeThiID
+                JOIN MonHoc mh ON mh.MonHocID = d.MonHocID
+                WHERE bl.HocVienID = @hv AND bl.TrangThai <> N'DangLam'
+                  AND EXISTS (SELECT 1 FROM GiaoVien_MonHoc gm WHERE gm.GiaoVienID = @gv AND gm.MonHocID = d.MonHocID)
+                ORDER BY bl.ThoiGianNop DESC, bl.ThoiGianBatDau DESC",
+                r => new KetQuaThiHocVien
+                {
+                    BaiLamID = r.GetInt32(0),
+                    TenDotThi = r.GetString(1),
+                    TenDe = r.GetString(2),
+                    TenMon = r.GetString(3),
+                    LanThi = r.GetInt32(4),
+                    TongDiem = r.IsDBNull(5) ? null : r.GetDecimal(5),
+                    ThoiGianBatDau = r.GetDateTime(6),
+                    ThoiGianNop = r.IsDBNull(7) ? null : r.GetDateTime(7),
+                    TrangThai = r.GetString(8)
+                },
+                p => { p.AddWithValue("@hv", hocVienId); p.AddWithValue("@gv", Session.GiaoVienID); });
+        }
+
+        Session.YeuCauQuanTriVien();
+        return Database.ReadList(@"
+            SELECT bl.BaiLamID, dt.TenDotThi, d.TenDe, mh.TenMon, bl.LanThi, bl.TongDiem,
+                   bl.ThoiGianBatDau, bl.ThoiGianNop, bl.TrangThai
+            FROM BaiLam bl
+            JOIN DotThi dt ON dt.DotThiID = bl.DotThiID
+            JOIN DeThi d ON d.DeThiID = dt.DeThiID
+            JOIN MonHoc mh ON mh.MonHocID = d.MonHocID
+            WHERE bl.HocVienID = @hv AND bl.TrangThai <> N'DangLam'
+            ORDER BY bl.ThoiGianNop DESC, bl.ThoiGianBatDau DESC",
+            r => new KetQuaThiHocVien
+            {
+                BaiLamID = r.GetInt32(0),
+                TenDotThi = r.GetString(1),
+                TenDe = r.GetString(2),
+                TenMon = r.GetString(3),
+                LanThi = r.GetInt32(4),
+                TongDiem = r.IsDBNull(5) ? null : r.GetDecimal(5),
+                ThoiGianBatDau = r.GetDateTime(6),
+                ThoiGianNop = r.IsDBNull(7) ? null : r.GetDateTime(7),
+                TrangThai = r.GetString(8)
+            },
+            p => p.AddWithValue("@hv", hocVienId));
     }
 
     /// <summary>Ti le dung/sai tung cau hoi trong dot thi — do chat luong cau hoi.

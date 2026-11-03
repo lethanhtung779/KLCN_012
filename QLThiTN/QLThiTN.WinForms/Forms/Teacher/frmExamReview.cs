@@ -24,6 +24,19 @@ public sealed class frmExamReview : Form
         var confirmed=new CheckBox{Text="Tôi đã xem nội dung và đáp án của tất cả mã đề",AutoSize=true,Margin=new Padding(10,14,10,0)};
         var approve=Ui.ButtonAccent("Duyệt lên web",170);approve.Enabled=false;
         var validationStatus=Ui.Label("",Ui.Small,Ui.Danger);
+        if (Session.IsGiaoVien)
+        {
+            confirmed.Visible = false;
+            approve.Visible = false;
+            footer.Controls.Add(new Label
+            {
+                Text = "ℹ Chế độ xem trước mã đề của Giáo viên · Quyền duyệt đề lên Web thuộc Quản trị viên",
+                Font = Ui.Small,
+                ForeColor = Color.FromArgb(70, 90, 130),
+                AutoSize = true,
+                Margin = new Padding(12, 16, 10, 0)
+            });
+        }
         validationStatus.AutoSize=true;
         validationStatus.MaximumSize=new Size(760,0);
         validationStatus.Margin=new Padding(10,8,10,0);

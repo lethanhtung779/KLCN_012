@@ -1,3 +1,4 @@
+using System.Text;
 using System.Data;
 using QLThiTN.WinForms.Services;
 
@@ -21,7 +22,7 @@ public class frmExams : Form
 
     public frmExams()
     {
-        ExamService.YeuCauQuanTriVien();
+        ExamService.YeuCauQuanTriVienHoacGiaoVien();
         Text = "Đề thi & Lịch thi";
         Font = Ui.Body;
 
@@ -65,10 +66,23 @@ public class frmExams : Form
         _btnDuyet.Click += (_, _) => MoXemCacMaDe();
         btnLamMoi.Click += (s, e) => TaiLai();
 
-        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, _btnTronDe, _btnDuyet, _btnDotThi, _btnGoiDe, btnLamMoi, _btnXoaDe })
+        var btnInDe = Ui.ButtonOutline("Xuất bản in đề", 150);
+        btnInDe.Click += (s, e) => XuatBanInDe();
+        var btnXuatJson = Ui.ButtonOutline("Xuất file JSON", 145);
+        btnXuatJson.Click += (s, e) => XuatJsonDe();
+
+        foreach (var c in new Control[] { btnTHPTQG, btnTuDong, btnThuCong, _btnTronDe, _btnDuyet, btnInDe, btnXuatJson, _btnDotThi, _btnGoiDe, btnLamMoi, _btnXoaDe })
         {
             c.Margin = new Padding(0, 3, 10, 0);
             toolbar.Controls.Add(c);
+        }
+
+        if (Session.IsGiaoVien)
+        {
+            _btnDuyet.Text = "Xem các mã đề";
+            _btnDotThi.Visible = false;
+            _btnGoiDe.Visible = false;
+            _btnXoaDe.Visible = false;
         }
         _tips.SetToolTip(btnTHPTQG, "Tạo đề theo đúng cấu trúc THPT của môn học. Đây là lựa chọn nên dùng.");
         _tips.SetToolTip(btnTuDong, "Tạo nhanh một đề bằng cách lấy ngẫu nhiên câu hỏi trong ngân hàng.");
@@ -506,6 +520,69 @@ public class frmExams : Form
         catch (Exception ex)
         {
             MessageBox.Show("Không thể mở màn hình trộn đề:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+    private void XuatJsonDe()
+    {
+        var id = DeIdDangChon();
+        if (id <= 0)
+        {
+            MessageBox.Show("Hãy chọn một đề thi để xuất file JSON.", "Chưa chọn đề", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var tenDe = _gridDe.CurrentRow!.Cells["TenDe"].Value?.ToString() ?? "DeThi";
+        var safeTen = string.Join("_", tenDe.Split(Path.GetInvalidFileNameChars())).Replace(" ", "_");
+
+        using var sfd = new SaveFileDialog
+        {
+            Filter = "JSON file (*.json)|*.json",
+            FileName = $"{safeTen}.json",
+            Title = "Xuất cấu trúc đề thi thành file JSON"
+        };
+        if (sfd.ShowDialog(FindForm()) != DialogResult.OK) return;
+
+        try
+        {
+            var json = _service.XuatDeThiJson(id);
+            File.WriteAllText(sfd.FileName, json, Encoding.UTF8);
+            MessageBox.Show("Đã xuất file JSON cấu trúc đề thi thành công tại:\n" + sfd.FileName, "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Lỗi khi xuất file JSON:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void XuatBanInDe()
+    {
+        var id = DeIdDangChon();
+        if (id <= 0)
+        {
+            MessageBox.Show("Hãy chọn một đề thi để xuất bản in.", "Chưa chọn đề", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var tenDe = _gridDe.CurrentRow!.Cells["TenDe"].Value?.ToString() ?? "DeThi";
+        var safeTen = string.Join("_", tenDe.Split(Path.GetInvalidFileNameChars())).Replace(" ", "_");
+
+        using var sfd = new SaveFileDialog
+        {
+            Filter = "Tài liệu Word / HTML (*.doc;*.html)|*.doc;*.html|File HTML (*.html)|*.html|Tài liệu Word (*.doc)|*.doc",
+            FileName = $"BanIn_{safeTen}.doc",
+            Title = "Xuất bản in đề thi (Mở được bằng Microsoft Word hoặc trình duyệt)"
+        };
+        if (sfd.ShowDialog(FindForm()) != DialogResult.OK) return;
+
+        try
+        {
+            var html = _service.XuatBanInDeThi(id);
+            File.WriteAllText(sfd.FileName, html, Encoding.UTF8);
+            MessageBox.Show("Đã xuất bản in đề thi thành công tại:\n" + sfd.FileName + "\n\nBạn có thể mở trực tiếp bằng Microsoft Word để in ra giấy hoặc chuyển thành PDF.", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Lỗi khi xuất bản in đề thi:\n" + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

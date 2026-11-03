@@ -61,6 +61,13 @@ public class ExamService
         Session.YeuCauQuanTriVien();
     }
 
+    public static void YeuCauQuanTriVienHoacGiaoVien()
+    {
+        Session.YeuCauDangNhap();
+        if (!Session.IsQuanTriVien && !Session.IsGiaoVien)
+            throw new UnauthorizedAccessException("Chỉ Quản trị viên hoặc Giáo viên mới có quyền thực hiện thao tác này.");
+    }
+
     public DataTable LayLopChoDotThi(int deThiId)
     {
         YeuCauQuanTriVien();
@@ -73,6 +80,22 @@ public class ExamService
 
     public DataTable LayDanhSachDe()
     {
+        if (Session.IsGiaoVien)
+        {
+            if (!Session.IsAccountActive()) throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
+            return Database.Query(@"
+                SELECT d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao,
+                       d.LaMienPhi, CASE WHEN d.DaDuyet=1 THEN N'Đã duyệt' ELSE N'Chờ duyệt' END AS Duyet,
+                       CASE WHEN d.LaMienPhi = 1 THEN N'Miễn phí' ELSE N'Đóng phí (VIP)' END AS QuyenThi,
+                       COUNT(dt.DotThiID) AS SoDotThi,
+                       (SELECT COUNT(*) FROM MaDeThi md WHERE md.DeThiID = d.DeThiID) AS SoMaDe
+                FROM DeThi d
+                JOIN MonHoc m ON m.MonHocID = d.MonHocID
+                LEFT JOIN DotThi dt ON dt.DeThiID = d.DeThiID
+                WHERE EXISTS (SELECT 1 FROM GiaoVien_MonHoc gm WHERE gm.GiaoVienID = @gv AND gm.MonHocID = d.MonHocID)
+                GROUP BY d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao, d.LaMienPhi, d.DaDuyet
+                ORDER BY d.DeThiID DESC", p => p.AddWithValue("@gv", Session.GiaoVienID));
+        }
         return Database.Query(@"
             SELECT d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao,
                    d.LaMienPhi, CASE WHEN d.DaDuyet=1 THEN N'Đã duyệt' ELSE N'Chờ duyệt' END AS Duyet,
@@ -132,7 +155,7 @@ public class ExamService
     public (int DeThiID, string Error) TaoDeTuDong(string tenDe, int monHocId, int soCau, string? mucDo,
         string loaiDe, string tinHocTrack="KhoaHocMayTinh", bool laMienPhi=false)
     {
-        YeuCauQuanTriVien();
+        YeuCauQuanTriVienHoacGiaoVien();
         if (string.IsNullOrWhiteSpace(tenDe)) return (0, "Chưa nhập tên đề.");
         if (soCau < 1) return (0, "Số câu phải >= 1.");
 
@@ -166,7 +189,7 @@ public class ExamService
     public (int DeThiID, string Error) TaoDeThuCong(string tenDe, int monHocId, string loaiDe,
         List<int> cauHoiIds, bool laMienPhi=false)
     {
-        YeuCauQuanTriVien();
+        YeuCauQuanTriVienHoacGiaoVien();
         if (string.IsNullOrWhiteSpace(tenDe)) return (0, "Chưa nhập tên đề.");
         if (cauHoiIds.Count == 0) return (0, "Chưa chọn câu hỏi nào cho đề.");
         var id = TaoDeCore(tenDe, monHocId, loaiDe, "ThuCong", cauHoiIds, laMienPhi);
@@ -523,7 +546,7 @@ END", conn);
         bool xoaBaiLamCu = false,
         bool ghimDapAnCuoi = true)
     {
-        YeuCauQuanTriVien();
+        YeuCauQuanTriVienHoacGiaoVien();
         if (soLuongMaDe < 1 || soLuongMaDe > 50)
             return (false, "Số lượng mã đề phải từ 1 đến 50.", new());
 
@@ -988,7 +1011,7 @@ END", conn);
         int soCauMoiChuDeToiThieu = 1,
         bool laMienPhi = false)
     {
-        YeuCauQuanTriVien();
+        YeuCauQuanTriVienHoacGiaoVien();
         if (string.IsNullOrWhiteSpace(tenDe))
             return (0, "Chưa nhập tên đề thi.");
 
@@ -1158,6 +1181,209 @@ END", conn);
         public string NoiDung { get; set; } = "";
         public bool LaDapAnDung { get; set; }
         public string? GiaiThich { get; set; }
+    }
+
+    public string XuatDeThiJson(int deThiId)
+    {
+        YeuCauQuanTriVienHoacGiaoVien();
+        var deRow = Database.Query(@"
+            SELECT d.DeThiID, d.TenDe, m.TenMon, d.SoLuongCauHoi, d.LoaiDe, d.HinhThucTao, d.DaDuyet
+            FROM DeThi d JOIN MonHoc m ON m.MonHocID = d.MonHocID
+            WHERE d.DeThiID = @id", p => p.AddWithValue("@id", deThiId));
+        if (deRow.Rows.Count == 0) throw new Exception("Không tìm thấy đề thi.");
+
+        var row = deRow.Rows[0];
+        var dtQs = Database.Query(@"
+            SELECT dc.ThuTu, c.CauHoiID, c.NoiDung, c.LoaiCauHoi, c.MucDoKho, cd.TenChuDe
+            FROM DeThi_CauHoi dc
+            JOIN CauHoi c ON c.CauHoiID = dc.CauHoiID
+            JOIN ChuDe cd ON cd.ChuDeID = c.ChuDeID
+            WHERE dc.DeThiID = @id
+            ORDER BY dc.ThuTu", p => p.AddWithValue("@id", deThiId));
+
+        var dtAns = Database.Query(@"
+            SELECT a.CauHoiID, a.DapAnID, a.ThuTu, a.NoiDung, a.LaDapAnDung
+            FROM DapAn a
+            WHERE a.CauHoiID IN (SELECT CauHoiID FROM DeThi_CauHoi WHERE DeThiID = @id)
+            ORDER BY a.CauHoiID, a.ThuTu", p => p.AddWithValue("@id", deThiId));
+
+        var ansByQ = dtAns.AsEnumerable()
+            .GroupBy(r => (int)r["CauHoiID"])
+            .ToDictionary(g => g.Key, g => g.Select(r => new
+            {
+                DapAnID = (int)r["DapAnID"],
+                ThuTu = (int)r["ThuTu"],
+                Label = ((char)('A' + (int)r["ThuTu"])).ToString(),
+                NoiDung = r["NoiDung"].ToString(),
+                LaDapAnDung = (bool)r["LaDapAnDung"]
+            }).ToList());
+
+        var dtMaDe = Database.Query(@"
+            SELECT md.MaDeID, md.TenMaDe
+            FROM MaDeThi md
+            WHERE md.DeThiID = @id ORDER BY md.TenMaDe", p => p.AddWithValue("@id", deThiId));
+
+        var cauHois = dtQs.AsEnumerable().Select(q => new
+        {
+            ThuTu = (int)q["ThuTu"],
+            CauHoiID = (int)q["CauHoiID"],
+            ChuDe = q["TenChuDe"].ToString(),
+            LoaiCauHoi = q["LoaiCauHoi"].ToString(),
+            MucDoKho = q["MucDoKho"].ToString(),
+            NoiDung = q["NoiDung"].ToString(),
+            DapAns = ansByQ.TryGetValue((int)q["CauHoiID"], out var alist) ? alist : []
+        }).ToList();
+
+        var exportObj = new
+        {
+            DeThiID = (int)row["DeThiID"],
+            TenDe = row["TenDe"].ToString(),
+            MonHoc = row["TenMon"].ToString(),
+            SoLuongCauHoi = (int)row["SoLuongCauHoi"],
+            LoaiDe = row["LoaiDe"].ToString(),
+            NgayXuat = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
+            SoMaDe = dtMaDe.Rows.Count,
+            DanhSachMaDe = dtMaDe.AsEnumerable().Select(m => m["TenMaDe"].ToString()).ToList(),
+            CauHois = cauHois
+        };
+
+        return System.Text.Json.JsonSerializer.Serialize(exportObj, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+    }
+
+    public string XuatBanInDeThi(int deThiId, int? maDeId = null)
+    {
+        YeuCauQuanTriVienHoacGiaoVien();
+        var deRow = Database.Query(@"
+            SELECT d.DeThiID, d.TenDe, m.TenMon, d.SoLuongCauHoi
+            FROM DeThi d JOIN MonHoc m ON m.MonHocID = d.MonHocID
+            WHERE d.DeThiID = @id", p => p.AddWithValue("@id", deThiId));
+        if (deRow.Rows.Count == 0) throw new Exception("Không tìm thấy đề thi.");
+
+        var tenDe = deRow.Rows[0]["TenDe"].ToString() ?? "";
+        var tenMon = deRow.Rows[0]["TenMon"].ToString() ?? "";
+        var soCau = Convert.ToInt32(deRow.Rows[0]["SoLuongCauHoi"]);
+        var thoiGian = tenMon.Contains("Toán", StringComparison.OrdinalIgnoreCase) ? 90 : 50;
+
+        string tenMaDe = "101";
+        if (maDeId.HasValue && maDeId.Value > 0)
+        {
+            var mdRow = Database.Query("SELECT TenMaDe FROM MaDeThi WHERE MaDeID=@id", p => p.AddWithValue("@id", maDeId.Value));
+            if (mdRow.Rows.Count > 0) tenMaDe = mdRow.Rows[0]["TenMaDe"].ToString() ?? "101";
+        }
+        else
+        {
+            var firstMd = Database.Query("SELECT TOP 1 MaDeID, TenMaDe FROM MaDeThi WHERE DeThiID=@id ORDER BY TenMaDe", p => p.AddWithValue("@id", deThiId));
+            if (firstMd.Rows.Count > 0)
+            {
+                maDeId = (int)firstMd.Rows[0]["MaDeID"];
+                tenMaDe = firstMd.Rows[0]["TenMaDe"].ToString() ?? "101";
+            }
+        }
+
+        DataTable dtQs;
+        if (maDeId.HasValue && maDeId.Value > 0)
+        {
+            dtQs = Database.Query(@"
+                SELECT mc.ThuTu, c.CauHoiID, c.NoiDung, c.LoaiCauHoi
+                FROM MaDe_CauHoi mc
+                JOIN CauHoi c ON c.CauHoiID = mc.CauHoiID
+                WHERE mc.MaDeID = @md
+                ORDER BY mc.ThuTu", p => p.AddWithValue("@md", maDeId.Value));
+        }
+        else
+        {
+            dtQs = Database.Query(@"
+                SELECT dc.ThuTu, c.CauHoiID, c.NoiDung, c.LoaiCauHoi
+                FROM DeThi_CauHoi dc
+                JOIN CauHoi c ON c.CauHoiID = dc.CauHoiID
+                WHERE dc.DeThiID = @id
+                ORDER BY dc.ThuTu", p => p.AddWithValue("@id", deThiId));
+        }
+
+        DataTable dtAns;
+        if (maDeId.HasValue && maDeId.Value > 0)
+        {
+            dtAns = Database.Query(@"
+                SELECT mda.CauHoiID, mda.ThuTu, d.NoiDung
+                FROM MaDe_DapAn mda
+                JOIN DapAn d ON d.DapAnID = mda.DapAnID
+                WHERE mda.MaDeID = @md
+                ORDER BY mda.CauHoiID, mda.ThuTu", p => p.AddWithValue("@md", maDeId.Value));
+        }
+        else
+        {
+            dtAns = Database.Query(@"
+                SELECT a.CauHoiID, a.ThuTu, a.NoiDung
+                FROM DapAn a
+                WHERE a.CauHoiID IN (SELECT CauHoiID FROM DeThi_CauHoi WHERE DeThiID = @id)
+                ORDER BY a.CauHoiID, a.ThuTu", p => p.AddWithValue("@id", deThiId));
+        }
+
+        var ansMap = dtAns.AsEnumerable()
+            .GroupBy(r => (int)r["CauHoiID"])
+            .ToDictionary(g => g.Key, g => g.OrderBy(r => (int)r["ThuTu"]).Select(r => new
+            {
+                ThuTu = (int)r["ThuTu"],
+                NoiDung = r["NoiDung"].ToString()
+            }).ToList());
+
+        var sb = new StringBuilder();
+        sb.AppendLine("<!DOCTYPE html><html><head><meta charset='utf-8'><title>Đề thi</title>");
+        sb.AppendLine("<style>");
+        sb.AppendLine("body { font-family: 'Times New Roman', serif; font-size: 13pt; line-height: 1.45; margin: 20mm 15mm; color: #000; }");
+        sb.AppendLine(".header-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }");
+        sb.AppendLine(".header-table td { vertical-align: top; text-align: center; font-size: 11pt; }");
+        sb.AppendLine(".title-main { font-weight: bold; font-size: 13pt; text-transform: uppercase; }");
+        sb.AppendLine(".title-sub { font-weight: bold; font-size: 11.5pt; }");
+        sb.AppendLine(".made-box { display: inline-block; border: 1.5px solid #000; font-weight: bold; font-size: 12pt; padding: 2px 14px; margin-top: 4px; }");
+        sb.AppendLine(".student-info { width: 100%; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 6px 0; margin: 10px 0 16px 0; font-size: 12pt; }");
+        sb.AppendLine(".q-item { margin-bottom: 14px; page-break-inside: avoid; }");
+        sb.AppendLine(".q-title { font-weight: bold; margin-bottom: 4px; }");
+        sb.AppendLine(".options-grid { display: flex; flex-wrap: wrap; margin-left: 18px; margin-top: 4px; }");
+        sb.AppendLine(".opt-col { width: 48%; margin-bottom: 4px; }");
+        sb.AppendLine("@media print { @page { margin: 15mm; } body { margin: 0; } }");
+        sb.AppendLine("</style></head><body>");
+
+        sb.AppendLine("<table class='header-table'>");
+        sb.AppendLine("<tr>");
+        sb.AppendLine("<td style='width: 45%; text-align: center;'>TRƯỜNG ĐẠI HỌC CÔNG THƯƠNG TP.HCM<br><b>TRUNG TÂM LUYỆN THI 247 PRO</b><br>──────────</td>");
+        sb.AppendLine("<td style='width: 55%; text-align: center;'><span class='title-main'>KỲ THI THỬ TỐT NGHIỆP TRUNG HỌC PHỔ THÔNG</span><br><span class='title-sub'>MÔN THI: " + tenMon.ToUpper() + "</span><br><i>Thời gian làm bài: " + thoiGian + " phút (không kể thời gian phát đề)</i><br><span class='made-box'>MÃ ĐỀ THI: " + tenMaDe + "</span></td>");
+        sb.AppendLine("</tr></table>");
+
+        sb.AppendLine("<div class='student-info'>");
+        sb.AppendLine("Họ và tên thí sinh: ....................................................................................... Số báo danh: ....................................");
+        sb.AppendLine("</div>");
+
+        foreach (DataRow q in dtQs.Rows)
+        {
+            var thuTu = (int)q["ThuTu"];
+            var qid = (int)q["CauHoiID"];
+            var noiDung = q["NoiDung"].ToString() ?? "";
+            var loai = q["LoaiCauHoi"].ToString() ?? "";
+
+            sb.AppendLine("<div class='q-item'>");
+            sb.AppendLine($"<div class='q-title'>Câu {thuTu}: {noiDung}</div>");
+
+            if (ansMap.TryGetValue(qid, out var opts))
+            {
+                sb.AppendLine("<div class='options-grid'>");
+                for (int i = 0; i < opts.Count; i++)
+                {
+                    var lbl = loai == "DungSai" ? ((char)('a' + i)).ToString() : ((char)('A' + i)).ToString();
+                    sb.AppendLine($"<div class='opt-col'><b>{lbl}.</b> {opts[i].NoiDung}</div>");
+                }
+                sb.AppendLine("</div>");
+            }
+            sb.AppendLine("</div>");
+        }
+
+        sb.AppendLine("<div style='text-align: center; margin-top: 24px; font-weight: bold;'>────────── HẾT ──────────</div>");
+        sb.AppendLine("</body></html>");
+        return sb.ToString();
     }
 }
 

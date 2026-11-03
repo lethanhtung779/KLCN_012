@@ -255,6 +255,28 @@ public class KetQuaThi
     };
 }
 
+
+public class KetQuaThiHocVien
+{
+    public int BaiLamID { get; set; }
+    public string TenDotThi { get; set; } = "";
+    public string TenDe { get; set; } = "";
+    public string TenMon { get; set; } = "";
+    public int LanThi { get; set; }
+    public decimal? TongDiem { get; set; }
+    public DateTime ThoiGianBatDau { get; set; }
+    public DateTime? ThoiGianNop { get; set; }
+    public string TrangThai { get; set; } = "";
+    public int PhutLamBai => ThoiGianNop.HasValue ? (int)Math.Round((ThoiGianNop.Value - ThoiGianBatDau).TotalMinutes) : 0;
+    public string XepLoai => TongDiem switch
+    {
+        >= 8.0m => "Giỏi",
+        >= 6.5m => "Khá",
+        >= 5.0m => "Trung bình",
+        null => "Chưa có",
+        _ => "Yếu"
+    };
+}
 /// <summary>Ti le dung/sai cua mot cau hoi trong cac bai thi (cho thong ke chat luong).</summary>
 public class ThongKeCauHoi
 {

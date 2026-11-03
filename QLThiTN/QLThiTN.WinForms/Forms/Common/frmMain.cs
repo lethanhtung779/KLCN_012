@@ -84,6 +84,7 @@ public class frmMain : Form
             flow.Controls.Add(NavButton("Quản lý học viên", () => MoManHinh("Quản lý học viên", () => new Forms.Admin.frmPersonDirectory("HocVien"))));
             flow.Controls.Add(NavButton("Quản lý giáo viên", () => MoManHinh("Quản lý giáo viên", () => new Forms.Admin.frmPersonDirectory("GiaoVien"))));
             flow.Controls.Add(NavButton("Khóa học & Lớp", () => MoManHinh("Quản lý khóa học & lớp học", () => new Forms.Admin.frmDaoTao())));
+            flow.Controls.Add(NavButton("Ngân hàng câu hỏi", () => MoManHinh("Ngân hàng câu hỏi", () => new Forms.Teacher.frmQuestions())));
             flow.Controls.Add(NavButton("Đề thi & Lịch thi", () => MoManHinh("Đề thi & Lịch thi", () => new Forms.Teacher.frmExams())));
             flow.Controls.Add(NavButton("Thống kê & Điểm thi", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));
             flow.Controls.Add(NavButton("Sao lưu & phục hồi", () => MoManHinh("Sao lưu & phục hồi dữ liệu", () => new Forms.Admin.frmBackupRestore())));
@@ -92,6 +93,7 @@ public class frmMain : Form
         if (Session.IsGiaoVien)
         {
             flow.Controls.Add(NavButton("Ngân hàng câu hỏi", () => MoManHinh("Ngân hàng câu hỏi", () => new Forms.Teacher.frmQuestions())));
+            flow.Controls.Add(NavButton("Đề thi & Trộn đề", () => MoManHinh("Đề thi & Trộn đề", () => new Forms.Teacher.frmExams())));
             flow.Controls.Add(NavButton("Lớp phụ trách", () => MoManHinh("Lớp phụ trách", () => new Forms.Admin.frmChiTietLopHoc())));
             flow.Controls.Add(NavButton("Thống kê kết quả", () => MoManHinh("Thống kê kết quả", () => new Forms.Teacher.frmStatistics())));
         }
