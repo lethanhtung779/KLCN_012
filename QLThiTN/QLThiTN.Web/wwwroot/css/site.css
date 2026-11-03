@@ -2239,3 +2239,40 @@ mjx-container[jax="CHTML"][display="true"] {
     0% { transform: scale(0.6); opacity: 0.9; }
     100% { transform: scale(2.2); opacity: 0; }
 }
+
+/* ---------- 10. Reading Passage Styling for English & Literature ---------- */
+.reading-passage {
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid var(--accent, #4f46e5);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin-bottom: 18px;
+    line-height: 1.75;
+    font-size: 0.96rem;
+    color: #1e293b;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-bs-theme="dark"] .reading-passage {
+    background-color: #1e293b;
+    border-color: #334155;
+    border-left-color: #6366f1;
+    color: #f1f5f9;
+}
+
+.reading-passage p:last-child {
+    margin-bottom: 0;
+}
+
+.reading-passage .passage-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent, #4f46e5);
+    margin-bottom: 10px;
+}
