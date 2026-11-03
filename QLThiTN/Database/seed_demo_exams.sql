@@ -34,11 +34,11 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM DotThi)
 BEGIN
-    INSERT INTO DotThi (DeThiID, TenDotThi, ThoiGianMoCong, ThoiGianDongCong, ThoiLuongLamBai, TrangThai, PhamVi, SoLanThiToiDa)
+    INSERT INTO DotThi (DeThiID, TenDotThi, ThoiGianMoCong, ThoiGianDongCong, ThoiLuongLamBai, TrangThai, PhamVi, SoLanThiToiDa, LaMienPhi)
     SELECT DeThiID, N'Dot thi ' + TenDe,
            DATEADD(day, -1, GETDATE()),
            DATEADD(day, 7, GETDATE()),
-           45, N'DangMo', N'ToanTruong', 1
+           45, N'DangMo', N'ToanTruong', 1, ISNULL(LaMienPhi, 0)
     FROM DeThi;
 END
 GO

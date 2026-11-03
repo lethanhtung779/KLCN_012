@@ -340,6 +340,13 @@ IF COL_LENGTH('DeThi', 'NguoiDuyetID') IS NULL ALTER TABLE DeThi ADD NguoiDuyetI
 IF COL_LENGTH('DeThi', 'NgayDuyet') IS NULL ALTER TABLE DeThi ADD NgayDuyet DATETIME2 NULL;
 GO
 
+IF COL_LENGTH('DotThi', 'LaMienPhi') IS NULL
+BEGIN
+    ALTER TABLE DotThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DotThi_LaMienPhi DEFAULT 0;
+    EXEC(N'UPDATE dt SET dt.LaMienPhi = d.LaMienPhi FROM DotThi dt JOIN DeThi d ON d.DeThiID = dt.DeThiID');
+END
+GO
+
 -- Cơ sở dữ liệu cũ cần cho phép đề tạo theo ma trận.
 DECLARE @oldExamCreationConstraint SYSNAME;
 SELECT TOP (1) @oldExamCreationConstraint = name
@@ -425,6 +432,7 @@ BEGIN
         TrangThai          NVARCHAR(20)  NOT NULL CHECK (TrangThai IN (N'SapMo', N'DangMo', N'DaDong')),
         PhamVi             NVARCHAR(20)  NOT NULL CHECK (PhamVi IN (N'ToanTruong', N'TheoLop')),
         SoLanThiToiDa      INT           NOT NULL DEFAULT 1,
+        LaMienPhi          BIT           NOT NULL CONSTRAINT DF_DotThi_LaMienPhi DEFAULT 0,
         CONSTRAINT FK_DotThi_DeThi FOREIGN KEY (DeThiID) REFERENCES DeThi(DeThiID)
     );
 END
