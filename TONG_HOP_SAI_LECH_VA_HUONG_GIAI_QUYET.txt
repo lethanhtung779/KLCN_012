@@ -1,0 +1,140 @@
+====================================================================================================
+BÁO CÁO TỔNG HỢP SAI LỆCH, THIẾU SÓT GIỮA DỰ ÁN VÀ ĐỀ CƯƠNG CHI TIẾT
+Đề tài: Xây dựng hệ thống quản lý và thi trắc nghiệm trực tuyến (Mã: CNTT-KLCN012)
+GVHD: Lâm Thị Họa Mi
+Nhóm SV thực hiện: Lê Thanh Tùng, Nguyễn Thanh Tâm, Trần Anh Khoa
+====================================================================================================
+
+Dưới đây là tổng hợp toàn bộ các điểm sai lệch, thiếu sót giữa mã nguồn dự án thực tế và Đề cương 
+chi tiết khóa luận (gồm yêu cầu chức năng, phi chức năng, phân quyền và kế hoạch 12 tuần), kèm theo 
+hướng giải quyết cụ thể cho từng mục.
+
+----------------------------------------------------------------------------------------------------
+I. NHÓM VẤN ĐỀ VỀ PHÂN QUYỀN (ROLE-BASED ACCESS CONTROL)
+----------------------------------------------------------------------------------------------------
+
+1. Quản trị viên (Admin) không có menu "Ngân hàng câu hỏi" trên giao diện
+- Đề cương yêu cầu: Quản trị viên có quyền quản lý ngân hàng câu hỏi (tạo, sửa, xóa câu hỏi, phân loại 
+  theo môn học, chủ đề, độ khó).
+- Hiện trạng dự án:
+  + Dịch vụ backend (QuestionService.cs) đã viết sẵn logic cho phép Quản trị viên xem và quản lý câu hỏi 
+    của tất cả các môn.
+  + Tuy nhiên trên thanh menu Sidebar của WinForms (frmMain.cs), nút "Ngân hàng câu hỏi" chỉ được gắn 
+    cho Giáo viên (Session.IsGiaoVien), Quản trị viên hoàn toàn không có nút để mở màn hình này.
+- Hướng giải quyết:
+  + Thêm nút NavButton("Ngân hàng câu hỏi", ...) vào nhóm menu của Quản trị viên trong frmMain.cs.
+  + Khi Admin mở form frmQuestions, cho phép xem toàn bộ danh sách môn học và thực hiện mọi thao tác 
+    quản lý câu hỏi.
+
+2. Giáo viên bị chặn quyền Tạo đề thi và Trộn đề thi
+- Đề cương yêu cầu: Giáo viên có quyền "Tạo đề thi từ ngân hàng câu hỏi: trộn đề, trộn câu hỏi, trộn đáp án".
+- Hiện trạng dự án:
+  + Trên menu Sidebar của Giáo viên (frmMain.cs) không có nút "Đề thi & Lịch thi" (hoặc "Đề thi & Trộn đề").
+  + Trong file frmExams.cs (dòng 24), code bị hardcode lệnh chặn: ExamService.YeuCauQuanTriVien(); 
+    dẫn đến nếu Giáo viên mở màn hình đề thi sẽ bị hệ thống văng lỗi không có quyền.
+- Hướng giải quyết:
+  + Sửa kiểm tra quyền trong frmExams.cs và ExamService.cs: Cho phép cả Giáo viên (IsGiaoVien) và Quản trị 
+    viên (IsQuanTriVien) truy cập.
+  + Nếu là Giáo viên, chỉ cho phép tạo/trộn đề thi thuộc các môn học mà giáo viên đó được phân công 
+    phụ trách (GiaoVien_MonHoc). Riêng nút "Duyệt đề lên web" có thể giữ lại quyền cho Admin.
+  + Bổ sung nút NavButton("Đề thi & Trộn đề", ...) vào thanh menu của Giáo viên trong frmMain.cs.
+
+----------------------------------------------------------------------------------------------------
+II. NHÓM VẤN ĐỀ VỀ CHỨC NĂNG VÀ NGHIỆP VỤ (FEATURES & FUNCTIONALITY)
+----------------------------------------------------------------------------------------------------
+
+3. Thiếu thống kê "Theo thí sinh" và bộ lọc "Theo lớp học"
+- Đề cương yêu cầu:
+  + Quản trị viên: "Xem thống kê kết quả: theo kỳ thi, theo thí sinh, theo câu hỏi".
+  + Giáo viên: "Xem kết quả thi của học viên theo lớp, môn học".
+- Hiện trạng dự án (frmStatistics.cs):
+  + Form thống kê hiện chỉ có duy nhất 1 ComboBox chọn "Đợt thi", với 2 tab: "Điểm theo kỳ thi" và 
+    "Chất lượng câu hỏi".
+  + Thiếu hoàn toàn tab/màn hình xem lịch sử và phổ điểm riêng của từng Thí sinh.
+  + Thiếu bộ lọc theo từng Lớp học (chỉ hiển thị dồn toàn bộ thí sinh trong đợt thi đó).
+- Hướng giải quyết:
+  + Thêm 1 TabPage "Thống kê theo học viên" trong frmStatistics.cs: Cho phép chọn/tìm kiếm một học viên 
+    để xem danh sách các bài thi đã làm, điểm trung bình và biểu đồ tiến bộ qua các kỳ thi.
+  + Thêm 1 ComboBox "Lớp học" cạnh ComboBox "Đợt thi" trong tab Điểm: Khi chọn một lớp cụ thể, lọc 
+    bảng điểm theo danh sách học viên thuộc lớp đó (dựa trên bảng HocVien_Lop).
+
+4. Dạng câu hỏi "Nhiều đáp án đúng" (Multiple Choices / Checkboxes)
+- Đề cương yêu cầu: Hỗ trợ nhiều dạng câu hỏi (một đáp án đúng, nhiều đáp án đúng, đúng/sai).
+- Hiện trạng dự án:
+  + Hệ thống chỉ có 3 loại câu hỏi: Trắc nghiệm 1 đáp án (Radio A-B-C-D), Đúng/Sai 4 ý (a-b-c-d) và 
+    Trả lời ngắn (nhập văn bản/số).
+  + Hoàn toàn không có dạng checkbox chọn nhiều đáp án đúng đồng thời (ví dụ: vừa chọn A vừa chọn C).
+- Hướng giải quyết:
+  + Phương án 1 (Khuyên dùng khi báo cáo): Giải trình trong quyển khóa luận rằng nhóm đã chủ động 
+    nâng cấp chuẩn hóa câu hỏi bám sát theo "Quy chế & Định dạng cấu trúc đề thi Tốt nghiệp THPT mới 
+    năm 2025 của Bộ GD&ĐT", trong đó dạng trắc nghiệm nhiều đáp án đúng truyền thống đã được Bộ thay 
+    thế bằng dạng Trắc nghiệm Đúng/Sai 4 ý và Trắc nghiệm Trả lời ngắn.
+  + Phương án 2 (Nếu hội đồng bắt buộc): Bổ sung loại câu hỏi LoaiCauHoi.NhieuDapAn, cho phép tích 
+    nhiều đáp án đúng ở WinForms và hiển thị Checkbox khi làm bài trên Web.
+
+5. Thiếu chức năng "Xuất đề thi thành bản in" (In đề thi ra giấy / Word / PDF)
+- Đề cương yêu cầu (Tuần 3 - 6): "Xuất đề thi thành bản in, cấu trúc JSON để dùng trên web".
+- Hiện trạng dự án:
+  + WinForms (frmTronDe.cs) hiện chỉ có chức năng "Xuất file Text ma trận đáp án" (chỉ gồm bảng chữ cái 
+    A, B, C... của các mã đề, không có nội dung câu hỏi).
+  + Màn hình duyệt đề (frmExamReview.cs) có hiển thị WebView2 nhưng chưa có chức năng xuất file bản in 
+    hoàn chỉnh.
+- Hướng giải quyết:
+  + Bổ sung nút "Xuất bản in đề thi (.docx / .pdf)" trong frmTronDe.cs hoặc frmExams.cs.
+  + Xuất ra file Word/HTML có đầy đủ tiêu đề chuẩn (Tên trung tâm/trường, Tên kỳ thi, Mã đề thi, 
+    Thời gian làm bài, phần điền thông tin thí sinh, và toàn bộ nội dung câu hỏi + 4 đáp án có đánh số).
+
+6. Xuất cấu trúc đề thi ra file JSON / XML độc lập từ WinForms
+- Đề cương yêu cầu (Tuần 10): "Đồng bộ đề thi, kỳ thi từ desktop sang web. Xuất đề thi thành JSON/XML 
+  từ WinForms. Website đọc đề thi từ file / API".
+- Hiện trạng dự án:
+  + WinForms không có nút xuất file JSON/XML.
+  + Hệ thống dùng chung CSDL SQL Server tập trung; Website đọc trực tiếp qua Web API.
+- Hướng giải quyết:
+  + Về mặt kỹ thuật: Thêm nút "Xuất JSON đề thi" trong frmExams.cs để xuất đề thi ra file .json chuẩn 
+    (phục vụ lưu trữ ngoại tuyến hoặc dự phòng khi mất kết nối mạng).
+  + Về mặt báo cáo: Nêu rõ đây là bước cải tiến kiến trúc từ mô hình truyền file thủ công sơ khai sang 
+    mô hình Client-Server hiện đại qua CSDL tập trung và RESTful Web API, đảm bảo dữ liệu đồng bộ tức thì 
+    và chống rò rỉ đề thi qua file trung gian.
+
+----------------------------------------------------------------------------------------------------
+III. NHÓM VẤN ĐỀ VỀ BẢO MẬT VÀ PHÂN ĐỊNH NỀN TẢNG (NON-FUNCTIONAL & ARCHITECTURE)
+----------------------------------------------------------------------------------------------------
+
+7. Mã hóa dữ liệu nhạy cảm (Đề thi và Kết quả thi)
+- Đề cương yêu cầu: "Bảo mật: Xác thực người dùng bằng tài khoản và mật khẩu; mã hóa dữ liệu nhạy cảm 
+  (mật khẩu, đề thi, kết quả)".
+- Hiện trạng dự án:
+  + Hệ thống đã băm an toàn mật khẩu (TaiKhoan.MatKhau) bằng thuật toán PBKDF2/SHA256 (PasswordHelper).
+  + Tuy nhiên nội dung câu hỏi, đáp án và điểm số vẫn lưu trữ dạng văn bản gốc (plain text) trong SQL Server, 
+    chưa mã hóa theo thuật toán mã hóa đối xứng/bất đối xứng (như AES-256).
+- Hướng giải quyết:
+  + Trong báo cáo: Giải trình các tầng bảo mật hiện tại gồm phân quyền người dùng (Role-based), xác thực 
+    phiên (Session/Token) và băm mật khẩu có Salt chống tấn công Rainbow table.
+  + Bổ sung (nếu cần): Viết thêm một hàm tiện ích EncryptionHelper (AES-256) mã hóa trường nội dung câu hỏi 
+    và điểm số trước khi ghi vào database để thỏa mãn hoàn toàn chữ nghĩa trong đề cương.
+
+8. Phân định vai trò trên nền tảng Website
+- Đề cương quy định: Phân hệ Website chỉ dành riêng cho Thí sinh (học viên). Quản trị viên và Giáo viên 
+  chỉ thao tác trên ứng dụng WinForms.
+- Hiện trạng dự án:
+  + Website vẫn hỗ trợ Quản trị viên đăng nhập và có thêm controller AdminReviewController ("Duyệt đề & 
+    bài làm").
+- Hướng giải quyết:
+  + Giữ nguyên tính năng này như một tính năng tiện ích mở rộng (Web portal cho quản trị viên khi đi công 
+    tác hoặc kiểm tra nhanh từ xa), nhưng nhấn mạnh trong báo cáo rằng WinForms vẫn là công cụ quản trị 
+    chính và đầy đủ nhất của hệ thống.
+
+====================================================================================================
+KẾ HOẠCH HÀNH ĐỘNG KHUYÊN NGHỊ ĐỂ HOÀN THIỆN TRƯỚC KHI BẢO VỆ:
+1. Đã hoàn thành trong code WinForms, Web & API (0 Lỗi):
+   - Thêm nút "Ngân hàng câu hỏi" cho Admin trong frmMain.cs.
+   - Mở quyền mở form frmExams.cs cho Giáo viên (phụ trách các môn được phân công).
+   - Bổ sung ComboBox lọc theo Lớp học và Tab "Thống kê theo học viên" trong frmStatistics.cs.
+   - Thêm nút xuất file JSON và xuất bản in đề thi Word/HTML trong frmExams.cs.
+   - Chuẩn hóa phân quyền Miễn phí / VIP từ Đề thi sang Đợt thi (DotThi).
+2. Điều chỉnh văn bản báo cáo (Quyển khóa luận):
+   - Giải trình sự chuyển đổi tích cực từ dạng trắc nghiệm cũ sang form chuẩn THPTQG 2025.
+   - Trình bày kiến trúc Web API + CSDL tập trung là bước nâng cấp vượt trội so với đọc file JSON tĩnh.
+   - Trình bày luận điểm thiết kế hệ thống (Domain-Driven Design): tách biệt vai trò biên soạn học liệu (Giáo viên) và kiểm soát truy cập kỳ thi (Quản trị viên).
+====================================================================================================
