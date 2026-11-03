@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using QLThiTN.API.Data;
 using QLThiTN.API.Services;
 
@@ -8,6 +9,10 @@ builder.Configuration.AddJsonFile("appsettings.Payment.json", optional: true, re
 
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+});
 builder.Services.Configure<VipPaymentSettings>(builder.Configuration.GetSection("VipPayment"));
 builder.Services.AddHttpClient<PayOsGateway>(client => {
     client.BaseAddress = new Uri("https://api-merchant.payos.vn/");
@@ -45,22 +50,32 @@ using (var scope = app.Services.CreateScope())
     await db.Database.ExecuteSqlRawAsync(QLThiTN.API.Controllers.ExamActivityController.SchemaSql);
 }
 
+app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseAuthentication();
-// Re-check active status and password on every authenticated request, so account
-// locking and password changes revoke previously issued access tokens.
+// Re-check active status and password on authenticated requests, cached in memory to avoid repetitive DB hits
 app.Use(async (context, next) =>
 {
     if (context.User.Identity?.IsAuthenticated == true)
     {
-        var db = context.RequestServices.GetRequiredService<QLThiTNDbContext>();
-        var account = await db.TaiKhoans.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.TaiKhoanID == context.User.AccountId());
-        var stamp = account is null ? "" : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-            System.Text.Encoding.UTF8.GetBytes(account.MatKhau)));
-        if (account is null || account.TrangThai != "HoatDong"
-            || !context.User.IsInRole(account.VaiTro)
-            || context.User.FindFirst("PasswordStamp")?.Value != stamp)
+        var accountId = context.User.AccountId();
+        var cache = context.RequestServices.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
+        var cacheKey = $"Auth_Account_Stamp_{accountId}";
+
+        if (!cache.TryGetValue(cacheKey, out (string TrangThai, string VaiTro, string Stamp) cachedAuth))
+        {
+            var db = context.RequestServices.GetRequiredService<QLThiTNDbContext>();
+            var account = await db.TaiKhoans.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.TaiKhoanID == accountId);
+            var stamp = account is null ? "" : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(account.MatKhau)));
+            cachedAuth = (account?.TrangThai ?? "", account?.VaiTro ?? "", stamp);
+            cache.Set(cacheKey, cachedAuth, TimeSpan.FromSeconds(60));
+        }
+
+        if (string.IsNullOrEmpty(cachedAuth.TrangThai) || cachedAuth.TrangThai != "HoatDong"
+            || !context.User.IsInRole(cachedAuth.VaiTro)
+            || context.User.FindFirst("PasswordStamp")?.Value != cachedAuth.Stamp)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;

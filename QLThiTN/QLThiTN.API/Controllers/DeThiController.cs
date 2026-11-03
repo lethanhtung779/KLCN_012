@@ -26,7 +26,7 @@ public class DeThiController : ControllerBase
         [FromQuery] int? monHocId,
         [FromQuery] string? loaiDe)
     {
-        var query = _db.DeThis
+        var query = _db.DeThis.AsNoTracking()
             .Where(d => d.DaDuyet)
             .Include(d => d.MonHoc)
             .Include(d => d.DotThis)
@@ -53,9 +53,9 @@ public class DeThiController : ControllerBase
             return Ok(cached);
         }
 
-        var raw = await _db.BaiLams
+        var raw = await _db.BaiLams.AsNoTracking()
             .Where(b => b.TrangThai != "DangLam")
-            .Join(_db.DotThis, b => b.DotThiID, d => d.DotThiID,
+            .Join(_db.DotThis.AsNoTracking(), b => b.DotThiID, d => d.DotThiID,
                 (b, d) => new { d.DeThiID, Diem = d.CongBoDiemSom || d.ThoiGianDongCong <= DateTime.Now ? b.TongDiem : null })
             .ToListAsync();
 
@@ -87,7 +87,7 @@ public class DeThiController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var de = await _db.DeThis
+        var de = await _db.DeThis.AsNoTracking()
             .Include(d => d.MonHoc)
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
@@ -391,7 +391,7 @@ public class DeThiController : ControllerBase
     {
         if (request.HocVienID != User.StudentId()) return Forbid();
         await using var transaction = await ExamTransaction.BeginAsync(_db, $"start:{id}:{User.StudentId()}");
-        var de = await _db.DeThis
+        var de = await _db.DeThis.AsNoTracking()
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
         if (de is null) return NotFound(new { message = "Khong tim thay de thi" });
@@ -674,7 +674,7 @@ public class DeThiController : ControllerBase
     internal async Task<IActionResult> SubmitAttemptAsync(int id, SubmitExamRequestDto request, int? studentId, bool expiredOnly = false)
     {
         await using var transaction = await ExamTransaction.BeginAsync(_db, $"attempt:{request.BaiLamID}");
-        var de = await _db.DeThis
+        var de = await _db.DeThis.AsNoTracking()
             .Include(d => d.MonHoc)
             .Include(d => d.DotThis)
             .FirstOrDefaultAsync(d => d.DeThiID == id);
