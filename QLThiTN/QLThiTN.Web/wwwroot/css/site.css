@@ -2276,3 +2276,8 @@ mjx-container[jax="CHTML"][display="true"] {
     color: var(--accent, #4f46e5);
     margin-bottom: 10px;
 }
+
+.question-text {
+    line-height: 1.7;
+    font-size: 0.96rem;
+}
