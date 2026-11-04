@@ -94,6 +94,7 @@ BEGIN
             CONSTRAINT CK_HocVien_NguonTaiKhoan CHECK (NguonTaiKhoan IN (N'VangLai',N'TrungTam')),
         -- LoaiGoi chỉ lưu VIP cá nhân. Tài khoản TrungTam luôn có VIP trung tâm.
         LoaiGoi      NVARCHAR(20)  NOT NULL CONSTRAINT DF_HocVien_LoaiGoi DEFAULT N'MienPhi',
+        VipExpiresUtc DATETIME2    NULL,
         DiaChi       NVARCHAR(500) NULL,
         GioiTinh     NVARCHAR(500) NULL,
         HoTenCha     NVARCHAR(500) NULL,
@@ -117,6 +118,71 @@ GO
 IF COL_LENGTH('HocVien', 'HoTenNguoiGiamHo') IS NULL ALTER TABLE HocVien ADD HoTenNguoiGiamHo NVARCHAR(500) NULL;
 IF COL_LENGTH('HocVien', 'QuanHeNguoiGiamHo') IS NULL ALTER TABLE HocVien ADD QuanHeNguoiGiamHo NVARCHAR(500) NULL;
 IF COL_LENGTH('HocVien', 'SdtNguoiGiamHo') IS NULL ALTER TABLE HocVien ADD SdtNguoiGiamHo NVARCHAR(500) NULL;
+IF COL_LENGTH('HocVien', 'VipExpiresUtc') IS NULL ALTER TABLE HocVien ADD VipExpiresUtc DATETIME2 NULL;
+GO
+
+IF OBJECT_ID(N'dbo.DangKyXacMinhEmail', N'U') IS NULL
+BEGIN
+    CREATE TABLE DangKyXacMinhEmail (
+        DangKyID      INT IDENTITY(1,1) PRIMARY KEY,
+        Email         NVARCHAR(100) NOT NULL,
+        TenDangNhap   NVARCHAR(50)  NOT NULL,
+        MatKhauHash   NVARCHAR(255) NOT NULL,
+        HoTen         NVARCHAR(100) NOT NULL,
+        Token         NVARCHAR(128) NOT NULL,
+        HetHan        DATETIME2     NOT NULL,
+        DaSuDung      BIT           NOT NULL DEFAULT 0,
+        NgayTao       DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT UQ_DangKyXacMinhEmail_Token UNIQUE (Token)
+    );
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DangKyXacMinhEmail_Email' AND object_id = OBJECT_ID(N'dbo.DangKyXacMinhEmail'))
+    CREATE INDEX IX_DangKyXacMinhEmail_Email ON DangKyXacMinhEmail (Email);
+GO
+
+IF OBJECT_ID(N'dbo.VipPayment', N'U') IS NULL
+BEGIN
+    CREATE TABLE VipPayment (
+        Id              NVARCHAR(32)   NOT NULL PRIMARY KEY,
+        HocVienID       INT            NOT NULL,
+        Amount          BIGINT         NOT NULL CHECK (Amount > 0),
+        PlanId          NVARCHAR(20)   NOT NULL,
+        GrantedUntilUtc DATETIME2      NULL,
+        Status          NVARCHAR(20)   NOT NULL CHECK (Status IN (N'Pending', N'Paid', N'Failed')),
+        CreatedUtc      DATETIME2      NOT NULL,
+        ExpiresUtc      DATETIME2      NOT NULL,
+        PaidUtc         DATETIME2      NULL,
+        TransactionNo   NVARCHAR(100)  NULL,
+        PaymentUrl      NVARCHAR(2000) NOT NULL,
+        Provider        NVARCHAR(20)   NOT NULL CONSTRAINT DF_VipPayment_Provider DEFAULT N'VNPay',
+        OrderCode       BIGINT         NULL,
+        PaymentLinkId   NVARCHAR(100)  NULL,
+        CONSTRAINT FK_VipPayment_HocVien FOREIGN KEY (HocVienID) REFERENCES HocVien(HocVienID)
+    );
+END
+GO
+
+-- Đồng bộ bảng thanh toán cũ với schema hiện tại.
+IF COL_LENGTH('VipPayment', 'PlanId') IS NULL
+    ALTER TABLE VipPayment ADD PlanId NVARCHAR(20) NOT NULL CONSTRAINT DF_VipPayment_Plan DEFAULT N'legacy';
+IF COL_LENGTH('VipPayment', 'GrantedUntilUtc') IS NULL
+    ALTER TABLE VipPayment ADD GrantedUntilUtc DATETIME2 NULL;
+IF COL_LENGTH('VipPayment', 'Provider') IS NULL
+    ALTER TABLE VipPayment ADD Provider NVARCHAR(20) NOT NULL CONSTRAINT DF_VipPayment_Provider DEFAULT N'VNPay';
+IF COL_LENGTH('VipPayment', 'OrderCode') IS NULL
+    ALTER TABLE VipPayment ADD OrderCode BIGINT NULL;
+IF COL_LENGTH('VipPayment', 'PaymentLinkId') IS NULL
+    ALTER TABLE VipPayment ADD PaymentLinkId NVARCHAR(100) NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_VipPayment_Student' AND object_id = OBJECT_ID(N'dbo.VipPayment'))
+    CREATE INDEX IX_VipPayment_Student ON VipPayment (HocVienID, CreatedUtc);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_VipPayment_Transaction' AND object_id = OBJECT_ID(N'dbo.VipPayment'))
+    CREATE UNIQUE INDEX IX_VipPayment_Transaction ON VipPayment (TransactionNo) WHERE TransactionNo IS NOT NULL;
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_VipPayment_OrderCode' AND object_id = OBJECT_ID(N'dbo.VipPayment'))
+    CREATE UNIQUE INDEX IX_VipPayment_OrderCode ON VipPayment (OrderCode) WHERE OrderCode IS NOT NULL;
 GO
 
 -- Đồng bộ các cột hồ sơ khi chạy script trên database phiên bản cũ.
@@ -340,13 +406,6 @@ IF COL_LENGTH('DeThi', 'NguoiDuyetID') IS NULL ALTER TABLE DeThi ADD NguoiDuyetI
 IF COL_LENGTH('DeThi', 'NgayDuyet') IS NULL ALTER TABLE DeThi ADD NgayDuyet DATETIME2 NULL;
 GO
 
-IF COL_LENGTH('DotThi', 'LaMienPhi') IS NULL
-BEGIN
-    ALTER TABLE DotThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DotThi_LaMienPhi DEFAULT 0;
-    EXEC(N'UPDATE dt SET dt.LaMienPhi = d.LaMienPhi FROM DotThi dt JOIN DeThi d ON d.DeThiID = dt.DeThiID');
-END
-GO
-
 -- Cơ sở dữ liệu cũ cần cho phép đề tạo theo ma trận.
 DECLARE @oldExamCreationConstraint SYSNAME;
 SELECT TOP (1) @oldExamCreationConstraint = name
@@ -435,6 +494,13 @@ BEGIN
         LaMienPhi          BIT           NOT NULL CONSTRAINT DF_DotThi_LaMienPhi DEFAULT 0,
         CONSTRAINT FK_DotThi_DeThi FOREIGN KEY (DeThiID) REFERENCES DeThi(DeThiID)
     );
+END
+GO
+
+IF COL_LENGTH('DotThi', 'LaMienPhi') IS NULL
+BEGIN
+    ALTER TABLE DotThi ADD LaMienPhi BIT NOT NULL CONSTRAINT DF_DotThi_LaMienPhi DEFAULT 0;
+    EXEC(N'UPDATE dt SET dt.LaMienPhi = d.LaMienPhi FROM DotThi dt JOIN DeThi d ON d.DeThiID = dt.DeThiID');
 END
 GO
 
@@ -562,10 +628,6 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_HocVienLop_LopHoc' AN
     CREATE INDEX IX_HocVienLop_LopHoc ON HocVien_Lop (LopHocID);
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_HocVienLop_LopHoc_TrangThai' AND object_id = OBJECT_ID(N'dbo.HocVien_Lop'))
-    CREATE INDEX IX_HocVienLop_LopHoc_TrangThai ON HocVien_Lop (LopHocID, TrangThai) INCLUDE (HocVienID);
-GO
-
 -- Dọn quan hệ lớp cũ không hợp lệ trước khi bật chốt chặn nghiệp vụ.
 DELETE hvl
 FROM HocVien_Lop hvl
@@ -590,10 +652,6 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_LichHoc_LopHoc' AND object_id = OBJECT_ID(N'dbo.LichHoc'))
     CREATE INDEX IX_LichHoc_LopHoc ON LichHoc (LopHocID);
-GO
-
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_LichHoc_LopHoc_ThoiGian' AND object_id = OBJECT_ID(N'dbo.LichHoc'))
-    CREATE INDEX IX_LichHoc_LopHoc_ThoiGian ON LichHoc (LopHocID, ThoiGianBatDau);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_PhanCong_MonHoc' AND object_id = OBJECT_ID(N'dbo.PhanCongGiangDay'))
@@ -632,12 +690,12 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_BaiLam_DotThi' AND ob
     CREATE INDEX IX_BaiLam_DotThi ON BaiLam (DotThiID);
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_BaiLam_DotThi_TrangThai' AND object_id = OBJECT_ID(N'dbo.BaiLam'))
-    CREATE INDEX IX_BaiLam_DotThi_TrangThai ON BaiLam (DotThiID, TrangThai) INCLUDE (HocVienID, TongDiem, ThoiGianNop);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_BaiLam_TrangThai' AND object_id = OBJECT_ID(N'dbo.BaiLam'))
+    CREATE INDEX IX_BaiLam_TrangThai ON BaiLam (TrangThai) INCLUDE (DotThiID, ThoiGianBatDau);
 GO
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_CauHoi_BoLoc' AND object_id = OBJECT_ID(N'dbo.CauHoi'))
-    CREATE INDEX IX_CauHoi_BoLoc ON CauHoi (ChuDeID, TrangThai, LoaiCauHoi, MucDoKho) INCLUDE (NguoiTaoID, NgayTao);
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_DeThi_MonHoc_DaDuyet' AND object_id = OBJECT_ID(N'dbo.DeThi'))
+    CREATE INDEX IX_DeThi_MonHoc_DaDuyet ON DeThi (MonHocID, DaDuyet);
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_BaiLam_MaDe' AND object_id = OBJECT_ID(N'dbo.BaiLam'))
