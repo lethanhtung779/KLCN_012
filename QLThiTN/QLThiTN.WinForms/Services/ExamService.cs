@@ -68,14 +68,19 @@ public class ExamService
             throw new UnauthorizedAccessException("Chỉ Quản trị viên hoặc Giáo viên mới có quyền thực hiện thao tác này.");
     }
 
-    public DataTable LayLopChoDotThi(int deThiId)
+    public DataTable LayLopChoDotThi(int deThiId, int? dotThiId = null)
     {
         YeuCauQuanTriVien();
         return Database.Query(@"SELECT lh.LopHocID, CONCAT('LH', FORMAT(lh.LopHocID, '000000'), N' · ', lh.TenLop, N' — ', kh.TenKhoaHoc) AS TenHienThi
             FROM DeThi d JOIN KhoaHoc kh ON kh.MonHocID=d.MonHocID
             JOIN LopHoc lh ON lh.KhoaHocID=kh.KhoaHocID
-            WHERE d.DeThiID=@de AND kh.TrangThai<>N'DaKetThuc'
-            ORDER BY kh.TenKhoaHoc,lh.TenLop", p => p.AddWithValue("@de", deThiId));
+            WHERE d.DeThiID=@de AND (kh.TrangThai<>N'DaKetThuc' OR EXISTS (
+                SELECT 1 FROM DotThi_LopHoc dl WHERE dl.DotThiID=@dot AND dl.LopHocID=lh.LopHocID))
+            ORDER BY kh.TenKhoaHoc,lh.TenLop", p =>
+            {
+                p.AddWithValue("@de", deThiId);
+                p.AddWithValue("@dot", dotThiId ?? 0);
+            });
     }
 
     public DataTable LayDanhSachDe()
@@ -384,17 +389,73 @@ END", conn);
     // ------------------------------------------------------------------ dot thi
     public DataTable LayDanhSachDotThi(int? deThiId)
     {
+        YeuCauQuanTriVienHoacGiaoVien();
+        if (Session.IsGiaoVien && !Session.IsAccountActive())
+            throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
         var sql = @"
-            SELECT dt.DotThiID, dt.TenDotThi, d.TenDe, dt.ThoiGianMoCong, dt.ThoiGianDongCong,
+            SELECT dt.DotThiID, dt.DeThiID, dt.TenDotThi, d.TenDe, m.TenMon, dt.ThoiGianMoCong, dt.ThoiGianDongCong,
                    dt.ThoiLuongLamBai, dt.GioiHanSoLuong, dt.CongBoDiemSom, dt.TrangThai,
                    dt.PhamVi, dt.SoLanThiToiDa, dt.LaMienPhi,
+                   CASE WHEN dt.LaMienPhi = 1 THEN N'Miễn phí' ELSE N'VIP / Đóng phí' END AS QuyenThi,
                    (SELECT COUNT(1) FROM DangKyDotThi k WHERE k.DotThiID = dt.DotThiID AND k.TrangThai <> N'DaHuy') AS SoDangKy,
                    (SELECT COUNT(1) FROM BaiLam bl WHERE bl.DotThiID = dt.DotThiID AND bl.TrangThai <> N'DangLam') AS SoBaiDaNop
             FROM DotThi dt
             JOIN DeThi d ON d.DeThiID = dt.DeThiID
+            JOIN MonHoc m ON m.MonHocID = d.MonHocID
             WHERE (@de = 0 OR dt.DeThiID = @de)
+              AND (@gv = 0 OR EXISTS (
+                  SELECT 1 FROM GiaoVien_MonHoc gm
+                  WHERE gm.GiaoVienID = @gv AND gm.MonHocID = d.MonHocID))
             ORDER BY dt.ThoiGianMoCong DESC";
-        return Database.Query(sql, p => p.AddWithValue("@de", deThiId ?? 0));
+        return Database.Query(sql, p =>
+        {
+            p.AddWithValue("@de", deThiId ?? 0);
+            p.AddWithValue("@gv", Session.IsGiaoVien ? Session.GiaoVienID : 0);
+        });
+    }
+
+    public DataTable LayDeThiTheoDotThi(int dotThiId)
+    {
+        YeuCauQuanTriVienHoacGiaoVien();
+        if (Session.IsGiaoVien && !Session.IsAccountActive())
+            throw new UnauthorizedAccessException("Tài khoản giáo viên không còn hoạt động.");
+        return Database.Query(@"
+            SELECT d.DeThiID, d.TenDe, m.TenMon, d.LoaiDe, d.SoLuongCauHoi, d.HinhThucTao,
+                   CASE WHEN d.LaMienPhi=1 THEN N'Miễn phí' ELSE N'Đóng phí (VIP)' END AS QuyenThi,
+                   CASE WHEN d.DaDuyet=1 THEN N'Đã duyệt' ELSE N'Chờ duyệt' END AS Duyet,
+                   (SELECT COUNT(*) FROM MaDeThi md WHERE md.DeThiID=d.DeThiID) AS SoMaDe
+            FROM DotThi dt
+            JOIN DeThi d ON d.DeThiID=dt.DeThiID
+            JOIN MonHoc m ON m.MonHocID=d.MonHocID
+            WHERE dt.DotThiID=@dot
+              AND (@gv=0 OR EXISTS (
+                  SELECT 1 FROM GiaoVien_MonHoc gm
+                  WHERE gm.GiaoVienID=@gv AND gm.MonHocID=d.MonHocID))",
+            p =>
+            {
+                p.AddWithValue("@dot", dotThiId);
+                p.AddWithValue("@gv", Session.IsGiaoVien ? Session.GiaoVienID : 0);
+            });
+    }
+
+    public DataTable LayChiTietDotThi(int dotThiId)
+    {
+        YeuCauQuanTriVien();
+        return Database.Query(@"
+            SELECT dt.*, d.TenDe,
+                   (SELECT COUNT(1) FROM DangKyDotThi dk WHERE dk.DotThiID=dt.DotThiID AND dk.TrangThai<>N'DaHuy') AS SoDangKy,
+                   (SELECT COUNT(1) FROM BaiLam bl WHERE bl.DotThiID=dt.DotThiID) AS SoBaiLam
+            FROM DotThi dt
+            JOIN DeThi d ON d.DeThiID=dt.DeThiID
+            WHERE dt.DotThiID=@id", p => p.AddWithValue("@id", dotThiId));
+    }
+
+    public HashSet<int> LayLopCuaDotThi(int dotThiId)
+    {
+        YeuCauQuanTriVien();
+        return Database.ReadList("SELECT LopHocID FROM DotThi_LopHoc WHERE DotThiID=@id",
+                r => r.GetInt32(0), p => p.AddWithValue("@id", dotThiId))
+            .ToHashSet();
     }
 
     /// <summary>Tao dot thi moi. Trang thai duoc tinh tu thoi gian hien tai.</summary>
@@ -462,11 +523,155 @@ END", conn);
         catch { tx.Rollback(); throw; }
     }
 
+    public void CapNhatDotThi(DotThi d, IReadOnlyCollection<int>? lopHocIds = null)
+    {
+        YeuCauQuanTriVien();
+        if (d.DotThiID <= 0) throw new InvalidOperationException("Đợt thi không hợp lệ.");
+        if (string.IsNullOrWhiteSpace(d.TenDotThi)) throw new InvalidOperationException("Tên đợt thi không được để trống.");
+        if (d.ThoiGianDongCong <= d.ThoiGianMoCong) throw new InvalidOperationException("Giờ đóng cổng phải sau giờ mở cổng.");
+        if (d.ThoiLuongLamBai <= 0 || d.SoLanThiToiDa < 1)
+            throw new InvalidOperationException("Thời lượng và số lần thi phải lớn hơn 0.");
+        if (d.GioiHanSoLuong is <= 0)
+            throw new InvalidOperationException("Số chỗ phải lớn hơn 0 hoặc để trống.");
+        if (d.PhamVi is not ("ToanTruong" or "TheoLop"))
+            throw new InvalidOperationException("Phạm vi đợt thi không hợp lệ.");
+        var classes = (lopHocIds ?? Array.Empty<int>()).Distinct().OrderBy(x => x).ToArray();
+        if (d.PhamVi == "TheoLop" && classes.Length == 0)
+            throw new InvalidOperationException("Hãy chọn ít nhất một lớp cho đợt thi theo lớp.");
+
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            int oldDe, oldDuration, oldAttempts, registrations, attempts;
+            int? oldCapacity;
+            string oldName, oldScope, oldStatus;
+            DateTime oldOpen, oldClose;
+            bool oldFree;
+            using (var read = new SqlCommand(@"
+                SELECT dt.DeThiID,dt.TenDotThi,dt.ThoiGianMoCong,dt.ThoiGianDongCong,dt.ThoiLuongLamBai,
+                       dt.GioiHanSoLuong,dt.PhamVi,dt.SoLanThiToiDa,dt.LaMienPhi,dt.TrangThai,
+                       (SELECT COUNT(1) FROM DangKyDotThi dk WHERE dk.DotThiID=dt.DotThiID AND dk.TrangThai<>N'DaHuy'),
+                       (SELECT COUNT(1) FROM BaiLam bl WHERE bl.DotThiID=dt.DotThiID)
+                FROM DotThi dt WITH (UPDLOCK,HOLDLOCK) WHERE dt.DotThiID=@id", conn, tx))
+            {
+                read.Parameters.AddWithValue("@id", d.DotThiID);
+                using var reader = read.ExecuteReader();
+                if (!reader.Read()) throw new InvalidOperationException("Đợt thi không còn tồn tại.");
+                oldDe = reader.GetInt32(0); oldName = reader.GetString(1); oldOpen = reader.GetDateTime(2);
+                oldClose = reader.GetDateTime(3); oldDuration = reader.GetInt32(4);
+                oldCapacity = reader.IsDBNull(5) ? null : reader.GetInt32(5); oldScope = reader.GetString(6);
+                oldAttempts = reader.GetInt32(7); oldFree = reader.GetBoolean(8); oldStatus = reader.GetString(9);
+                registrations = reader.GetInt32(10); attempts = reader.GetInt32(11);
+            }
+
+            if (oldDe != d.DeThiID) throw new InvalidOperationException("Không được đổi đề thi của một đợt đã tạo.");
+            var oldClasses = new List<int>();
+            using (var classCmd = new SqlCommand("SELECT LopHocID FROM DotThi_LopHoc WHERE DotThiID=@id ORDER BY LopHocID", conn, tx))
+            {
+                classCmd.Parameters.AddWithValue("@id", d.DotThiID);
+                using var reader = classCmd.ExecuteReader();
+                while (reader.Read()) oldClasses.Add(reader.GetInt32(0));
+            }
+
+            if (attempts > 0)
+            {
+                var changedLockedField = oldName != d.TenDotThi.Trim() || oldOpen != d.ThoiGianMoCong ||
+                    oldDuration != d.ThoiLuongLamBai || oldCapacity != d.GioiHanSoLuong || oldScope != d.PhamVi ||
+                    oldAttempts != d.SoLanThiToiDa || oldFree != d.LaMienPhi || !oldClasses.SequenceEqual(classes);
+                if (changedLockedField)
+                    throw new InvalidOperationException($"Đợt thi đã có {attempts} bài làm. Chỉ được gia hạn giờ đóng cổng hoặc đổi công bố điểm.");
+                if (d.ThoiGianDongCong < oldClose)
+                    throw new InvalidOperationException("Đợt thi đã có bài làm nên chỉ được gia hạn, không được rút ngắn giờ đóng cổng.");
+            }
+            if (d.GioiHanSoLuong.HasValue && d.GioiHanSoLuong.Value < registrations)
+                throw new InvalidOperationException($"Giới hạn số chỗ không thể nhỏ hơn {registrations} học viên đang đăng ký.");
+
+            if (d.PhamVi == "TheoLop")
+            {
+                using var validate = new SqlCommand(@"SELECT COUNT(*) FROM LopHoc lh
+                    JOIN KhoaHoc kh ON kh.KhoaHocID=lh.KhoaHocID
+                    JOIN DeThi de ON de.MonHocID=kh.MonHocID
+                    WHERE de.DeThiID=@de AND lh.LopHocID IN (SELECT value FROM STRING_SPLIT(@ids, ','))
+                      AND (kh.TrangThai<>N'DaKetThuc' OR lh.LopHocID IN (SELECT LopHocID FROM DotThi_LopHoc WHERE DotThiID=@dot))", conn, tx);
+                validate.Parameters.AddWithValue("@de", d.DeThiID);
+                validate.Parameters.AddWithValue("@ids", string.Join(",", classes));
+                validate.Parameters.AddWithValue("@dot", d.DotThiID);
+                if (Convert.ToInt32(validate.ExecuteScalar()) != classes.Length)
+                    throw new InvalidOperationException("Có lớp không thuộc môn của đề hoặc khóa học đã kết thúc.");
+            }
+
+            var now = DateTime.Now;
+            var status = now < d.ThoiGianMoCong ? "SapMo" : now > d.ThoiGianDongCong ? "DaDong" : "DangMo";
+            if (oldStatus == "DaDong" && d.ThoiGianDongCong <= oldClose) status = "DaDong";
+            using (var update = new SqlCommand(@"
+                UPDATE DotThi SET TenDotThi=@ten,ThoiGianMoCong=@mo,ThoiGianDongCong=@dong,
+                    ThoiLuongLamBai=@luong,GioiHanSoLuong=@han,CongBoDiemSom=@cong,TrangThai=@tt,
+                    PhamVi=@pv,SoLanThiToiDa=@lan,LaMienPhi=@mienphi WHERE DotThiID=@id", conn, tx))
+            {
+                update.Parameters.AddWithValue("@id", d.DotThiID); update.Parameters.AddWithValue("@ten", d.TenDotThi.Trim());
+                update.Parameters.AddWithValue("@mo", d.ThoiGianMoCong); update.Parameters.AddWithValue("@dong", d.ThoiGianDongCong);
+                update.Parameters.AddWithValue("@luong", d.ThoiLuongLamBai); update.Parameters.AddWithValue("@han", (object?)d.GioiHanSoLuong ?? DBNull.Value);
+                update.Parameters.AddWithValue("@cong", d.CongBoDiemSom); update.Parameters.AddWithValue("@tt", status);
+                update.Parameters.AddWithValue("@pv", d.PhamVi); update.Parameters.AddWithValue("@lan", d.SoLanThiToiDa);
+                update.Parameters.AddWithValue("@mienphi", d.LaMienPhi); update.ExecuteNonQuery();
+            }
+            using (var clear = new SqlCommand("DELETE FROM DotThi_LopHoc WHERE DotThiID=@id", conn, tx))
+            { clear.Parameters.AddWithValue("@id", d.DotThiID); clear.ExecuteNonQuery(); }
+            if (d.PhamVi == "TheoLop")
+                foreach (var lop in classes)
+                {
+                    using var link = new SqlCommand("INSERT INTO DotThi_LopHoc(DotThiID,LopHocID) VALUES(@dot,@lop)", conn, tx);
+                    link.Parameters.AddWithValue("@dot", d.DotThiID); link.Parameters.AddWithValue("@lop", lop); link.ExecuteNonQuery();
+                }
+            tx.Commit();
+        }
+        catch { tx.Rollback(); throw; }
+    }
+
+    public (int SoDangKy, int SoBaiLam) XoaDotThi(int dotThiId)
+    {
+        YeuCauQuanTriVien();
+        using var conn = Database.Open();
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            int registrations, attempts;
+            using (var count = new SqlCommand(@"
+                SELECT (SELECT COUNT(1) FROM DangKyDotThi WHERE DotThiID=@id),
+                       (SELECT COUNT(1) FROM BaiLam WHERE DotThiID=@id)
+                FROM DotThi WITH (UPDLOCK,HOLDLOCK) WHERE DotThiID=@id", conn, tx))
+            {
+                count.Parameters.AddWithValue("@id", dotThiId);
+                using var reader = count.ExecuteReader();
+                if (!reader.Read()) throw new InvalidOperationException("Đợt thi không còn tồn tại.");
+                registrations = reader.GetInt32(0); attempts = reader.GetInt32(1);
+            }
+            if (attempts > 0)
+                throw new InvalidOperationException($"Không thể xóa vì đợt thi đã có {attempts} bài làm. Hãy đóng đợt thi để giữ lịch sử và điểm số.");
+            using (var cmd = new SqlCommand(@"
+                DELETE FROM DangKyDotThi WHERE DotThiID=@id;
+                DELETE FROM DotThi_LopHoc WHERE DotThiID=@id;
+                DELETE FROM DotThi WHERE DotThiID=@id;", conn, tx))
+            { cmd.Parameters.AddWithValue("@id", dotThiId); cmd.ExecuteNonQuery(); }
+            tx.Commit();
+            return (registrations, attempts);
+        }
+        catch { tx.Rollback(); throw; }
+    }
+
     public void DatMienPhiDotThi(int dotThiId, bool laMienPhi)
     {
         YeuCauQuanTriVien();
         Database.Execute("UPDATE DotThi SET LaMienPhi = @mf WHERE DotThiID = @id",
             p => { p.AddWithValue("@mf", laMienPhi); p.AddWithValue("@id", dotThiId); });
+    }
+
+    public void DatCongBoDiemSom(int dotThiId, bool congBoNgay)
+    {
+        YeuCauQuanTriVien();
+        Database.Execute("UPDATE DotThi SET CongBoDiemSom = @value WHERE DotThiID = @id",
+            p => { p.AddWithValue("@value", congBoNgay); p.AddWithValue("@id", dotThiId); });
     }
 
     public void CapNhatTrangThaiDot(int dotThiId, string trangThai)

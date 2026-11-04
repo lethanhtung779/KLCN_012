@@ -8,11 +8,17 @@ namespace QLThiTN.WinForms.Forms.Teacher;
 public class frmExams : Form
 {
     private readonly ExamService _service = new();
+    private readonly TabControl _tabsChinh = new();
     private readonly DataGridView _gridDe = new();
     private readonly DataGridView _gridDot = new();
+    private readonly DataGridView _gridTatCaDot = new();
+    private readonly DataGridView _gridDeTuongUng = new();
     private readonly SplitContainer _split = new();
+    private readonly SplitContainer _splitTatCaDot = new();
     private readonly Label _lblDeDangChon = Ui.Label("Chọn một đề trong bảng để xem bước cần làm tiếp theo.", Ui.Small, Ui.TextMuted);
     private readonly Label _lblDot = Ui.Label("Lịch thi của đề đang chọn", Ui.H2, Ui.Navy);
+    private readonly Label _lblTatCaDot = Ui.Label("Tất cả đợt thi", Ui.H2, Ui.Navy);
+    private readonly Label _lblDeTuongUng = Ui.Label("Đề thi tương ứng", Ui.H2, Ui.Navy);
     private readonly Button _btnTronDe = Ui.ButtonPrimary("Trộn mã đề", 145);
     private readonly Button _btnDuyet = Ui.ButtonAccent("Xem và duyệt", 170);
     private readonly Button _btnDotThi = Ui.ButtonPrimary("Tạo lịch thi", 150);
@@ -21,7 +27,10 @@ public class frmExams : Form
     private readonly ToolTip _tips = new();
     private int _examLoadVersion;
     private int _sessionLoadVersion;
+    private int _allSessionLoadVersion;
+    private int _matchingExamLoadVersion;
     private bool _bindingExams;
+    private bool _bindingAllSessions;
 
     public frmExams()
     {
@@ -112,7 +121,7 @@ public class frmExams : Form
 
         Ui.StyleGrid(_gridDe);
         _gridDe.Dock = DockStyle.Fill;
-        _gridDe.SelectionChanged += (s, e) => { if (!_bindingExams) TaiDotThi(); };
+        _gridDe.SelectionChanged += (_, _) => { if (!_bindingExams) TaiDotThi(); };
         _gridDe.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) MoXemCacMaDe(); };
         _gridDe.DataError += (s, e) => { e.ThrowException = false; };
 
@@ -159,6 +168,7 @@ public class frmExams : Form
         _gridDot.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
         _gridDot.Dock = DockStyle.Fill;
         _gridDot.DataError += (s, e) => { e.ThrowException = false; };
+        _gridDot.CellContentClick += (_, e) => DoiCongBoDiem(_gridDot, e, TaiDotThi);
 
         var panelDot = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
         panelDot.Controls.Add(_gridDot);
@@ -167,8 +177,106 @@ public class frmExams : Form
         _split.Panel2.Controls.Add(panelDot);
         _split.Panel2.BackColor = Color.White;
 
-        Controls.Add(_split);
-        Controls.Add(topArea);
+        // Tab 2: chọn một đợt thi phía trên để xem đề tương ứng phía dưới.
+        _splitTatCaDot.Dock = DockStyle.Fill;
+        _splitTatCaDot.Orientation = Orientation.Horizontal;
+        _splitTatCaDot.SplitterDistance = 380;
+
+        var headerTatCaDot = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top, Height = 96, ColumnCount = 1, RowCount = 2,
+            Padding = new Padding(16, 5, 12, 5), BackColor = Color.White
+        };
+        headerTatCaDot.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        headerTatCaDot.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        headerTatCaDot.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        _lblTatCaDot.Dock = DockStyle.Fill;
+        _lblTatCaDot.AutoSize = false;
+        _lblTatCaDot.TextAlign = ContentAlignment.MiddleLeft;
+        _lblTatCaDot.AutoEllipsis = true;
+        var actionsTatCa = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false, Margin = Padding.Empty, BackColor = Color.White
+        };
+        var btnThemTatCa = Ui.ButtonAccent("Thêm đợt thi", 125, 32);
+        var btnSuaTatCa = Ui.ButtonOutline("Chỉnh sửa", 110, 32);
+        var btnXoaTatCa = Ui.ButtonDanger("Xóa đợt thi", 120, 32);
+        var btnDoiGoiTatCa = Ui.ButtonOutline("Đổi VIP / Miễn phí", 170, 32);
+        var btnXemDiemTatCa = Ui.ButtonAccent("Bài làm và câu trả lời", 210, 32);
+        var btnDongTatCa = Ui.ButtonOutline("Đóng lịch thi", 130, 32);
+        btnThemTatCa.Click += (_, _) => ThemTatCaDot();
+        btnSuaTatCa.Click += (_, _) => SuaTatCaDot();
+        btnXoaTatCa.Click += (_, _) => XoaTatCaDot();
+        btnDoiGoiTatCa.Click += (_, _) => DoiGoiTatCaDot();
+        btnXemDiemTatCa.Click += (_, _) => XemBangDiemTatCaDot();
+        btnDongTatCa.Click += (_, _) => DongTatCaDot();
+        foreach (var button in new[] { btnDongTatCa, btnXemDiemTatCa, btnDoiGoiTatCa, btnXoaTatCa, btnSuaTatCa, btnThemTatCa })
+        {
+            button.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            button.Margin = new Padding(0, 3, 8, 0);
+            actionsTatCa.Controls.Add(button);
+        }
+        btnThemTatCa.Visible = btnSuaTatCa.Visible = btnXoaTatCa.Visible = Session.IsQuanTriVien;
+        headerTatCaDot.Controls.Add(_lblTatCaDot, 0, 0);
+        headerTatCaDot.Controls.Add(actionsTatCa, 0, 1);
+
+        Ui.StyleGrid(_gridTatCaDot);
+        _gridTatCaDot.Dock = DockStyle.Fill;
+        _gridTatCaDot.ColumnHeadersHeight = 46;
+        _gridTatCaDot.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        _gridTatCaDot.DataError += (_, e) => { e.ThrowException = false; };
+        _gridTatCaDot.CellContentClick += (_, e) => DoiCongBoDiem(_gridTatCaDot, e, TaiTatCaDotThi);
+        _gridTatCaDot.SelectionChanged += (_, _) => { if (!_bindingAllSessions) TaiDeTuongUng(); };
+        _gridTatCaDot.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) XemBangDiemTatCaDot(); };
+        var panelTatCaDot = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+        panelTatCaDot.Controls.Add(_gridTatCaDot);
+        panelTatCaDot.Controls.Add(headerTatCaDot);
+        _gridTatCaDot.BringToFront();
+        _splitTatCaDot.Panel1.Controls.Add(panelTatCaDot);
+
+        var headerDeTuongUng = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top, Height = 52, ColumnCount = 2, RowCount = 1,
+            Padding = new Padding(16, 7, 12, 7), BackColor = Color.White
+        };
+        headerDeTuongUng.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        headerDeTuongUng.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+        _lblDeTuongUng.Dock = DockStyle.Fill;
+        _lblDeTuongUng.AutoSize = false;
+        _lblDeTuongUng.TextAlign = ContentAlignment.MiddleLeft;
+        var btnXemDeTuongUng = Ui.ButtonOutline("Xem nội dung đề", 170, 32);
+        btnXemDeTuongUng.Click += (_, _) => MoDeTuongUng();
+        headerDeTuongUng.Controls.Add(_lblDeTuongUng, 0, 0);
+        headerDeTuongUng.Controls.Add(btnXemDeTuongUng, 1, 0);
+
+        Ui.StyleGrid(_gridDeTuongUng);
+        _gridDeTuongUng.Dock = DockStyle.Fill;
+        _gridDeTuongUng.ColumnHeadersHeight = 46;
+        _gridDeTuongUng.DataError += (_, e) => { e.ThrowException = false; };
+        _gridDeTuongUng.CellDoubleClick += (_, e) => { if (e.RowIndex >= 0) MoDeTuongUng(); };
+        var panelDeTuongUng = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+        panelDeTuongUng.Controls.Add(_gridDeTuongUng);
+        panelDeTuongUng.Controls.Add(headerDeTuongUng);
+        _gridDeTuongUng.BringToFront();
+        _splitTatCaDot.Panel2.Controls.Add(panelDeTuongUng);
+
+        var tabDeThi = new TabPage("Đề thi → Lịch thi") { BackColor = Color.White };
+        var tabTatCaDot = new TabPage("Tất cả đợt thi → Đề tương ứng") { BackColor = Color.White };
+        tabDeThi.Controls.Add(_split);
+        tabDeThi.Controls.Add(topArea);
+        tabTatCaDot.Controls.Add(_splitTatCaDot);
+        _tabsChinh.Dock = DockStyle.Fill;
+        _tabsChinh.SizeMode = TabSizeMode.Fixed;
+        _tabsChinh.ItemSize = new Size(280, 42);
+        _tabsChinh.Font = new Font(Ui.Body, FontStyle.Bold);
+        _tabsChinh.TabPages.Add(tabDeThi);
+        _tabsChinh.TabPages.Add(tabTatCaDot);
+        _tabsChinh.SelectedIndexChanged += (_, _) =>
+        {
+            if (_tabsChinh.SelectedIndex == 1) TaiTatCaDotThi();
+        };
+        Controls.Add(_tabsChinh);
 
         Load += async (s, e) =>
         {
@@ -278,6 +386,7 @@ public class frmExams : Form
         }
 
         TaiDotThi();
+        if (_tabsChinh.SelectedIndex == 1) TaiTatCaDotThi();
     }
 
     private int DeIdDangChon() =>
@@ -334,23 +443,85 @@ public class frmExams : Form
                 _lblDot.Text = "Không tải được lịch thi: " + ex.Message;
             return;
         }
-        _gridDot.DataSource = data;
-        Ui.RenameColumns(_gridDot,
-            ("DotThiID", "ID"), ("TenDotThi", "Tên lịch thi"), ("TenDe", "Đề"),
+        GanDuLieuDotThi(_gridDot, data, false);
+        CapNhatHuongDan();
+    }
+
+    private async void TaiTatCaDotThi()
+    {
+        var version = ++_allSessionLoadVersion;
+        _lblTatCaDot.Text = "Đang tải tất cả đợt thi...";
+        try
+        {
+            var data = await Task.Run(() => _service.LayDanhSachDotThi(null));
+            if (IsDisposed || Disposing || version != _allSessionLoadVersion) return;
+            _bindingAllSessions = true;
+            try { GanDuLieuDotThi(_gridTatCaDot, data, true); }
+            finally { _bindingAllSessions = false; }
+            _lblTatCaDot.Text = data.Rows.Count == 0
+                ? "Tất cả đợt thi — chưa có dữ liệu"
+                : $"Tất cả đợt thi — {data.Rows.Count} đợt";
+            TaiDeTuongUng();
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _allSessionLoadVersion)
+                _lblTatCaDot.Text = "Không tải được danh sách đợt thi: " + ex.Message;
+        }
+    }
+
+    private async void TaiDeTuongUng()
+    {
+        var version = ++_matchingExamLoadVersion;
+        var dotThiId = DotThiId(_gridTatCaDot);
+        if (dotThiId == 0)
+        {
+            _gridDeTuongUng.DataSource = new DataTable();
+            _lblDeTuongUng.Text = "Đề thi tương ứng — chưa chọn đợt thi";
+            return;
+        }
+        _lblDeTuongUng.Text = "Đang tải đề thi tương ứng...";
+        try
+        {
+            var data = await Task.Run(() => _service.LayDeThiTheoDotThi(dotThiId));
+            if (IsDisposed || Disposing || version != _matchingExamLoadVersion) return;
+            GanDuLieuDeTuongUng(data);
+            _lblDeTuongUng.Text = data.Rows.Count == 0
+                ? "Không tìm thấy đề thi tương ứng"
+                : "Đề thi tương ứng với đợt đang chọn";
+        }
+        catch (Exception ex)
+        {
+            if (!IsDisposed && !Disposing && version == _matchingExamLoadVersion)
+                _lblDeTuongUng.Text = "Không tải được đề thi tương ứng: " + ex.Message;
+        }
+    }
+
+    private static void GanDuLieuDotThi(DataGridView grid, DataTable data, bool hienTenDe)
+    {
+        grid.DataSource = data;
+        Ui.RenameColumns(grid,
+            ("DotThiID", "ID"), ("TenDotThi", "Tên lịch thi"), ("TenDe", "Đề"), ("TenMon", "Môn"),
             ("ThoiGianMoCong", "Mở cổng"), ("ThoiGianDongCong", "Đóng cổng"),
             ("ThoiLuongLamBai", "Thời lượng (phút)"), ("GioiHanSoLuong", "Giới hạn SL"),
-            ("CongBoDiemSom", "Công bố điểm sớm"), ("TrangThai", "Trạng thái"),
-            ("PhamVi", "Phạm vi"), ("LaMienPhi", "Đối tượng thi"), ("SoLanThiToiDa", "Lần thi tối đa"),
+            ("CongBoDiemSom", "Công bố điểm ngay"), ("TrangThai", "Trạng thái"),
+            ("PhamVi", "Phạm vi"), ("QuyenThi", "Đối tượng thi"), ("SoLanThiToiDa", "Lần thi tối đa"),
             ("SoDangKy", "Đã đăng ký"), ("SoBaiDaNop", "Bài đã nộp"));
-        Ui.HideColumns(_gridDot, "DotThiID", "TenDe");
+        Ui.HideColumns(grid, "DotThiID", "DeThiID", "LaMienPhi");
+        if (!hienTenDe) Ui.HideColumns(grid, "TenDe", "TenMon");
+        grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+        grid.ScrollBars = ScrollBars.Both;
+        grid.ColumnHeadersDefaultCellStyle.WrapMode = DataGridViewTriState.True;
+        grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.EnableResizing;
+        grid.ColumnHeadersHeight = 58;
 
-        if (_gridDot.Columns.Contains("ThoiGianMoCong"))
-            _gridDot.Columns["ThoiGianMoCong"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
-        if (_gridDot.Columns.Contains("ThoiGianDongCong"))
-            _gridDot.Columns["ThoiGianDongCong"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+        if (grid.Columns.Contains("ThoiGianMoCong"))
+            grid.Columns["ThoiGianMoCong"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
+        if (grid.Columns.Contains("ThoiGianDongCong"))
+            grid.Columns["ThoiGianDongCong"]!.DefaultCellStyle.Format = "dd/MM/yyyy HH:mm";
 
-        if (_gridDot.Columns.Contains("TrangThai"))
-            foreach (DataGridViewRow row in _gridDot.Rows)
+        if (grid.Columns.Contains("TrangThai"))
+            foreach (DataGridViewRow row in grid.Rows)
                 row.Cells["TrangThai"].Value = row.Cells["TrangThai"].Value switch
                 {
                     "SapMo" => "Sắp mở",
@@ -359,8 +530,8 @@ public class frmExams : Form
                     var x => x
                 };
 
-        if (_gridDot.Columns.Contains("PhamVi"))
-            foreach (DataGridViewRow row in _gridDot.Rows)
+        if (grid.Columns.Contains("PhamVi"))
+            foreach (DataGridViewRow row in grid.Rows)
                 row.Cells["PhamVi"].Value = row.Cells["PhamVi"].Value switch
                 {
                     "ToanTruong" => "Toàn trường",
@@ -370,34 +541,77 @@ public class frmExams : Form
                     var x => x
                 };
 
-        if (_gridDot.Columns.Contains("Đối tượng thi"))
-            foreach (DataGridViewRow row in _gridDot.Rows)
-            {
-                var val = row.Cells["Đối tượng thi"].Value;
-                row.Cells["Đối tượng thi"].Value = LaDeMienPhi(val) ? "Miễn phí" : "VIP / Đóng phí";
-            }
+        void DatRong(string column, int width)
+        {
+            if (grid.Columns.Contains(column)) grid.Columns[column]!.Width = width;
+        }
+        DatRong("TenDotThi", 260);
+        if (hienTenDe) DatRong("TenDe", 300);
+        if (hienTenDe) DatRong("TenMon", 130);
+        DatRong("ThoiGianMoCong", 160);
+        DatRong("ThoiGianDongCong", 160);
+        DatRong("ThoiLuongLamBai", 105);
+        DatRong("GioiHanSoLuong", 100);
+        DatRong("CongBoDiemSom", 135);
+        DatRong("TrangThai", 110);
+        DatRong("PhamVi", 115);
+        DatRong("QuyenThi", 130);
+        DatRong("SoLanThiToiDa", 110);
+        DatRong("SoDangKy", 105);
+        DatRong("SoBaiDaNop", 100);
 
-        if (_gridDot.Columns.Contains("TenDotThi")) _gridDot.Columns["TenDotThi"]!.FillWeight = 160;
-        if (_gridDot.Columns.Contains("ThoiGianMoCong")) _gridDot.Columns["ThoiGianMoCong"]!.FillWeight = 120;
-        if (_gridDot.Columns.Contains("ThoiGianDongCong")) _gridDot.Columns["ThoiGianDongCong"]!.FillWeight = 120;
-        if (_gridDot.Columns.Contains("ThoiLuongLamBai")) _gridDot.Columns["ThoiLuongLamBai"]!.FillWeight = 90;
-        if (_gridDot.Columns.Contains("GioiHanSoLuong")) _gridDot.Columns["GioiHanSoLuong"]!.FillWeight = 75;
-        if (_gridDot.Columns.Contains("CongBoDiemSom")) _gridDot.Columns["CongBoDiemSom"]!.FillWeight = 85;
-        if (_gridDot.Columns.Contains("TrangThai")) _gridDot.Columns["TrangThai"]!.FillWeight = 80;
-        if (_gridDot.Columns.Contains("PhamVi")) _gridDot.Columns["PhamVi"]!.FillWeight = 85;
-        if (_gridDot.Columns.Contains("SoLanThiToiDa")) _gridDot.Columns["SoLanThiToiDa"]!.FillWeight = 75;
-        if (_gridDot.Columns.Contains("SoDangKy")) _gridDot.Columns["SoDangKy"]!.FillWeight = 75;
-        if (_gridDot.Columns.Contains("SoBaiDaNop")) _gridDot.Columns["SoBaiDaNop"]!.FillWeight = 75;
+        if (grid.Columns.Contains("CongBoDiemSom"))
+        {
+            var publish = grid.Columns["CongBoDiemSom"]!;
+            publish.ToolTipText = "Bật: xem điểm ngay sau khi nộp. Tắt: chỉ xem điểm sau khi đợt thi đóng. Bấm checkbox để thay đổi.";
+            publish.DefaultCellStyle.BackColor = Color.FromArgb(235, 247, 255);
+        }
 
         foreach (var col in new[] { "ThoiLuongLamBai", "GioiHanSoLuong", "TrangThai", "PhamVi", "SoLanThiToiDa", "SoDangKy", "SoBaiDaNop" })
         {
-            if (_gridDot.Columns.Contains(col))
+            if (grid.Columns.Contains(col))
             {
-                _gridDot.Columns[col]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
-                _gridDot.Columns[col]!.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                grid.Columns[col]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                grid.Columns[col]!.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
             }
         }
-        CapNhatHuongDan();
+    }
+
+    private void GanDuLieuDeTuongUng(DataTable data)
+    {
+        _gridDeTuongUng.DataSource = data;
+        Ui.RenameColumns(_gridDeTuongUng,
+            ("DeThiID", "ID"), ("TenDe", "Tên đề"), ("TenMon", "Môn"), ("LoaiDe", "Loại đề"),
+            ("SoLuongCauHoi", "Số câu"), ("HinhThucTao", "Hình thức tạo"),
+            ("QuyenThi", "Quyền thi"), ("Duyet", "Kiểm duyệt"), ("SoMaDe", "Số mã đề"));
+        Ui.HideColumns(_gridDeTuongUng, "DeThiID");
+        foreach (DataGridViewRow row in _gridDeTuongUng.Rows)
+        {
+            row.Cells["LoaiDe"].Value = row.Cells["LoaiDe"].Value switch
+            {
+                "OnTap" => "Bài tập về nhà",
+                "ThiThu" => "Thi thử",
+                "ChinhThuc" => "Chính thức",
+                var value => value
+            };
+            row.Cells["HinhThucTao"].Value = row.Cells["HinhThucTao"].Value switch
+            {
+                "MaTranTHPTQG" => "Chuẩn THPTQG",
+                "TuDong" => "Tự động",
+                "ThuCong" => "Thủ công",
+                var value => value
+            };
+        }
+        if (_gridDeTuongUng.Columns.Contains("TenDe")) _gridDeTuongUng.Columns["TenDe"]!.FillWeight = 220;
+        if (_gridDeTuongUng.Columns.Contains("TenMon")) _gridDeTuongUng.Columns["TenMon"]!.FillWeight = 90;
+        if (_gridDeTuongUng.Columns.Contains("LoaiDe")) _gridDeTuongUng.Columns["LoaiDe"]!.FillWeight = 85;
+        if (_gridDeTuongUng.Columns.Contains("HinhThucTao")) _gridDeTuongUng.Columns["HinhThucTao"]!.FillWeight = 105;
+        foreach (var column in new[] { "SoLuongCauHoi", "SoMaDe" })
+        {
+            if (!_gridDeTuongUng.Columns.Contains(column)) continue;
+            _gridDeTuongUng.Columns[column]!.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _gridDeTuongUng.Columns[column]!.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+        }
     }
 
     private void CapNhatHuongDan()
@@ -453,10 +667,210 @@ public class frmExams : Form
             : $"Lịch thi của '{tenDe}' — {soDotThi} lịch";
     }
 
-    private int DotIdDangChon() =>
-        _gridDot.CurrentRow != null && _gridDot.CurrentRow.Cells["DotThiID"].Value != null
-            ? Convert.ToInt32(_gridDot.CurrentRow.Cells["DotThiID"].Value)
+    private static int DotThiId(DataGridView grid) =>
+        grid.CurrentRow?.Cells["DotThiID"].Value is { } value ? Convert.ToInt32(value) : 0;
+
+    private int DotIdDangChon() => DotThiId(_gridDot);
+
+    private void DoiCongBoDiem(DataGridView grid, DataGridViewCellEventArgs e, Action refresh)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name != "CongBoDiemSom") return;
+        if (!Session.IsQuanTriVien)
+        {
+            MessageBox.Show("Chỉ quản trị viên được thay đổi thời điểm công bố điểm.", "Không có quyền",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+        var row = grid.Rows[e.RowIndex];
+        var id = Convert.ToInt32(row.Cells["DotThiID"].Value);
+        var current = row.Cells["CongBoDiemSom"].Value is bool value
+            ? value
+            : Convert.ToInt32(row.Cells["CongBoDiemSom"].Value) != 0;
+        var next = !current;
+        var name = row.Cells["TenDotThi"].Value?.ToString() ?? "";
+        var message = next
+            ? $"Cho phép xem điểm ngay sau khi nộp bài trong đợt '{name}'?"
+            : $"Ẩn điểm của đợt '{name}' cho đến khi đóng cổng?";
+        if (MessageBox.Show(message, "Công bố điểm", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        try
+        {
+            _service.DatCongBoDiemSom(id, next);
+            refresh();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Không cập nhật được thời điểm công bố điểm:\n" + ex.Message, "Lỗi",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void ThemTatCaDot()
+    {
+        if (!Session.IsQuanTriVien) return;
+        try
+        {
+            var exams = _service.LayDanhSachDe().Rows.Cast<DataRow>()
+                .Where(row => string.Equals(row["Duyet"]?.ToString(), "Đã duyệt", StringComparison.OrdinalIgnoreCase)
+                    && Convert.ToInt32(row["SoMaDe"]) > 0)
+                .Select(row => new ExamOption(Convert.ToInt32(row["DeThiID"]), row["TenDe"]?.ToString() ?? ""))
+                .ToList();
+            if (exams.Count == 0)
+            {
+                MessageBox.Show("Chưa có đề nào đã duyệt và có mã đề. Hãy duyệt, trộn mã đề trước khi tạo đợt thi.",
+                    "Chưa có đề phù hợp", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using var picker = new Form
+            {
+                Text = "Chọn đề cho đợt thi", StartPosition = FormStartPosition.CenterParent,
+                ClientSize = new Size(650, 180), MinimumSize = new Size(560, 210),
+                BackColor = Color.White, Font = Ui.Body, FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false, MinimizeBox = false
+            };
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
+                Padding = new Padding(20), BackColor = Color.White
+            };
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.Controls.Add(Ui.Label("Chọn đề thi để tạo đợt mới", Ui.H2, Ui.Navy), 0, 0);
+            var combo = Ui.Combo(580);
+            combo.Dock = DockStyle.Fill; combo.DropDownWidth = 760;
+            combo.Items.AddRange(exams.Cast<object>().ToArray());
+            var currentDeId = _gridTatCaDot.CurrentRow?.Cells["DeThiID"].Value is { } currentValue
+                ? Convert.ToInt32(currentValue) : 0;
+            combo.SelectedIndex = Math.Max(0, exams.FindIndex(x => x.Id == currentDeId));
+            layout.Controls.Add(combo, 0, 1);
+            var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft };
+            var cancel = Ui.ButtonOutline("Hủy", 100, 36); cancel.DialogResult = DialogResult.Cancel;
+            var choose = Ui.ButtonAccent("Tiếp tục", 120, 36); choose.DialogResult = DialogResult.OK;
+            buttons.Controls.AddRange([cancel, choose]); layout.Controls.Add(buttons, 0, 2);
+            picker.Controls.Add(layout); picker.AcceptButton = choose; picker.CancelButton = cancel;
+            if (picker.ShowDialog(FindForm()) != DialogResult.OK || combo.SelectedItem is not ExamOption selected) return;
+
+            using var form = new frmDotThiEdit(selected.Id, selected.Name);
+            if (form.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Không thể tạo đợt thi:\n" + ex.Message, "Lỗi",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private sealed record ExamOption(int Id, string Name)
+    {
+        public override string ToString() => Name;
+    }
+
+    private void SuaTatCaDot()
+    {
+        if (!Session.IsQuanTriVien) return;
+        var row = _gridTatCaDot.CurrentRow;
+        var dotId = DotThiId(_gridTatCaDot);
+        if (dotId == 0 || row?.Cells["DeThiID"].Value is not { } deValue)
+        {
+            MessageBox.Show("Hãy chọn một đợt thi cần chỉnh sửa.", "Thông báo");
+            return;
+        }
+        try
+        {
+            var deId = Convert.ToInt32(deValue);
+            var tenDe = row.Cells["TenDe"].Value?.ToString() ?? "";
+            using var form = new frmDotThiEdit(deId, tenDe, dotId);
+            if (form.ShowDialog(FindForm()) == DialogResult.OK) TaiLai();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Không mở được đợt thi để chỉnh sửa:\n" + ex.Message, "Lỗi",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void XoaTatCaDot()
+    {
+        if (!Session.IsQuanTriVien) return;
+        var row = _gridTatCaDot.CurrentRow;
+        var id = DotThiId(_gridTatCaDot);
+        if (id == 0 || row == null)
+        {
+            MessageBox.Show("Hãy chọn một đợt thi cần xóa.", "Thông báo");
+            return;
+        }
+        var name = row.Cells["TenDotThi"].Value?.ToString() ?? "";
+        var registrations = row.Cells["SoDangKy"].Value is { } value ? Convert.ToInt32(value) : 0;
+        var submitted = row.Cells["SoBaiDaNop"].Value is { } submittedValue ? Convert.ToInt32(submittedValue) : 0;
+        if (submitted > 0)
+        {
+            MessageBox.Show($"Không thể xóa '{name}' vì đã có {submitted} bài làm. Hãy đóng đợt thi để giữ lịch sử và điểm số.",
+                "Không thể xóa", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        var registrationWarning = registrations > 0
+            ? $"\n\nĐợt thi đang có {registrations} lượt đăng ký; các đăng ký này cũng sẽ bị xóa."
+            : "";
+        if (MessageBox.Show($"Xóa vĩnh viễn đợt thi '{name}'?{registrationWarning}\n\nHành động này không thể hoàn tác.",
+                "Xác nhận xóa đợt thi", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+        try
+        {
+            _service.XoaDotThi(id);
+            MessageBox.Show("Đã xóa đợt thi.", "Hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            TaiLai();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Không thể xóa đợt thi:\n" + ex.Message, "Lỗi",
+                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            TaiTatCaDotThi();
+        }
+    }
+
+    private void DoiGoiTatCaDot()
+    {
+        var id = DotThiId(_gridTatCaDot);
+        if (id == 0) { MessageBox.Show("Hãy chọn một đợt thi.", "Thông báo"); return; }
+        var row = _gridTatCaDot.CurrentRow!;
+        var ten = row.Cells["TenDotThi"].Value?.ToString() ?? "";
+        var dangMienPhi = LaDeMienPhi(row.Cells["LaMienPhi"].Value);
+        var sangMienPhi = !dangMienPhi;
+        var hoi = sangMienPhi
+            ? $"Đổi đợt thi '{ten}' sang MIỄN PHÍ?"
+            : $"Đổi đợt thi '{ten}' sang ĐÓNG PHÍ (VIP)?";
+        if (MessageBox.Show(hoi, "Phân quyền đợt thi", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        _service.DatMienPhiDotThi(id, sangMienPhi);
+        TaiTatCaDotThi();
+    }
+
+    private void XemBangDiemTatCaDot()
+    {
+        var id = DotThiId(_gridTatCaDot);
+        if (id == 0) { MessageBox.Show("Hãy chọn một đợt thi.", "Thông báo"); return; }
+        using var form = new frmStatistics(id);
+        form.ShowDialog(FindForm());
+    }
+
+    private void DongTatCaDot()
+    {
+        var id = DotThiId(_gridTatCaDot);
+        if (id == 0) { MessageBox.Show("Hãy chọn một đợt thi.", "Thông báo"); return; }
+        if (MessageBox.Show("Đóng đợt thi này ngay? Thí sinh sẽ không thể vào làm bài.", "Xác nhận",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        _service.CapNhatTrangThaiDot(id, "DaDong");
+        TaiTatCaDotThi();
+    }
+
+    private void MoDeTuongUng()
+    {
+        var id = _gridDeTuongUng.CurrentRow?.Cells["DeThiID"].Value is { } value
+            ? Convert.ToInt32(value)
             : 0;
+        if (id == 0) { MessageBox.Show("Chưa có đề thi tương ứng để xem.", "Thông báo"); return; }
+        using var form = new frmExamReview(id);
+        form.ShowDialog(FindForm());
+    }
 
     private void TaoDotThi()
     {
@@ -497,7 +911,7 @@ public class frmExams : Form
         var id = DotIdDangChon();
         if (id == 0) { MessageBox.Show("Hãy chọn một lịch thi phía dưới.", "Thông báo"); return; }
         var ten = _gridDot.CurrentRow!.Cells["TenDotThi"].Value?.ToString() ?? "";
-        var dangMienPhi = LaDeMienPhi(_gridDot.CurrentRow.Cells["Đối tượng thi"].Value);
+        var dangMienPhi = LaDeMienPhi(_gridDot.CurrentRow.Cells["LaMienPhi"].Value);
         var sangMienPhi = !dangMienPhi;
         var hoi = sangMienPhi
             ? $"Đổi lịch thi '{ten}' sang MIỄN PHÍ?\nMọi học viên kể cả tài khoản tự do / vãng lai đều được làm bài."
