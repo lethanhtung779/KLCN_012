@@ -1,40 +1,13 @@
-using QLThiTN.WinForms.Models;
+﻿using QLThiTN.WinForms.Models;
 
 namespace QLThiTN.WinForms.Services;
 
 /// <summary>Tai khoan dang nhap hien tai cua phan mem.</summary>
 public static class Session
 {
-    private static readonly object ActiveCheckLock = new();
-    private static int _checkedAccountId;
-    private static DateTime _checkedAtUtc;
-    private static bool _checkedActive;
-    private static int _activeRefreshRunning;
-    private static readonly TimeSpan ActiveCheckTtl = TimeSpan.FromSeconds(30);
-
     public static TaiKhoan? Current { get; private set; }
-
-    public static void Set(TaiKhoan tk)
-    {
-        Current = tk;
-        lock (ActiveCheckLock)
-        {
-            _checkedAccountId = tk.TaiKhoanID;
-            _checkedAtUtc = DateTime.UtcNow;
-            _checkedActive = tk.TrangThai == "HoatDong";
-        }
-    }
-
-    public static void Clear()
-    {
-        Current = null;
-        lock (ActiveCheckLock)
-        {
-            _checkedAccountId = 0;
-            _checkedAtUtc = default;
-            _checkedActive = false;
-        }
-    }
+    public static void Set(TaiKhoan tk) => Current = tk;
+    public static void Clear() => Current = null;
 
     public static bool IsQuanTriVien => Current?.VaiTro == "QuanTriVien";
     public static bool IsGiaoVien => Current?.VaiTro == "GiaoVien";
@@ -50,56 +23,28 @@ public static class Session
     public static bool IsAccountActive()
     {
         var current = Current;
-        if (current == null) return false;
-        if (current.TrangThai != "HoatDong") return false;
-
-        bool active;
-        bool needsRefresh;
-        lock (ActiveCheckLock)
-        {
-            active = _checkedAccountId == current.TaiKhoanID && _checkedActive;
-            needsRefresh = _checkedAccountId != current.TaiKhoanID ||
-                           DateTime.UtcNow - _checkedAtUtc >= ActiveCheckTtl;
-        }
-
-        // Phan quyen phai tra ve ngay. Viec kiem tra lai tren SQL chay nen;
-        // loi ket noi tam thoi khong duoc bien thanh loi "khong co quyen".
-        if (needsRefresh && Interlocked.CompareExchange(ref _activeRefreshRunning, 1, 0) == 0)
-            _ = RefreshAccountStateAsync(current.TaiKhoanID);
-
-        return active;
-    }
-
-    private static async Task RefreshAccountStateAsync(int accountId)
-    {
+        if (current == null || current.TrangThai != "HoatDong") return false;
         try
         {
-            var rows = await Database.ReadListAsync(
-                "SELECT TrangThai FROM TaiKhoan WHERE TaiKhoanID = @id",
-                r => r.GetString(0),
-                p => p.AddWithValue("@id", accountId));
-            if (Current?.TaiKhoanID != accountId) return;
-
-            var active = rows.FirstOrDefault() == "HoatDong";
-            lock (ActiveCheckLock)
-            {
-                _checkedAccountId = accountId;
-                _checkedAtUtc = DateTime.UtcNow;
-                _checkedActive = active;
-            }
-            if (!active)
-                Clear();
+            var connectionString = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(Database.ConnectionString)
+                { ConnectTimeout = 5 };
+            using var connection = new Microsoft.Data.SqlClient.SqlConnection(connectionString.ConnectionString);
+            connection.Open();
+            using var command = new Microsoft.Data.SqlClient.SqlCommand(
+                "SELECT TrangThai, VaiTro FROM TaiKhoan WHERE TaiKhoanID = @id", connection) { CommandTimeout = 5 };
+            command.Parameters.AddWithValue("@id", current.TaiKhoanID);
+            using var reader = command.ExecuteReader();
+            var active = reader.Read() && reader.GetString(0) == "HoatDong" && reader.GetString(1) == current.VaiTro;
+            if (!ReferenceEquals(Current, current)) return false;
+            if (!active) Clear();
+            return active;
         }
-        catch
+        catch (Microsoft.Data.SqlClient.SqlException ex)
         {
-            // Giu phien hien tai khi SQL Server tam thoi ban/khong ket noi duoc.
-            // Lan lam moi sau se thu lai, thay vi nem nham UnauthorizedAccessException.
-            lock (ActiveCheckLock)
-                if (_checkedAccountId == accountId) _checkedAtUtc = DateTime.UtcNow;
-        }
-        finally
-        {
-            Interlocked.Exchange(ref _activeRefreshRunning, 0);
+            // Stop the protected operation, but do not mislabel a temporary
+            // connection failure as an expired login or destroy the session.
+            throw new InvalidOperationException(
+                "Không thể xác minh quyền vì không kết nối hoặc truy vấn được cơ sở dữ liệu. Vui lòng thử lại khi kết nối phục hồi.", ex);
         }
     }
 

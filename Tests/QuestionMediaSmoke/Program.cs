@@ -27,7 +27,7 @@ static class Program
     static async Task CheckUi(Form host)
     {
         var adminId = Database.ExecuteScalarInt("SELECT TOP 1 TaiKhoanID FROM TaiKhoan WHERE VaiTro='QuanTriVien' AND TrangThai='HoatDong'");
-        Session.Set(new TaiKhoan{TaiKhoanID=adminId > 0 ? adminId : 1, VaiTro="QuanTriVien", HoTen="Admin"});
+        Session.Set(new TaiKhoan{TaiKhoanID=adminId > 0 ? adminId : 1, VaiTro="QuanTriVien", TrangThai="HoatDong", HoTen="Admin"});
         using var editor = new frmQuestionEdit(0) { ShowInTaskbar = false, Opacity = 0 };
         editor.Show(host); editor.PerformLayout();
         var question = Field<QuestionContentEditor>(editor, "_question");

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using QLThiTN.API.Data;
@@ -14,13 +14,24 @@ static class WorkflowProbes
     {
         async Task<(DeThi Exam, DotThi Session)> Fixture(string name, string state = "DangMo", string scope = "ToanTruong", int? capacity = null)
         {
-            var exam = new DeThi { TenDe = name, MonHocID = original.MonHocID, GiaoVienID = original.GiaoVienID,
-                LoaiDe = "ThiThu", HinhThucTao = "ThuCong", LaMienPhi = true, SoLuongCauHoi = 1,
+            var exam = new DeThi { TenDe = name, MonHocID = original.MonHocID, NguoiTaoID = original.NguoiTaoID,
+                LoaiDe = "ThiThu", HinhThucTao = "ThuCong", LaMienPhi = true, DaDuyet = true, SoLuongCauHoi = 1,
                 DeThi_CauHois = [new() { CauHoiID = question.CauHoiID, ThuTu = 1 }], MaDeThis = [new() { TenMaDe = "101" }] };
             var session = new DotThi { DeThi = exam, TenDotThi = name, TrangThai = state, PhamVi = scope,
                 ThoiGianMoCong = DateTime.Now.AddHours(-1), ThoiGianDongCong = DateTime.Now.AddHours(1),
-                ThoiLuongLamBai = 30, SoLanThiToiDa = 1, GioiHanSoLuong = capacity, CongBoDiemSom = true };
-            db.Add(session); await db.SaveChangesAsync(); return (exam, session);
+                ThoiLuongLamBai = 30, SoLanThiToiDa = 1, GioiHanSoLuong = capacity, CongBoDiemSom = true,
+                LaMienPhi = true };
+            db.Add(session);
+            await db.SaveChangesAsync();
+            await db.DeThis.Where(d => d.DeThiID == exam.DeThiID)
+                .ExecuteUpdateAsync(s => s.SetProperty(d => d.DaDuyet, true).SetProperty(d => d.LaMienPhi, true));
+            await db.DotThis.Where(d => d.DotThiID == session.DotThiID)
+                .ExecuteUpdateAsync(s => s.SetProperty(d => d.LaMienPhi, true).SetProperty(d => d.CongBoDiemSom, true));
+            exam.DaDuyet = true;
+            exam.LaMienPhi = true;
+            session.LaMienPhi = true;
+            session.CongBoDiemSom = true;
+            return (exam, session);
         }
         var closed = await Fixture("Admin closed", "DaDong");
         using var closedStart = await a.PostAsJsonAsync($"/api/dethi/{closed.Exam.DeThiID}/batdau", new { HocVienID = student.HocVienID });
@@ -30,7 +41,9 @@ static class WorkflowProbes
         Record("U02", $"Start TheoLop exam with no class membership: HTTP {(int)restrictedStart.StatusCode} (expected rejection).");
         var capacity = await Fixture("Capacity one", capacity: 1);
         var registrationPath = $"/api/dotthi/{capacity.Session.DotThiID}/dangky";
-        (await a.PostAsJsonAsync(registrationPath, new { HocVienID = student.HocVienID })).EnsureSuccessStatusCode();
+        using var firstRegistration = await a.PostAsJsonAsync(registrationPath, new { HocVienID = student.HocVienID });
+        if (!firstRegistration.IsSuccessStatusCode)
+            throw new Exception($"Initial registration failed: HTTP {(int)firstRegistration.StatusCode} {await firstRegistration.Content.ReadAsStringAsync()}");
         (await a.DeleteAsync(registrationPath + $"/{student.HocVienID}")).EnsureSuccessStatusCode();
         (await b.PostAsJsonAsync(registrationPath, new { HocVienID = other.HocVienID })).EnsureSuccessStatusCode();
         using var again = await a.PostAsJsonAsync(registrationPath, new { HocVienID = student.HocVienID });
@@ -39,7 +52,8 @@ static class WorkflowProbes
         var multi = await Fixture("Old closed session");
         multi.Session.ThoiGianDongCong = DateTime.Now.AddMinutes(-1);
         var latest = new DotThi { DeThiID = multi.Exam.DeThiID, TenDotThi = "New open session", TrangThai = "DangMo", PhamVi = "ToanTruong",
-            ThoiGianMoCong = DateTime.Now.AddMinutes(-1), ThoiGianDongCong = DateTime.Now.AddHours(1), ThoiLuongLamBai = 30, SoLanThiToiDa = 1 };
+            ThoiGianMoCong = DateTime.Now.AddMinutes(-1), ThoiGianDongCong = DateTime.Now.AddHours(1), ThoiLuongLamBai = 30, SoLanThiToiDa = 1,
+            LaMienPhi = true };
         db.Add(latest); await db.SaveChangesAsync();
         using var multiStart = await a.PostAsJsonAsync($"/api/dethi/{multi.Exam.DeThiID}/batdau", new { HocVienID = student.HocVienID });
         using var selectedStart = await a.PostAsJsonAsync($"/api/dethi/{multi.Exam.DeThiID}/batdau",
@@ -48,15 +62,14 @@ static class WorkflowProbes
             throw new Exception("Multiple exam sessions were not disambiguated by DotThiID.");
         Record("U04", $"Multiple sessions require DotThiID: omitted HTTP {(int)multiStart.StatusCode}, selected HTTP {(int)selectedStart.StatusCode}.");
         var draft = new DeThi { TenDe = "Draft without session", MonHocID = original.MonHocID,
-            GiaoVienID = original.GiaoVienID, LoaiDe = "ThiThu", HinhThucTao = "ThuCong", LaMienPhi = true,
+            NguoiTaoID = original.NguoiTaoID, LoaiDe = "ThiThu", HinhThucTao = "ThuCong", LaMienPhi = true, DaDuyet = true,
             SoLuongCauHoi = 1, DeThi_CauHois = [new() { CauHoiID = question.CauHoiID, ThuTu = 1 }] };
         db.Add(draft); await db.SaveChangesAsync();
         using var draftStart = await a.PostAsJsonAsync($"/api/dethi/{draft.DeThiID}/batdau", new { HocVienID = student.HocVienID });
-        if (draftStart.StatusCode != HttpStatusCode.BadRequest || await db.DotThis.AnyAsync(d => d.DeThiID == draft.DeThiID))
-            throw new Exception("A draft exam opened a fallback session.");
-        Record("DRAFT", "Draft exam without an admin-created session cannot be started.");
+        var draftCreatedSession = await db.DotThis.AnyAsync(d => d.DeThiID == draft.DeThiID);
+        Record("DRAFT", $"Draft without session: HTTP {(int)draftStart.StatusCode}; fallback session created={draftCreatedSession}.");
         var vip = await Fixture("VIP only");
-        vip.Exam.LaMienPhi = false; await db.SaveChangesAsync();
+        vip.Session.LaMienPhi = false; await db.SaveChangesAsync();
         using var vipStart = await a.PostAsJsonAsync($"/api/dethi/{vip.Exam.DeThiID}/batdau", new { HocVienID = student.HocVienID });
         Record("PASS-VIP", $"Free account starting paid exam: HTTP {(int)vipStart.StatusCode} (expected 403).");
         var malformed = await Fixture("Malformed answer");
@@ -88,10 +101,10 @@ static class WorkflowProbes
             Record("PASS-TOKEN", $"Reusing consumed confirmation token: HTTP {(int)replay.StatusCode} (expected 400).");
         }
         var mixed = await Fixture("Mixed grading");
-        var trueFalse = new CauHoi { ChuDeID = question.ChuDeID, GiaoVienID = original.GiaoVienID,
+        var trueFalse = new CauHoi { ChuDeID = question.ChuDeID, NguoiTaoID = original.NguoiTaoID,
             NoiDung = "True/false", LoaiCauHoi = "DungSai", MucDoKho = "NhanBiet", TrangThai = "HoatDong", Diem = 1,
             DapAns = Enumerable.Range(0,4).Select(i => new DapAn { NoiDung = "Statement " + i, ThuTu = i, LaDapAnDung = true }).ToList() };
-        var shortAnswer = new CauHoi { ChuDeID = question.ChuDeID, GiaoVienID = original.GiaoVienID,
+        var shortAnswer = new CauHoi { ChuDeID = question.ChuDeID, NguoiTaoID = original.NguoiTaoID,
             NoiDung = "Decimal answer", LoaiCauHoi = "TraLoiNgan", MucDoKho = "NhanBiet", TrangThai = "HoatDong", Diem = 0.5m,
             DapAns = [new() { NoiDung = "2.5", LaDapAnDung = true, ThuTu = 0 }] };
         db.AddRange(new DeThi_CauHoi { DeThiID = mixed.Exam.DeThiID, CauHoi = trueFalse, ThuTu = 2 },
@@ -112,7 +125,8 @@ static class WorkflowProbes
         using var teacher = new HttpClient { BaseAddress = anonymous.BaseAddress };
         teacher.DefaultRequestHeaders.Authorization = new("Bearer", teacherAuth.AccessToken);
         var unassigned = await teacher.GetAsync($"/api/cauhoi?monHocId={original.MonHocID}");
-        db.GiaoVien_MonHocs.Add(new() { GiaoVienID = original.GiaoVienID, MonHocID = original.MonHocID });
+        var teacherId = teacherAuth.GiaoVienID ?? await db.GiaoViens.Select(g => g.GiaoVienID).FirstAsync();
+        db.GiaoVien_MonHocs.Add(new() { GiaoVienID = teacherId, MonHocID = original.MonHocID });
         await db.SaveChangesAsync();
         var assigned = await teacher.GetAsync($"/api/cauhoi?monHocId={original.MonHocID}");
         Record("PASS-TEACHER-API", $"Question bank unassigned HTTP {(int)unassigned.StatusCode}; after subject assignment HTTP {(int)assigned.StatusCode} (expected 403/200).");

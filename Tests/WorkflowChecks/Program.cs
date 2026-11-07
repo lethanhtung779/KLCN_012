@@ -14,7 +14,7 @@ Database.Execute(WorkflowSchema.Sql); // migration must be repeatable
 var checks=0;
 void Check(bool condition,string name){if(!condition)throw new Exception(name);Console.WriteLine("PASS "+name);checks++;}
 var admin=Database.ExecuteScalarInt("SELECT TOP 1 TaiKhoanID FROM TaiKhoan WHERE VaiTro='QuanTriVien' AND TrangThai='HoatDong'");
-Session.Set(new TaiKhoan{TaiKhoanID=admin,VaiTro="QuanTriVien"});
+Session.Set(new TaiKhoan{TaiKhoanID=admin,VaiTro="QuanTriVien",TrangThai="HoatDong"});
 var profileService=new PersonManagementService();
 var studentPersonal=profileService.LayThongTinCaNhan("HocVien","");
 Check(studentPersonal.Columns.Contains("DiaChi")&&studentPersonal.Columns.Contains("HoTenNguoiGiamHo"),"Student personal-info columns");
@@ -62,6 +62,22 @@ Check(Database.ExecuteScalarInt($"SELECT COUNT(*) FROM MaDe_CauHoi mc JOIN MaDeT
 Check(Database.ExecuteScalarInt($@"SELECT COUNT(*) FROM MaDe_DapAn ma JOIN MaDeThi m ON m.MaDeID=ma.MaDeID WHERE m.DeThiID={created.DeThiID} AND m.TenMaDe='101'")==
       Database.ExecuteScalarInt($@"SELECT COUNT(*) FROM DapAn a JOIN DeThi_CauHoi dc ON dc.CauHoiID=a.CauHoiID WHERE dc.DeThiID={created.DeThiID}"),"Default variant has complete answer order");
 var mixed=examService.TronDeThi(created.DeThiID,3,501,true);Check(mixed.Success,"Shuffle: "+mixed.Message);
+var guardedQuestionId=Database.ExecuteScalarInt($"SELECT TOP 1 CauHoiID FROM DeThi_CauHoi WHERE DeThiID={created.DeThiID}");
+Database.Execute($"UPDATE CauHoi SET TrangThai=N'An' WHERE CauHoiID={guardedQuestionId}");
+var examsBeforeGuard=Database.ExecuteScalarInt("SELECT COUNT(*) FROM DeThi");
+var invalidQuestionBlocked=false;
+try{examService.TaoDeThuCong("Invalid inactive question",math,"ThiThu",[guardedQuestionId]);}
+catch(InvalidOperationException){invalidQuestionBlocked=true;}
+Check(invalidQuestionBlocked&&Database.ExecuteScalarInt("SELECT COUNT(*) FROM DeThi")==examsBeforeGuard,"Inactive question is rejected before exam save");
+Database.Execute($"UPDATE CauHoi SET TrangThai=N'HoatDong' WHERE CauHoiID={guardedQuestionId}");
+var variantsBeforeFailure=Database.ExecuteScalarInt($"SELECT COUNT(*) FROM MaDeThi WHERE DeThiID={created.DeThiID}");
+Database.Execute("CREATE OR ALTER TRIGGER dbo.TR_Audit_FailShuffle ON dbo.MaDeThi AFTER INSERT AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE TenMaDe=N'601') THROW 51061,N'Injected shuffle failure',1; END");
+try
+{
+    var failedShuffle=examService.TronDeThi(created.DeThiID,2,601,true);
+    Check(!failedShuffle.Success&&Database.ExecuteScalarInt($"SELECT COUNT(*) FROM MaDeThi WHERE DeThiID={created.DeThiID}")==variantsBeforeFailure,"Failed shuffle rolls back deleted and inserted variants");
+}
+finally{Database.Execute("DROP TRIGGER IF EXISTS dbo.TR_Audit_FailShuffle");}
 using(var conn=Database.Open())
 {
     var report=ExamReview.Read(conn,created.DeThiID);
@@ -82,4 +98,34 @@ using(var conn=Database.Open())
     var html=ExamReview.Html(details,i=>"/image/"+i.Id);
     Check(html.Contains("Thí sinh")&&html.Contains("Đáp án"),"Answer review rendered");
 }
+var training=new TrainingService();
+var course=training.ThemKhoaHoc("Chapter 5 course "+Guid.NewGuid(),math,DateTime.Today,DateTime.Today.AddMonths(2),"HoatDong");
+Check(course.Ok,"Create course for course/schedule checks");
+var classroom=training.ThemLopHoc("Chapter 5 class",course.Id);Check(classroom.Ok,"Create class for course/schedule checks");
+var otherSubject=Database.ExecuteScalarInt("INSERT INTO MonHoc(TenMon) VALUES(N'Chapter 5 foreign subject'); SELECT CAST(SCOPE_IDENTITY() AS int);");
+Check(!training.SuaKhoaHoc(course.Id,"Invalid subject change",otherSubject,DateTime.Today,DateTime.Today.AddMonths(2),"HoatDong").Ok,
+    "Course subject cannot change after a class exists");
+var lessonDay=DateTime.Today.AddDays(60+course.Id);
+var lessonRoom="Room "+Guid.NewGuid().ToString("N")[..8];
+var lesson=training.ThemLichHoc(classroom.Id,"Chapter 5 lesson",lessonDay.AddHours(18),lessonDay.AddHours(20),lessonRoom);
+Check(lesson.Ok,"Save valid 18:00-20:00 lesson");
+var lessonRow=Database.Query($"SELECT ThoiGianBatDau,ThoiGianKetThuc,DiaDiem FROM LichHoc WHERE LichHocID={lesson.Id}").Rows[0];
+Check((DateTime)lessonRow["ThoiGianBatDau"]==lessonDay.AddHours(18)&&(DateTime)lessonRow["ThoiGianKetThuc"]==lessonDay.AddHours(20)&&lessonRow["DiaDiem"].ToString()==lessonRoom,
+    "Read lesson time and room without drift");
+var teacherScope=Database.Query("SELECT TOP 1 gv.GiaoVienID,gv.TaiKhoanID,gm.MonHocID FROM GiaoVien gv JOIN GiaoVien_MonHoc gm ON gm.GiaoVienID=gv.GiaoVienID JOIN TaiKhoan tk ON tk.TaiKhoanID=gv.TaiKhoanID WHERE tk.TrangThai=N'HoatDong'").Rows[0];
+var scopeTeacherId=Convert.ToInt32(teacherScope["GiaoVienID"]);var scopeTeacherAccount=Convert.ToInt32(teacherScope["TaiKhoanID"]);var scopeSubject=Convert.ToInt32(teacherScope["MonHocID"]);
+var scopeExam=Database.ExecuteScalarInt($"INSERT INTO DeThi(MonHocID,NguoiTaoID,TenDe,LoaiDe,SoLuongCauHoi,HinhThucTao,LaMienPhi,DaDuyet) VALUES({scopeSubject},{admin},N'Scope assigned',N'ThiThu',0,N'ThuCong',1,1); SELECT CAST(SCOPE_IDENTITY() AS int);");
+var scopeSession=Database.ExecuteScalarInt($"INSERT INTO DotThi(DeThiID,TenDotThi,ThoiGianMoCong,ThoiGianDongCong,ThoiLuongLamBai,CongBoDiemSom,TrangThai,PhamVi,SoLanThiToiDa) VALUES({scopeExam},N'Scope assigned',DATEADD(hour,-1,GETDATE()),DATEADD(hour,1,GETDATE()),30,1,N'DangMo',N'ToanTruong',1); SELECT CAST(SCOPE_IDENTITY() AS int);");
+var foreignExam=Database.ExecuteScalarInt($"INSERT INTO DeThi(MonHocID,NguoiTaoID,TenDe,LoaiDe,SoLuongCauHoi,HinhThucTao,LaMienPhi,DaDuyet) VALUES({otherSubject},{admin},N'Scope foreign',N'ThiThu',0,N'ThuCong',1,1); SELECT CAST(SCOPE_IDENTITY() AS int);");
+var foreignSession=Database.ExecuteScalarInt($"INSERT INTO DotThi(DeThiID,TenDotThi,ThoiGianMoCong,ThoiGianDongCong,ThoiLuongLamBai,CongBoDiemSom,TrangThai,PhamVi,SoLanThiToiDa) VALUES({foreignExam},N'Scope foreign',DATEADD(hour,-1,GETDATE()),DATEADD(hour,1,GETDATE()),30,1,N'DangMo',N'ToanTruong',1); SELECT CAST(SCOPE_IDENTITY() AS int);");
+Session.Set(new TaiKhoan{TaiKhoanID=scopeTeacherAccount,ProfileID=scopeTeacherId,VaiTro="GiaoVien",TrangThai="HoatDong"});
+var teacherStats=new StatisticsService();var teacherSessions=teacherStats.LayDanhSachDotThiChoThongKe();
+Check(teacherSessions.AsEnumerable().Any(r=>Convert.ToInt32(r["DotThiID"])==scopeSession)&&!teacherSessions.AsEnumerable().Any(r=>Convert.ToInt32(r["DotThiID"])==foreignSession),
+    "Teacher statistics list only assigned-subject sessions");
+var foreignDenied=false;try{teacherStats.LayKetQuaDotThi(foreignSession);}catch(UnauthorizedAccessException){foreignDenied=true;}
+Check(foreignDenied,"Teacher cannot open statistics outside assigned subject");
+Session.Set(new TaiKhoan{TaiKhoanID=admin,VaiTro="QuanTriVien",TrangThai="HoatDong"});
+var adminSessions=new StatisticsService().LayDanhSachDotThiChoThongKe();
+Check(adminSessions.AsEnumerable().Any(r=>Convert.ToInt32(r["DotThiID"])==scopeSession)&&adminSessions.AsEnumerable().Any(r=>Convert.ToInt32(r["DotThiID"])==foreignSession),
+    "Administrator statistics includes both sessions");
 Console.WriteLine($"{checks} checks passed on isolated database {database}.");

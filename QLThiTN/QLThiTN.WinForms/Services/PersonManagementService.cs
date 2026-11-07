@@ -232,7 +232,7 @@ public sealed class PersonManagementService
             return (false, "Tên đăng nhập phải có 3–50 ký tự và không chứa khoảng trắng.", 0);
         if (item.HoTen.Length is < 2 or > 100) return (false, "Họ tên phải có 2–100 ký tự.", 0);
         if (!DirectoryRules.ValidEmail(item.Email))
-            return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).", 0);
+            return (false, "Email không hợp lệ. Hãy kiểm tra lại địa chỉ và phần tên miền sau dấu @ (tối đa 100 ký tự).", 0);
         if (item.SoDienThoai != null && (item.SoDienThoai.Length is < 9 or > 20 ||
             item.SoDienThoai.Any(c => !char.IsDigit(c) && c is not ('+' or '-' or ' '))))
             return (false, "Số điện thoại phải có 9–20 ký tự gồm số, dấu +, dấu - hoặc khoảng trắng.", 0);

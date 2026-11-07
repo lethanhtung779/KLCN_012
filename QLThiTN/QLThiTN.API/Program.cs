@@ -1,9 +1,10 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.EntityFrameworkCore;
+
 using QLThiTN.API.Data;
 using QLThiTN.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddJsonFile("appsettings.Google.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddJsonFile("appsettings.Email.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddJsonFile("appsettings.Payment.json", optional: true, reloadOnChange: true);
 
@@ -53,29 +54,30 @@ using (var scope = app.Services.CreateScope())
 app.UseResponseCompression();
 if (!app.Environment.IsDevelopment()) { app.UseHttpsRedirection(); }
 app.UseAuthentication();
-// Re-check active status and password on authenticated requests, cached in memory to avoid repetitive DB hits
+// Check persisted state on every request: Web, WinForms and SQL administration
+// can all change accounts, so a process-local TTL cannot guarantee revocation.
 app.Use(async (context, next) =>
 {
     if (context.User.Identity?.IsAuthenticated == true)
     {
-        var accountId = context.User.AccountId();
-        var cache = context.RequestServices.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>();
-        var cacheKey = $"Auth_Account_Stamp_{accountId}";
-
-        if (!cache.TryGetValue(cacheKey, out (string TrangThai, string VaiTro, string Stamp) cachedAuth))
+        var db = context.RequestServices.GetRequiredService<QLThiTNDbContext>();
+        QLThiTN.API.Entities.TaiKhoan? account;
+        try
         {
-            var db = context.RequestServices.GetRequiredService<QLThiTNDbContext>();
-            var account = await db.TaiKhoans.AsNoTracking()
-                .FirstOrDefaultAsync(t => t.TaiKhoanID == accountId);
-            var stamp = account is null ? "" : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
-                System.Text.Encoding.UTF8.GetBytes(account.MatKhau)));
-            cachedAuth = (account?.TrangThai ?? "", account?.VaiTro ?? "", stamp);
-            cache.Set(cacheKey, cachedAuth, TimeSpan.FromSeconds(60));
+            account = await db.TaiKhoans.AsNoTracking().FirstOrDefaultAsync(
+                t => t.TaiKhoanID == context.User.AccountId(), context.RequestAborted);
         }
-
-        if (string.IsNullOrEmpty(cachedAuth.TrangThai) || cachedAuth.TrangThai != "HoatDong"
-            || !context.User.IsInRole(cachedAuth.VaiTro)
-            || context.User.FindFirst("PasswordStamp")?.Value != cachedAuth.Stamp)
+        catch (Exception ex) when (ex is Microsoft.Data.SqlClient.SqlException
+            || ex.InnerException is Microsoft.Data.SqlClient.SqlException)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await context.Response.WriteAsJsonAsync(new { message = "Không xác minh được phiên do lỗi kết nối dữ liệu. Vui lòng thử lại." });
+            return;
+        }
+        var stamp = account is null ? "" : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(account.MatKhau)));
+        if (account?.TrangThai != "HoatDong" || !context.User.IsInRole(account.VaiTro)
+            || context.User.FindFirst("PasswordStamp")?.Value != stamp)
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return;

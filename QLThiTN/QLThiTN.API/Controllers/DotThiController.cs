@@ -194,7 +194,7 @@ public class DotThiController : ControllerBase
 
         var hv = await _db.HocViens.FindAsync(request.HocVienID);
         if (hv is null) return BadRequest(new { message = "Hoc vien khong ton tai" });
-        if (await GoiThi.DuocLamAsync(_db, dot.DeThiID, hv.HocVienID) == false)
+        if (await GoiThi.DuocLamAsync(_db, dot.DeThiID, hv.HocVienID, dot.DotThiID) == false)
             return StatusCode(403, new { message = GoiThi.ThongBao });
 
         var existing = await _db.DangKyDotThis

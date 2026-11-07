@@ -1,4 +1,4 @@
-namespace QLThiTN.Web.Services;
+﻿namespace QLThiTN.Web.Services;
 
 public class ApiDeThi
 {
@@ -304,9 +304,7 @@ public class ApiLoginRequest
 
 public class ApiGoogleLoginRequest
 {
-    public string Email { get; set; } = string.Empty;
-    public string FullName { get; set; } = string.Empty;
-    public string? GoogleId { get; set; }
+    public string IdToken { get; set; } = string.Empty;
 }
 
 public class ApiRegisterRequest

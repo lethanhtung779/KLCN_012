@@ -82,7 +82,7 @@ public class AccountService
         if (string.IsNullOrWhiteSpace(tenDangNhap)) return (false, "Chưa nhập tên đăng nhập.", 0);
         if (string.IsNullOrWhiteSpace(hoTen)) return (false, "Chưa nhập họ tên.", 0);
         if (hoTen.Length > 100) return (false, "Họ tên không được vượt quá 100 ký tự.", 0);
-        if (!DirectoryRules.ValidEmail(email)) return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).", 0);
+        if (!DirectoryRules.ValidEmail(email)) return (false, "Email không hợp lệ. Hãy kiểm tra lại địa chỉ và phần tên miền sau dấu @ (tối đa 100 ký tự).", 0);
         if (string.IsNullOrWhiteSpace(matKhau) || matKhau.Length < 6) return (false, "Mật khẩu tối thiểu 6 ký tự.", 0);
         if (vaiTro is not ("GiaoVien" or "HocVien" or "QuanTriVien")) return (false, "Vai trò không hợp lệ.", 0);
         if (TenDangNhapTonTai(tenDangNhap)) return (false, $"Tên đăng nhập '{tenDangNhap}' đã tồn tại.", 0);
@@ -135,7 +135,7 @@ public class AccountService
         hoTen = hoTen.Trim();
         if (string.IsNullOrWhiteSpace(hoTen)) return (false, "Chưa nhập họ tên.");
         if (hoTen.Length > 100) return (false, "Họ tên không được vượt quá 100 ký tự.");
-        if (!DirectoryRules.ValidEmail(email)) return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).");
+        if (!DirectoryRules.ValidEmail(email)) return (false, "Email không hợp lệ. Hãy kiểm tra lại địa chỉ và phần tên miền sau dấu @ (tối đa 100 ký tự).");
         if (EmailTonTai(email, taiKhoanId)) return (false, $"Email '{email}' đã được sử dụng.");
 
         using var conn = Database.Open();
@@ -174,7 +174,7 @@ public class AccountService
         Session.YeuCauQuanTriVien();
         email = email.Trim();
         if (!DirectoryRules.ValidEmail(email))
-            return (false, "Email chưa đầy đủ. Ví dụ: hoten@gmail.com (tối đa 100 ký tự).");
+            return (false, "Email không hợp lệ. Hãy kiểm tra lại địa chỉ và phần tên miền sau dấu @ (tối đa 100 ký tự).");
         if (EmailTonTai(email, taiKhoanId))
             return (false, $"Email '{email}' đã được sử dụng.");
         try

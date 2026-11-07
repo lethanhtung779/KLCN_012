@@ -45,6 +45,9 @@ const [base, output, examId] = process.argv.slice(2);
         await capture('web-learning-desktop', 'Exam/LearningSchedule');
         await capture('web-taking-desktop', 'Exam/Taking/' + examId);
         results.push({ test: 'Stored HTML execution', executed: await page.evaluate(() => window.__auditXss === true) });
+        results.push({ test: 'Question and answer images', loaded: await page.evaluate(() =>
+            [...document.querySelectorAll('.question-images img')].filter(i => i.complete && i.naturalWidth > 0).length) });
+        results.push({ test: 'Math formulas rendered', katex: await page.locator('.katex').count() });
         results.push({ test: 'Timer initialized', text: await page.locator('#timer').textContent() });
         const options = page.locator('.option-item');
         if (await options.count()) {

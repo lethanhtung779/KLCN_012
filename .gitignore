@@ -54,3 +54,5 @@ database-backups/
 
 # Google OAuth credentials
 QLThiTN/QLThiTN.Web/appsettings.Google.json
+
+QLThiTN/QLThiTN.API/appsettings.Google.json

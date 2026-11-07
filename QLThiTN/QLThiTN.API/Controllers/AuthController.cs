@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.Extensions.Options;
@@ -44,10 +44,29 @@ public class AuthController : ControllerBase
     [HttpPost("google")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequestDto request)
     {
-        if (string.IsNullOrWhiteSpace(request.Email))
-            return BadRequest(new { message = "Email không được để trống" });
-
-        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(request.IdToken))
+            return Unauthorized(new { message = "Thiếu token xác thực Google." });
+        var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+        var clientId = configuration["Authentication:Google:ClientId"];
+        if (string.IsNullOrWhiteSpace(clientId) || clientId.StartsWith("YOUR_"))
+            return StatusCode(503, new { message = "Đăng nhập Google chưa được cấu hình." });
+        Google.Apis.Auth.GoogleJsonWebSignature.Payload identity;
+        try
+        {
+            identity = await Google.Apis.Auth.GoogleJsonWebSignature.ValidateAsync(request.IdToken,
+                new Google.Apis.Auth.GoogleJsonWebSignature.ValidationSettings { Audience = new[] { clientId } });
+        }
+        catch (Google.Apis.Auth.InvalidJwtException)
+        {
+            return Unauthorized(new { message = "Token Google không hợp lệ hoặc đã hết hạn." });
+        }
+        catch (HttpRequestException)
+        {
+            return StatusCode(503, new { message = "Tạm thời không xác minh được Google. Vui lòng thử lại." });
+        }
+        if (!identity.EmailVerified || string.IsNullOrWhiteSpace(identity.Email) || string.IsNullOrWhiteSpace(identity.Subject))
+            return Unauthorized(new { message = "Google chưa xác minh địa chỉ email." });
+        var normalizedEmail = identity.Email.Trim().ToLowerInvariant();
         var tk = await _db.TaiKhoans.FirstOrDefaultAsync(t => t.Email.ToLower() == normalizedEmail);
 
         if (tk is not null)
@@ -85,7 +104,7 @@ public class AuthController : ControllerBase
             _db.TaiKhoans.Add(tk);
             await _db.SaveChangesAsync();
 
-            var fullName = string.IsNullOrWhiteSpace(request.FullName) ? username : request.FullName.Trim();
+            var fullName = string.IsNullOrWhiteSpace(identity.Name) ? username : identity.Name.Trim();
             var hv = new HocVien
             {
                 TaiKhoanID = tk.TaiKhoanID,

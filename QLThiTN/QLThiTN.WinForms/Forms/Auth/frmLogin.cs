@@ -66,16 +66,10 @@ public class frmLogin : Form
         Ui.GradientButton(btnLogin, Ui.Accent, Ui.Accent2);
         btnLogin.Click += async (s, e) => await DangNhapAsync();
 
-        var lblQuickLogin = Ui.Label("Đăng nhập nhanh", Ui.Small, Ui.TextMuted);
-        var btnGiaoVien = Ui.ButtonOutline("Giáo viên", 135, 38);
-        btnGiaoVien.Click += async (s, e) => await DangNhapNhanhGiaoVienAsync();
-        var btnAdmin = Ui.ButtonOutline("Admin", 135, 38);
-        btnAdmin.Click += async (s, e) => await DangNhapNhanhAsync("admin", "admin123");
-
         var lblNote = Ui.Label("Thí sinh vui lòng đăng nhập trên website để làm bài thi.", Ui.Small, Ui.TextMuted);
 
         Controls.AddRange([side, lblTitle, lblSub, lblUser, _txtUser, lblPass, _txtPass, _lblError,
-            btnLogin, lblQuickLogin, btnGiaoVien, btnAdmin, lblNote]);
+            btnLogin, lblNote]);
 
         // Bo cuc panel phai (form FixedDialog nen toa do tinh mot lan la du)
         var x = 380;
@@ -87,46 +81,7 @@ public class frmLogin : Form
         _txtPass.Location = new Point(x, 286);
         _lblError.Location = new Point(x, 320);
         btnLogin.Location = new Point(x, 350);
-        lblQuickLogin.Location = new Point(x, 405);
-        btnGiaoVien.Location = new Point(x, 430);
-        btnAdmin.Location = new Point(x + 145, 430);
-        lblNote.Location = new Point(x, 486);
-    }
-
-    private async Task DangNhapNhanhAsync(string username, string password)
-    {
-        _txtUser.Text = username;
-        _txtPass.Text = password;
-        await DangNhapAsync();
-    }
-
-    private async Task DangNhapNhanhGiaoVienAsync()
-    {
-        if (_isLoggingIn) return;
-        _isLoggingIn = true;
-        UseWaitCursor = true;
-        _lblError.Text = "";
-        _txtUser.Text = "giaovien1";
-        try
-        {
-            // Hai phiên bản dữ liệu mẫu đang được dùng: DB cũ và seed_admin.sql.
-            foreach (var password in new[] { "Abc@123456", "123456" })
-            {
-                var (user, _) = await _auth.LoginAsync("giaovien1", password);
-                if (user == null) continue;
-                _txtPass.Text = password;
-                DialogResult = DialogResult.OK;
-                Close();
-                return;
-            }
-            _txtPass.Clear();
-            _lblError.Text = "Tài khoản mẫu đã đổi mật khẩu hoặc không còn hoạt động. Hãy đăng nhập thủ công.";
-        }
-        finally
-        {
-            _isLoggingIn = false;
-            UseWaitCursor = false;
-        }
+        lblNote.Location = new Point(x, 410);
     }
 
     private async Task DangNhapAsync()

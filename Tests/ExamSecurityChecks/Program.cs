@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -11,6 +11,7 @@ using QLThiTN.API.Data;
 using QLThiTN.API.DTOs;
 using QLThiTN.API.Entities;
 using QLThiTN.API.Services;
+using QLThiTN.Shared;
 
 var repo = Path.GetFullPath(args.FirstOrDefault() ?? ".");
 var apiRoot = Path.Combine(repo, "QLThiTN", "QLThiTN.API");
@@ -35,11 +36,39 @@ TaiKhoan Account(string name, string role) => new()
     TenDangNhap = name, Email = name + "@example.test", MatKhau = PasswordHelper.Hash("Test-password-123!"),
     VaiTro = role, TrangThai = "HoatDong"
 };
+Check(ThptScoring.MaxPoint("Toán", "TracNghiem") == 0.25m,
+    "THPT multiple-choice question is worth 0.25 point");
+Check(ThptScoring.MaxPoint("Toán", "TraLoiNgan") == 0.50m &&
+      ThptScoring.MaxPoint("Vật lý", "TraLoiNgan") == 0.25m,
+    "Short-answer maximum is 0.50 for Math and 0.25 for other supported subjects");
+var shortAnswerComparer = typeof(QLThiTN.API.Controllers.DeThiController).GetMethod(
+    "TraLoiNganDung", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+Check((bool)shortAnswerComparer.Invoke(null, ["2,5", "2.5"])! &&
+      !(bool)shortAnswerComparer.Invoke(null, ["2,4", "2.5"])!,
+    "Short-answer normalization accepts decimal comma and rejects a wrong value");
+Check(12 * ThptScoring.MaxPoint("Toán", "TracNghiem") +
+      4 * ThptScoring.MaxPoint("Toán", "DungSai") +
+      6 * ThptScoring.MaxPoint("Toán", "TraLoiNgan") == 10m,
+    "Complete 12/4/6 Math structure totals 10 points");
+Check(ThptScoring.TrueFalsePoint(0) == 0m && ThptScoring.TrueFalsePoint(1) == 0.10m &&
+      ThptScoring.TrueFalsePoint(2) == 0.25m && ThptScoring.TrueFalsePoint(3) == 0.50m &&
+      ThptScoring.TrueFalsePoint(4) == 1.00m,
+    "True-false partial-credit ladder matches THPT rule");
 try
 {
     await db.Database.EnsureCreatedAsync();
-    var student = new HocVien { HoTen = "Student A", LoaiHocVien = "TuDo", TaiKhoan = Account("student-a", "HocVien") };
-    var other = new HocVien { HoTen = "Student B", LoaiHocVien = "TuDo", TaiKhoan = Account("student-b", "HocVien") };
+    // Adapt EF-generated defaults to the existing deployment migration, in this
+    // disposable fixture only. Production schema is never modified by the test.
+    await db.Database.ExecuteSqlRawAsync("""
+        DECLARE @s nvarchar(max)=N'';
+        SELECT @s+=N'ALTER TABLE '+QUOTENAME(OBJECT_NAME(d.parent_object_id))+N' DROP CONSTRAINT '+QUOTENAME(d.name)+N';'
+        FROM sys.default_constraints d JOIN sys.columns c ON c.object_id=d.parent_object_id AND c.column_id=d.parent_column_id
+        WHERE OBJECT_NAME(d.parent_object_id) IN ('HocVien','GiaoVien') AND c.name IN ('TinhTrangCha','TinhTrangMe');
+        EXEC sp_executesql @s;
+        """);
+
+    var student = new HocVien { HoTen = "Student A", LoaiHocVien = "TuDo", NguonTaiKhoan = GoiThi.VangLai, TaiKhoan = Account("student-a", "HocVien") };
+    var other = new HocVien { HoTen = "Student B", LoaiHocVien = "TuDo", NguonTaiKhoan = GoiThi.VangLai, TaiKhoan = Account("student-b", "HocVien") };
     var teacher = new GiaoVien { HoTen = "Teacher", TaiKhoan = Account("teacher", "GiaoVien") };
     var subject = new MonHoc { TenMon = "Test subject" };
     var topic = new ChuDe { TenChuDe = "Test topic", MonHoc = subject };
@@ -60,12 +89,12 @@ try
     {
         DeThi = exam, TenDotThi = "Test session", ThoiGianMoCong = DateTime.Now.AddHours(-1),
         ThoiGianDongCong = DateTime.Now.AddHours(2), ThoiLuongLamBai = 45,
-        TrangThai = "DangMo", PhamVi = "ToanTruong", SoLanThiToiDa = 5, CongBoDiemSom = false
+        LaMienPhi = true, TrangThai = "DangMo", PhamVi = "ToanTruong", SoLanThiToiDa = 5, CongBoDiemSom = false
     };
     db.AddRange(student, other, teacher, session);
     await db.SaveChangesAsync();
     Check(await GoiThi.DuocLamAsync(db, exam.DeThiID, null) == true, "Free exam allows anonymous package check");
-    exam.LaMienPhi = false;
+    exam.LaMienPhi = false; session.LaMienPhi = false;
     await db.SaveChangesAsync();
     Check(await GoiThi.DuocLamAsync(db, exam.DeThiID, student.HocVienID) == false, "Free guest cannot take VIP exam");
     other.LoaiGoi = GoiThi.DongPhi;
@@ -79,7 +108,7 @@ try
     db.Add(centerStudent);
     await db.SaveChangesAsync();
     Check(await GoiThi.DuocLamAsync(db, exam.DeThiID, centerStudent.HocVienID) == true, "Center student can take VIP exam without personal VIP");
-    exam.LaMienPhi = true;
+    exam.LaMienPhi = true; session.LaMienPhi = true;
     other.LoaiGoi = GoiThi.MienPhi;
     await db.SaveChangesAsync();
     var portProbe = new TcpListener(IPAddress.Loopback, 0);
@@ -151,6 +180,22 @@ try
     Check((await a.PostAsJsonAsync("/api/examactivity", activity)).IsSuccessStatusCode, "Activity retry is idempotent");
     var activityCount = await db.Database.SqlQuery<int>($"SELECT COUNT(*) AS Value FROM dbo.ExamActivity WHERE BaiLamID = {attempt.BaiLamID}").SingleAsync();
     Check(activityCount == 1, "Activity retry does not duplicate event");
+    await db.Database.ExecuteSqlRawAsync($"""
+        ;WITH n AS (
+            SELECT TOP (999) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS rn
+            FROM sys.all_objects a CROSS JOIN sys.all_objects b
+        )
+        INSERT INTO dbo.ExamActivity(EventID, BaiLamID, EventType)
+        SELECT NEWID(), {attempt.BaiLamID}, 'hidden' FROM n;
+        """);
+    Check((await a.PostAsJsonAsync("/api/examactivity", new
+    {
+        BaiLamID = attempt.BaiLamID,
+        EventID = Guid.NewGuid(),
+        EventType = "leave"
+    })).IsSuccessStatusCode, "Activity endpoint remains stable at configured event limit");
+    activityCount = await db.Database.SqlQuery<int>($"SELECT COUNT(*) AS Value FROM dbo.ExamActivity WHERE BaiLamID = {attempt.BaiLamID}").SingleAsync();
+    Check(activityCount == 1000, "Activity log is capped at 1,000 events per attempt");
     Check((await a.GetAsync(prefix + $"/cauhoi?maDeId={attempt.MaDeID + 999}")).StatusCode == HttpStatusCode.Forbidden, "Unassigned exam variant denied");
     Check((await a.GetAsync(prefix + $"/cauhoi?maDeId={attempt.MaDeID}")).IsSuccessStatusCode, "Assigned questions available");
     List<SubmitAnswerDto> Correct() => [new() { CauHoiID = question.CauHoiID, DapAnID = question.DapAns[0].DapAnID }];
@@ -260,7 +305,7 @@ try
         "Save abandoned attempt snapshot");
     await db.BaiLams.Where(x => x.BaiLamID == abandoned.BaiLamID).ExecuteUpdateAsync(s => s.SetProperty(x => x.ThoiGianBatDau, DateTime.Now.AddHours(-1)));
     BaiLam? autoClosed = null;
-    for (var i = 0; i < 25; i++)
+    for (var i = 0; i < 75; i++)
     {
         autoClosed = await db.BaiLams.AsNoTracking().SingleAsync(x => x.BaiLamID == abandoned.BaiLamID);
         if (autoClosed.TrangThai != "DangLam") break;

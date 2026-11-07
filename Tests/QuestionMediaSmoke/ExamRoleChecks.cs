@@ -13,11 +13,11 @@ static class ExamRoleChecks
         try
         {
             var adminId = Database.ExecuteScalarInt("SELECT TOP 1 TaiKhoanID FROM TaiKhoan WHERE VaiTro='QuanTriVien' AND TrangThai='HoatDong'");
-            Session.Set(new TaiKhoan{TaiKhoanID=adminId > 0 ? adminId : 1, VaiTro="QuanTriVien",ProfileID=999,HoTen="Admin"});
+            Session.Set(new TaiKhoan{TaiKhoanID=adminId > 0 ? adminId : 1, VaiTro="QuanTriVien",TrangThai="HoatDong",ProfileID=999,HoTen="Admin"});
             using(var form=new frmMain())Assert(All(form).OfType<Button>().Any(b=>b.Text.Contains("Đề thi & Lịch thi") || b.Text.Contains("Đề thi & Kỳ thi")),"Admin has exam/session menu");
             Assert(Session.GiaoVienID==0,"Admin profile is not a teacher ID");
             using(var form=new frmExams())Assert(form.Text.Contains("Đề thi"),"Admin can open exams form");
-            Session.Set(new TaiKhoan{VaiTro="GiaoVien",ProfileID=7,HoTen="Giáo viên"});
+            Session.Set(new TaiKhoan{VaiTro="GiaoVien",TrangThai="HoatDong",ProfileID=7,HoTen="Giáo viên"});
             using(var form=new frmMain())
             {
                 Assert(!All(form).OfType<Button>().Any(b=>b.Text.Contains("Đề thi & Lịch thi") || b.Text.Contains("Đề thi & Kỳ thi")),"Teacher no longer has exam/session menu");
@@ -50,7 +50,7 @@ static class ExamRoleChecks
             IF OBJECT_ID('DotThi') IS NULL CREATE TABLE DotThi(DotThiID int IDENTITY PRIMARY KEY,DeThiID int REFERENCES DeThi,TenDotThi nvarchar(200),ThoiGianMoCong datetime2,ThoiGianDongCong datetime2,ThoiLuongLamBai int,GioiHanSoLuong int,CongBoDiemSom bit,TrangThai nvarchar(20),PhamVi nvarchar(20),SoLanThiToiDa int);
             INSERT INTO CauHoi(ChuDeID,GiaoVienID,NoiDung,LoaiCauHoi,MucDoKho,Diem,TrangThai,NgayTao) VALUES(1,7,N'Test',N'TracNghiem',N'NhanBiet',0.25,N'HoatDong',SYSDATETIME());
             """);
-            Session.Set(new TaiKhoan{TaiKhoanID=1,VaiTro="QuanTriVien",ProfileID=999,HoTen="Admin"});
+            Session.Set(new TaiKhoan{TaiKhoanID=1,VaiTro="QuanTriVien",TrangThai="HoatDong",ProfileID=999,HoTen="Admin"});
             var id=Database.ExecuteScalarInt("SELECT MAX(CauHoiID) FROM CauHoi");
             var svc=new ExamService();
             var manual=svc.TaoDeThuCong("Thủ công",1,"ThiThu",[id]);
@@ -59,7 +59,7 @@ static class ExamRoleChecks
             var session=svc.TaoDotThi(new DotThi{DeThiID=manual.DeThiID,TenDotThi="Đợt thử",ThoiGianMoCong=DateTime.Now.AddDays(1),ThoiGianDongCong=DateTime.Now.AddDays(2),ThoiLuongLamBai=30,PhamVi="ToanTruong"});
             svc.CapNhatTrangThaiDot(session,"DaDong");
             Assert(Database.ExecuteScalarInt("SELECT COUNT(*) FROM DotThi WHERE TrangThai=N'DaDong'")==1,"Admin creates and closes exam session");
-            Blocked(() => { Session.Set(new TaiKhoan { TaiKhoanID = 77, VaiTro = "GiaoVien", ProfileID = 7, HoTen = "GV" }); svc.TaoDeThuCong("Chặn GV", 1, "ThiThu", [id]); }, "Teacher cannot create exam");
+            Blocked(() => { Session.Set(new TaiKhoan { TaiKhoanID = 77, VaiTro = "GiaoVien", TrangThai = "HoatDong", ProfileID = 7, HoTen = "GV" }); svc.TaoDeThuCong("Chặn GV", 1, "ThiThu", [id]); }, "Teacher cannot create exam");
             Assert(Database.ExecuteScalarInt("SELECT COUNT(*) FROM DeThi")==1,"Teacher creation attempt blocked");
         }
         finally{Session.Clear();}

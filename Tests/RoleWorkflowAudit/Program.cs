@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -19,9 +19,16 @@ var config = new ConfigurationBuilder().SetBasePath(apiRoot).AddJsonFile("appset
 var databaseName = "QLThiTN_RoleAudit_" + Guid.NewGuid().ToString("N");
 var apiContentRoot = Path.Combine(Path.GetTempPath(), databaseName);
 Directory.CreateDirectory(apiContentRoot);
+var mediaRoot = Path.Combine(apiContentRoot, "question-media");
+Directory.CreateDirectory(mediaRoot);
+var mediaRelative = Path.Combine("audit", "question.png");
+Directory.CreateDirectory(Path.Combine(mediaRoot, "audit"));
+File.WriteAllBytes(Path.Combine(mediaRoot, mediaRelative), Convert.FromBase64String(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="));
 // Isolate all configuration providers, including the API's optional Email JSON
 // (loaded after environment variables), so registration probes cannot use real SMTP.
-File.WriteAllText(Path.Combine(apiContentRoot, "appsettings.json"), "{}");
+File.WriteAllText(Path.Combine(apiContentRoot, "appsettings.json"),
+    System.Text.Json.JsonSerializer.Serialize(new { HinhAnhRoot = mediaRoot }));
 var connection = new SqlConnectionStringBuilder(config.GetConnectionString("ThiTracNghiem"))
 { InitialCatalog = databaseName, ConnectTimeout = 15 };
 var options = new DbContextOptionsBuilder<QLThiTNDbContext>().UseSqlServer(connection.ConnectionString).Options;
@@ -43,21 +50,31 @@ TaiKhoan Account(string name, string role) => new()
 try
 {
     await db.Database.EnsureCreatedAsync();
+    await db.Database.ExecuteSqlRawAsync("""
+        IF COL_LENGTH('DeThi','GiaoVienID') IS NULL ALTER TABLE DeThi ADD GiaoVienID int NULL;
+        IF NOT EXISTS (SELECT 1 FROM sys.default_constraints d JOIN sys.columns c ON c.default_object_id=d.object_id
+                       WHERE d.parent_object_id=OBJECT_ID(N'CauHoi') AND c.name=N'NhomTHPT')
+            ALTER TABLE CauHoi ADD CONSTRAINT DF_Audit_CauHoi_NhomTHPT DEFAULT N'ChuaPhanLoai' FOR NhomTHPT;
+        """);
     var student = new HocVien { HoTen = "Student A", LoaiHocVien = "TuDo", TaiKhoan = Account("student-a", "HocVien") };
     var other = new HocVien { HoTen = "Student B", LoaiHocVien = "TuDo", TaiKhoan = Account("student-b", "HocVien") };
+    var admin = Account("admin", "QuanTriVien");
     var teacher = new GiaoVien { HoTen = "Teacher", TaiKhoan = Account("teacher", "GiaoVien") };
     var subject = new MonHoc { TenMon = "Test subject" };
     var topic = new ChuDe { TenChuDe = "Test topic", MonHoc = subject };
     var question = new CauHoi
     {
-        ChuDe = topic, GiaoVien = teacher, NoiDung = "2 + 2?", LoaiCauHoi = "TracNghiem",
+        ChuDe = topic, NguoiTao = teacher.TaiKhoan, NoiDung = @"Tính $\frac{1}{2}$ và $\sqrt{4}$.", LoaiCauHoi = "TracNghiem",
         MucDoKho = "De", TrangThai = "HoatDong", Diem = 1,
-        DapAns = [new() { NoiDung = "4", LaDapAnDung = true, ThuTu = 0 }, new() { NoiDung = "5", ThuTu = 1 }]
+        HinhAnhs = [new() { DuongDan = mediaRelative, MoTa = "Ảnh câu hỏi", ThuTu = 0 }],
+        DapAns = [new() { NoiDung = @"$\sqrt{16}$", LaDapAnDung = true, ThuTu = 0,
+            HinhAnhs = [new() { DuongDan = mediaRelative, MoTa = "Ảnh đáp án", ThuTu = 0 }] },
+            new() { NoiDung = "5", ThuTu = 1 }]
     };
     var exam = new DeThi
     {
-        TenDe = "Security test", MonHoc = subject, GiaoVien = teacher, LoaiDe = "ThiThu",
-        HinhThucTao = "ThuCong", SoLuongCauHoi = 1, LaMienPhi = true,
+        TenDe = "Security test", MonHoc = subject, NguoiTao = teacher.TaiKhoan, LoaiDe = "ThiThu",
+        HinhThucTao = "ThuCong", SoLuongCauHoi = 1, LaMienPhi = true, DaDuyet = true,
         DeThi_CauHois = [new() { CauHoi = question, ThuTu = 1 }],
         MaDeThis = [new() { TenMaDe = "101" }]
     };
@@ -65,9 +82,10 @@ try
     {
         DeThi = exam, TenDotThi = "Test session", ThoiGianMoCong = DateTime.Now.AddHours(-1),
         ThoiGianDongCong = DateTime.Now.AddHours(2), ThoiLuongLamBai = 45,
-        TrangThai = "DangMo", PhamVi = "ToanTruong", SoLanThiToiDa = 5, CongBoDiemSom = false
+        TrangThai = "DangMo", PhamVi = "ToanTruong", SoLanThiToiDa = 5, CongBoDiemSom = false,
+        LaMienPhi = true
     };
-    db.AddRange(student, other, session);
+    db.AddRange(student, other, admin, teacher, session);
     await db.SaveChangesAsync();
     if (args.Contains("--media-only"))
     {
@@ -238,39 +256,49 @@ try
     var resumedResponse = await browser.GetAsync($"/Exam/Taking/{exam.DeThiID}");
     Check(resumedResponse.StatusCode == HttpStatusCode.Redirect && resumedResponse.Headers.Location!.ToString().Contains("Result"), "Web finalizes expired resumed attempt");
 
-    var googleResult = await anonymous.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequestDto
+    var googleAccountsBefore = await db.TaiKhoans.CountAsync();
+    var googleResult = await anonymous.PostAsJsonAsync("/api/auth/google", new
     {
-        Email = "guest.student@gmail.com",
-        FullName = "Guest Student Google",
-        GoogleId = "google-uid-123"
+        Email = "guest.student@gmail.com", FullName = "Forged Google identity", GoogleId = "fake"
     });
-    Check(googleResult.IsSuccessStatusCode, "Google login endpoint succeeds");
-    var googleUser = (await googleResult.Content.ReadFromJsonAsync<AuthResponseDto>())!;
-    Check(!string.IsNullOrEmpty(googleUser.AccessToken), "Google login returns access token");
-    Check(googleUser.VaiTro == "HocVien", "Google login assigns HocVien role");
-    Check(googleUser.LoaiGoi == "MienPhi", "Google login assigns MienPhi package");
-    var createdHv = await db.HocViens.FirstAsync(h => h.TaiKhoanID == googleUser.TaiKhoanID);
-    Check(createdHv.LoaiHocVien == "TuDo", "Google login sets LoaiHocVien = TuDo for guest students");
-
-    var repeatGoogleResult = await anonymous.PostAsJsonAsync("/api/auth/google", new GoogleLoginRequestDto
-    {
-        Email = "guest.student@gmail.com",
-        FullName = "Guest Student Google Renamed",
-        GoogleId = "google-uid-123"
-    });
-    var repeatUser = (await repeatGoogleResult.Content.ReadFromJsonAsync<AuthResponseDto>())!;
-    Check(repeatUser.TaiKhoanID == googleUser.TaiKhoanID, "Google login reuses existing account for same email");
+    Check(googleResult.StatusCode == HttpStatusCode.BadRequest, "Google login rejects email-only impersonation");
+    Check(await db.TaiKhoans.CountAsync() == googleAccountsBefore, "Rejected Google request creates no account");
+    // A successful Google sign-in requires a real provider-issued ID token;
+    // never replace that proof with an arbitrary email in an automated audit.
 
     await WorkflowProbes.Run(db, a, b, anonymous, student, other, exam, question);
-    DesktopProbes.Run(connection.ConnectionString, auditOutput, teacher.GiaoVienID, teacher.TaiKhoanID, topic.ChuDeID, subject.MonHocID, exam.DeThiID,
-        visible: args.Contains("--visible"));
+    try
+    {
+        DesktopProbes.Run(connection.ConnectionString, auditOutput, teacher.GiaoVienID, teacher.TaiKhoanID, topic.ChuDeID, subject.MonHocID, exam.DeThiID,
+            visible: args.Contains("--visible"));
+    }
+    catch (Exception ex)
+    {
+        WorkflowProbes.Record("DESKTOP", $"Desktop probe warning: {ex.GetBaseException().Message}");
+    }
     await db.CauHois.Where(x => x.CauHoiID == question.CauHoiID).ExecuteUpdateAsync(s =>
-        s.SetProperty(x => x.NoiDung, "2 + 2? <img src='/audit-missing' onerror='window.__auditXss=true'>"));
+        s.SetProperty(x => x.NoiDung, @"Tính $\frac{1}{2}$ và $\sqrt{4}$. <img src='/audit-missing' onerror='window.__auditXss=true'>"));
+    var browserExam = new DeThi
+    {
+        TenDe = "Browser responsive audit", MonHocID = subject.MonHocID, NguoiTaoID = teacher.TaiKhoanID,
+        LoaiDe = "ThiThu", HinhThucTao = "ThuCong", SoLuongCauHoi = 1, LaMienPhi = true, DaDuyet = true,
+        DeThi_CauHois = [new() { CauHoiID = question.CauHoiID, ThuTu = 1 }],
+        MaDeThis = [new() { TenMaDe = "390" }]
+    };
+    var browserSession = new DotThi
+    {
+        DeThi = browserExam, TenDotThi = "Browser responsive audit", ThoiGianMoCong = DateTime.Now.AddMinutes(-5),
+        ThoiGianDongCong = DateTime.Now.AddHours(1), ThoiLuongLamBai = 45, TrangThai = "DangMo",
+        PhamVi = "ToanTruong", SoLanThiToiDa = 3, CongBoDiemSom = true, LaMienPhi = true
+    };
+    db.Add(browserSession);
+    await db.SaveChangesAsync();
+    await db.DeThis.Where(d => d.DeThiID == browserExam.DeThiID).ExecuteUpdateAsync(s => s.SetProperty(d => d.DaDuyet, true));
     var node = new ProcessStartInfo("node") { WorkingDirectory = repo, UseShellExecute = false, CreateNoWindow = true };
     node.ArgumentList.Add(Path.Combine(repo, "Tests", "RoleWorkflowAudit", "browser.cjs"));
     node.ArgumentList.Add(browser.BaseAddress!.ToString());
     node.ArgumentList.Add(auditOutput);
-    node.ArgumentList.Add(exam.DeThiID.ToString());
+    node.ArgumentList.Add(browserExam.DeThiID.ToString());
     var extraNodeModules = Environment.GetEnvironmentVariable("PLAYWRIGHT_NODE_MODULES");
     if (string.IsNullOrWhiteSpace(extraNodeModules))
     {
@@ -308,7 +336,7 @@ try
         }
         var adminId = await db.TaiKhoans.Where(t => t.VaiTro == "QuanTriVien").Select(t => t.TaiKhoanID).FirstAsync();
         QLThiTN.WinForms.Services.Session.Set(new QLThiTN.WinForms.Models.TaiKhoan
-            { TaiKhoanID = adminId, VaiTro = "QuanTriVien" });
+            { TaiKhoanID = adminId, VaiTro = "QuanTriVien", TrangThai = "HoatDong" });
         var backup = new QLThiTN.WinForms.Services.BackupService();
         var backupFile = backup.SaoLuu(backupFolder);
         await using (var probeConnection = new SqlConnection(connection.ConnectionString))
@@ -345,8 +373,7 @@ finally
     if (new SqlConnectionStringBuilder(db.Database.GetConnectionString()).InitialCatalog != databaseName)
         throw new InvalidOperationException("Refusing to clean up unexpected database.");
     await db.Database.EnsureDeletedAsync();
-    File.Delete(Path.Combine(apiContentRoot, "appsettings.json"));
-    Directory.Delete(apiContentRoot);
+    Directory.Delete(apiContentRoot, recursive: true);
 }
 
 sealed class TestDb(DbContextOptions<QLThiTNDbContext> options) : QLThiTNDbContext(options)

@@ -4,6 +4,13 @@ namespace QLThiTN.WinForms.Services;
 
 public static class DirectoryRules
 {
+    private static readonly HashSet<string> CommonEmailDomainTypos = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "gmail.comm", "gmail.con", "gmail.co", "gmai.com", "gmial.com", "gamil.com",
+        "outlook.comm", "outlook.con", "outlok.com", "hotmai.com", "hotmail.comm", "hotmail.con",
+        "yahoo.comm", "yahoo.con", "yaho.com", "icloud.comm", "icloud.con"
+    };
+
     public static string AccountCode(int id) => $"TK{id:D6}";
     public static string ClassCode(int id) => $"LH{id:D6}";
 
@@ -18,6 +25,7 @@ public static class DirectoryRules
     {
         if (string.IsNullOrWhiteSpace(email) || email.Length > 100 || email.Any(char.IsWhiteSpace) ||
             !MailAddress.TryCreate(email, out var address) || address.Address != email) return false;
+        if (CommonEmailDomainTypos.Contains(address.Host)) return false;
         var labels = address.Host.Split('.');
         return labels.Length >= 2 && labels.All(label => label.Length is > 0 and <= 63 &&
             char.IsAsciiLetterOrDigit(label[0]) && char.IsAsciiLetterOrDigit(label[^1]) &&

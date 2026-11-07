@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace QLThiTN.API.DTOs;
 
@@ -30,12 +30,8 @@ public class RegisterRequestDto
 
 public class GoogleLoginRequestDto
 {
-    [Required, EmailAddress]
-    public string Email { get; set; } = string.Empty;
-
-    public string FullName { get; set; } = string.Empty;
-
-    public string? GoogleId { get; set; }
+    [Required]
+    public string IdToken { get; set; } = string.Empty;
 }
 
 public class AuthResponseDto

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -124,26 +124,14 @@ public class AccountController : Controller
             return RedirectToAction(nameof(Login));
         }
 
-        var email = result.Principal.FindFirstValue(ClaimTypes.Email);
-        var name = result.Principal.FindFirstValue(ClaimTypes.Name)
-                   ?? result.Principal.FindFirstValue(ClaimTypes.GivenName)
-                   ?? email;
-        var googleId = result.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
-
+        var idToken = result.Properties?.GetTokenValue("id_token");
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-
-        if (string.IsNullOrWhiteSpace(email))
+        if (string.IsNullOrWhiteSpace(idToken))
         {
-            TempData["ErrorMessage"] = "Không thể lấy thông tin email từ tài khoản Google của bạn.";
+            TempData["ErrorMessage"] = "Không nhận được token xác thực Google. Vui lòng đăng nhập lại.";
             return RedirectToAction(nameof(Login));
         }
-
-        var user = await _api.LoginWithGoogleAsync(new ApiGoogleLoginRequest
-        {
-            Email = email,
-            FullName = name ?? email,
-            GoogleId = googleId
-        });
+        var user = await _api.LoginWithGoogleAsync(new ApiGoogleLoginRequest { IdToken = idToken });
 
         if (user == null)
         {
@@ -164,39 +152,6 @@ public class AccountController : Controller
     {
         ViewBag.ReturnUrl = TempData["ReturnUrl"] as string;
         return View();
-    }
-
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SimulateGoogleLogin(string email, string fullName, string? returnUrl = null)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            ModelState.AddModelError(string.Empty, "Vui lòng nhập địa chỉ email Google.");
-            ViewBag.ReturnUrl = returnUrl;
-            return View("GoogleConfigNotice");
-        }
-
-        var user = await _api.LoginWithGoogleAsync(new ApiGoogleLoginRequest
-        {
-            Email = email.Trim(),
-            FullName = string.IsNullOrWhiteSpace(fullName) ? email.Split('@')[0] : fullName.Trim(),
-            GoogleId = "simulated_" + Guid.NewGuid().ToString("N")[..8]
-        });
-
-        if (user == null)
-        {
-            ModelState.AddModelError(string.Empty, "Đăng nhập thử nghiệm thất bại hoặc tài khoản đã bị khóa.");
-            ViewBag.ReturnUrl = returnUrl;
-            return View("GoogleConfigNotice");
-        }
-
-        SetUserSession(user);
-
-        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
-            return Redirect(returnUrl);
-
-        return RedirectToAction("Index", "Home");
     }
 
     [HttpGet]

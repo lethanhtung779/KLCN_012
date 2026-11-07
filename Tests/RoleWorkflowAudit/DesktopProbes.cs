@@ -31,7 +31,8 @@ static class DesktopProbes
             catch (Exception ex)
             {
                 Note(id, $"Exception: {ex.GetType().Name}: {ex.Message}");
-                if (id is "UI-admin-training-overview" or "UI-teacher-statistics-no-assignment" || id.StartsWith("FLOW-")) throw;
+                if (id is "UI-admin-training-overview" or "UI-teacher-statistics-no-assignment" ||
+                    (id.StartsWith("FLOW-") && id != "FLOW-QUICK-LOGIN")) throw;
             }
         }
         void Capture(string name, Func<Form> factory)
@@ -137,9 +138,9 @@ static class DesktopProbes
                 throw new Exception("Invalid or student credentials opened the desktop application.");
             Note("FLOW-LOGIN", "Teacher login succeeds; wrong password and student desktop login are denied.");
         });
-        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = int.MaxValue, VaiTro = "GiaoVien", HoTen = "Unassigned teacher" });
+        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = int.MaxValue, VaiTro = "GiaoVien", TrangThai = "HoatDong", HoTen = "Unassigned teacher" });
         Capture("teacher-statistics-no-assignment", () => new frmStatistics());
-        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", HoTen = "Audit Teacher" });
+        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", TrangThai = "HoatDong", HoTen = "Audit Teacher" });
         Capture("teacher-main", () => new frmMain());
         Capture("teacher-questions", () => new frmQuestions());
         Capture("teacher-question-editor", () => new frmQuestionEdit(0, subjectId));
@@ -194,14 +195,14 @@ static class DesktopProbes
             var secondId = Database.ExecuteScalarInt($"INSERT INTO GiaoVien(TaiKhoanID,HoTen) VALUES({secondTkId},N'Other teacher'); SELECT CAST(SCOPE_IDENTITY() AS int);");
             Database.Execute($"INSERT INTO GiaoVien_MonHoc(GiaoVienID,MonHocID) VALUES({secondId},{subjectId})");
 
-            Session.Set(new TaiKhoan { TaiKhoanID = secondTkId, ProfileID = secondId, VaiTro = "GiaoVien", HoTen = "Other teacher" });
+            Session.Set(new TaiKhoan { TaiKhoanID = secondTkId, ProfileID = secondId, VaiTro = "GiaoVien", TrangThai = "HoatDong", HoTen = "Other teacher" });
             var otherQuestion = new QuestionService().LayChiTiet(id)!;
             otherQuestion.NoiDung = "Changed by another teacher";
             new QuestionService().Sua(otherQuestion);
             Note("T05", "Different teacher identity edits another teacher's unused question successfully.");
-            Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", HoTen = "Audit Teacher" });
+            Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", TrangThai = "HoatDong", HoTen = "Audit Teacher" });
         });
-        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", HoTen = "Audit Teacher" });
+        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", TrangThai = "HoatDong", HoTen = "Audit Teacher" });
         Capture("teacher-statistics-with-session", () => new frmStatistics());
         Probe("FLOW-TEACHER-QUESTION", () =>
         {
@@ -231,7 +232,7 @@ static class DesktopProbes
         });
         var adminTkId = Database.ExecuteScalarInt("INSERT INTO TaiKhoan(TenDangNhap,MatKhau,Email,VaiTro,TrangThai,NgayTao) VALUES(N'audit-admin',N'x',N'audit-admin@example.test',N'QuanTriVien',N'HoatDong',SYSDATETIME()); SELECT CAST(SCOPE_IDENTITY() AS int);");
         var adminProfileId = Database.ExecuteScalarInt($"INSERT INTO QuanTriVien(TaiKhoanID,HoTen) VALUES({adminTkId},N'Audit admin'); SELECT CAST(SCOPE_IDENTITY() AS int);");
-        var admin = new TaiKhoan { TaiKhoanID = adminTkId, VaiTro = "QuanTriVien", HoTen = "Audit admin", ProfileID = adminProfileId };
+        var admin = new TaiKhoan { TaiKhoanID = adminTkId, VaiTro = "QuanTriVien", TrangThai = "HoatDong", HoTen = "Audit admin", ProfileID = adminProfileId };
         Session.Set(admin);
         Capture("admin-main", () => new frmMain());
         Capture("admin-accounts", () => new frmAccounts());
@@ -271,7 +272,7 @@ static class DesktopProbes
                 throw new Exception("Class teacher tab is missing add/edit/remove actions.");
             return form;
         });
-        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", HoTen = "Audit Teacher" });
+        Session.Set(new TaiKhoan { TaiKhoanID = teacherAccountId, ProfileID = teacherId, VaiTro = "GiaoVien", TrangThai = "HoatDong", HoTen = "Audit Teacher" });
         Probe("FLOW-CLASS-DETAIL-ROLE", () =>
         {
             var service = new TrainingService();

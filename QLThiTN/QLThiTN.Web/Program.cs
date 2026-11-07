@@ -1,3 +1,4 @@
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 
@@ -39,6 +40,16 @@ if (isGoogleConfigured)
         options.ClientId = googleClientId!;
         options.ClientSecret = googleClientSecret!;
         options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.Events.OnCreatingTicket = context =>
+        {
+            // OAuth's default SaveTokens list omits id_token. Keep it only in
+            // the short-lived encrypted external cookie until our callback.
+            if (!context.TokenResponse.Response!.RootElement.TryGetProperty("id_token", out var token))
+                throw new InvalidOperationException("Google did not return an ID token.");
+            context.Properties.StoreTokens(new[] { new Microsoft.AspNetCore.Authentication.AuthenticationToken
+                { Name = "id_token", Value = token.GetString()! } });
+            return Task.CompletedTask;
+        };
     });
 }
 
